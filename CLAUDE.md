@@ -31,13 +31,15 @@
 | 只送通知 | `powershell -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "標題" -Message "內容"` |
 
 ## 完成時一定要通知使用者（含預覽連結）
-使用者常不在電腦前，完成任務時要讓電腦和手機都收到通知：
+使用者常把電腦畫面開著、人卻外出，所以**每次完成都要同時送電腦和手機**，不能只靠其中一個：
 1. 有改到遊戲或原型 → 跑 `powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Message "<這次改了什麼>"`
-   （會自動測試、匯出、推上 GitHub、等網頁更新，最後跳 Windows 通知，按鈕直接開預覽）
-2. 最後用 PushNotification 送一則推播（Remote Control 會轉到手機），格式：
-   `✅ <做了什麼> 遊戲 https://fishon100.github.io/pinball-sling/ 調手感 https://fishon100.github.io/pinball-sling/tuning/`
-3. 失敗或需要使用者決定時，也要推播，並說明卡在哪裡
-4. 只改文件、沒有可預覽的東西時，推播附上 GitHub 或 Obsidian 對應位置
+   （測試、匯出、推上 GitHub、等網頁更新，最後同時送 Windows 通知＋手機 ntfy 推播，都附預覽連結）
+2. 沒有部署的任務（文件、調查、需要決定）→ 跑 `tools\notify.ps1`，一樣會送電腦＋手機：
+   `powershell -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "✅ <做了什麼>" -Message "<一句摘要>"`
+   有相關連結就用 `-Links` 附上（GitHub、Obsidian 位置等）
+3. 失敗或需要使用者決定時，也要通知，並說明卡在哪裡
+4. 另外再用 PushNotification 補送一次（Claude App；電腦畫面開著時可能會被略過，所以不能只靠它）
+5. 手機推播走 ntfy，主題設定在 `tools/notify.config.json`（已排除在 git 外，不要提交、不要寫進公開檔案）
 
 ## 部署
 - GitHub repo：`pinball-sling`（公開），GitHub Pages 讀 `main` 分支的 `/docs`
