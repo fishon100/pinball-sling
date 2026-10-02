@@ -17,6 +17,7 @@ class Seg:
 	var one_side := false
 	var n := Vector2.ZERO
 	var flash := 0.0
+	var down := false          # 落下靶：倒下後不再碰撞
 	func _init(p_a: Vector2, p_b: Vector2, p_kind: String = "wall") -> void:
 		a = p_a
 		b = p_b
@@ -35,12 +36,14 @@ class Circ:
 class Flipper:
 	var side: String
 	var pivot: Vector2
+	var upper := false          # 左上擋板：尺寸 × upper_flipper.scale
 	var angle := 0.0
 	var omega := 0.0
 	var pressed := false
-	func _init(p_side: String, p_pivot: Vector2) -> void:
+	func _init(p_side: String, p_pivot: Vector2, p_upper := false) -> void:
 		side = p_side
 		pivot = p_pivot
+		upper = p_upper
 
 class Ball:
 	var pos: Vector2
@@ -59,6 +62,12 @@ class Lane:
 const SLING_TRIANGLES := [
 	[Vector2(58, 470), Vector2(58, 545), Vector2(94, 580)],
 	[Vector2(312, 470), Vector2(312, 545), Vector2(276, 580)],
+]
+## 落下靶：發射道內牆旁的三片直立靶（背後縫隙 < 球徑，球繞不到後面）
+const TARGETS := [
+	[Vector2(338, 340), Vector2(338, 364)],
+	[Vector2(338, 372), Vector2(338, 396)],
+	[Vector2(338, 404), Vector2(338, 428)],
 ]
 
 var t: Dictionary
@@ -99,32 +108,57 @@ func build_table(with_segments := true, with_circles := true, with_flippers := t
 		segments.append(gate)
 		segments.append(Seg.new(Vector2(20, 540), Vector2(100, 624)))     # 漏斗
 		segments.append(Seg.new(Vector2(350, 540), Vector2(270, 624)))
+		# 左上擋板導球片：沿左牆滾下的球導到擋板表面，避免卡在轉軸與牆之間（AC13）
+		segments.append(Seg.new(Vector2(20, 312), Vector2(42, 338)))
 		segments.append(Seg.new(Vector2(165, 66), Vector2(165, 108)))     # 燈道分隔
 		segments.append(Seg.new(Vector2(215, 66), Vector2(215, 108)))
 		for tri in SLING_TRIANGLES:
 			segments.append(Seg.new(tri[0], tri[1]))
 			segments.append(Seg.new(tri[1], tri[2]))
 			segments.append(Seg.new(tri[0], tri[2], "sling"))
+		for tg in TARGETS:
+			segments.append(Seg.new(tg[0], tg[1], "target"))
 	if with_circles:
 		circles.append(Circ.new(Vector2(135, 250), 0.0, "bumper"))
 		circles.append(Circ.new(Vector2(245, 250), 0.0, "bumper"))
 		circles.append(Circ.new(Vector2(190, 330), 0.0, "bumper"))
+		circles.append(Circ.new(Vector2(190, 175), 0.0, "bumper"))
 		for post in [Vector2(58, 470), Vector2(312, 470), Vector2(165, 66), Vector2(215, 66)]:
 			circles.append(Circ.new(post, 4.0, "post"))
 	if with_lanes:
 		for x in [140.0, 190.0, 240.0]:
 			lanes.append(Lane.new(Vector2(x, 92)))
 	if with_flippers:
+		# 順序固定：0 左擋板、1 右擋板、2 左上擋板（測試依賴這個順序）
 		flippers.append(Flipper.new("L", Vector2(100, 640)))
 		flippers.append(Flipper.new("R", Vector2(270, 640)))
+		flippers.append(Flipper.new("L", Vector2(36, 360), true))
 		for f in flippers:
 			f.angle = flipper_rest(f)
 
 
-func new_ball(pos := Vector2(365, 692)) -> Ball:
+func new_ball(pos := Vector2.INF) -> Ball:
+	if pos == Vector2.INF:
+		pos = Vector2(365, 702.0 - p("ball", "radius") - 0.5)   # 停在發射桿上
 	var b := Ball.new(pos)
 	b.r = p("ball", "radius")
 	return b
+
+
+## 回傳 [長度, 根部半徑, 尖端半徑]
+func flipper_dims(f: Flipper) -> Array:
+	var sc := p("upper_flipper", "scale") if f.upper else 1.0
+	return [p("flipper", "length") * sc, p("flipper", "radius_base") * sc, p("flipper", "radius_tip") * sc]
+
+
+func all_targets_down() -> bool:
+	var found := false
+	for s in segments:
+		if s.kind == "target":
+			found = true
+			if not s.down:
+				return false
+	return found
 
 
 func flipper_rest(f: Flipper) -> float:
@@ -151,6 +185,8 @@ func update_flipper(f: Flipper, dt: float) -> void:
 
 
 func collide_segment(b: Ball, s: Seg, ev: Array) -> void:
+	if s.kind == "target" and s.down:
+		return
 	var ab := s.b - s.a
 	var len2 := ab.length_squared()
 	var tt := clampf((b.pos - s.a).dot(ab) / len2, 0.0, 1.0)
@@ -173,6 +209,9 @@ func collide_segment(b: Ball, s: Seg, ev: Array) -> void:
 	if s.kind == "sling" and -vn > 40.0:
 		vn_new = maxf(vn_new, p("sling", "kick_speed"))
 		ev.append({"type": "sling", "pos": c, "seg": s})
+	elif s.kind == "target" and -vn > p("target", "min_hit_speed"):
+		s.down = true
+		ev.append({"type": "target", "pos": c, "seg": s})
 	elif -vn > 260.0:
 		ev.append({"type": "wall", "pos": c, "speed": -vn})
 	b.vel = n * vn_new + tan * (vt * (1.0 - p("ball", "friction")))
@@ -200,11 +239,12 @@ func collide_circle(b: Ball, c: Circ, ev: Array) -> void:
 
 
 func collide_flipper(b: Ball, f: Flipper, ev: Array) -> void:
-	var length := p("flipper", "length")
+	var dims := flipper_dims(f)
+	var length: float = dims[0]
 	var dir := Vector2(cos(f.angle), sin(f.angle))
 	var tt := clampf((b.pos - f.pivot).dot(dir) / length, 0.0, 1.0)
 	var q := f.pivot + dir * length * tt
-	var rr := p("flipper", "radius_base") + (p("flipper", "radius_tip") - p("flipper", "radius_base")) * tt
+	var rr: float = dims[1] + (dims[2] - dims[1]) * tt
 	var o := b.pos - q
 	var big_r := b.r + rr
 	var d2 := o.length_squared()
@@ -224,7 +264,7 @@ func collide_flipper(b: Ball, f: Flipper, ev: Array) -> void:
 	var vt := rv.dot(tan)
 	b.vel = vs + n * (-vn * p("flipper", "restitution")) + tan * (vt * (1.0 - p("ball", "friction")))
 	if absf(f.omega) > 1.0 and -vn > 200.0:
-		ev.append({"type": "flipper", "pos": q, "speed": b.vel.length(), "t": tt})
+		ev.append({"type": "flipper", "pos": q, "speed": b.vel.length(), "t": tt, "upper": f.upper})
 
 
 ## 一個子步：擋板 → 球 → 碰撞 → 限速

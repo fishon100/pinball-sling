@@ -17,13 +17,15 @@
 - 手感數值一律讀 `data/tuning.json`，禁止寫死在程式裡
 - 物理在 `scripts/pinball_physics.gd`，與網頁原型 `tools/tuning-prototype/index.html` 演算法一一對應；改一邊就要同步改另一邊，兩邊的 AC1–AC5 測試數值要相同
 - 不使用 Godot 內建 RigidBody2D 做球與擋板（要精準控制擋板線速度）
+- 新增或移動任何台面元件後，AC13（無卡球死角）一定要通過；卡球點要用導球片或調整位置修掉，不能放寬測試
+- 規則（模式、狂熱、球保險）在網頁版 `index.html` 與 Godot `scripts/main.gd` 各有一份，改一邊要同步另一邊
 - 美術目前是程式繪製的占位圖形；正式資產放 `assets/`，命名 `物件_狀態.png`
 - 改了規格要同步更新 Obsidian 的對應文件
 
 ## 常用指令
 | 做什麼 | 指令 |
 |---|---|
-| 跑測試 | `godot --headless --path . --script res://tests/run_tests.gd` |
+| 跑測試（約 30 秒，AC13 卡球測試最久） | `godot --headless --path . --script res://tests/run_tests.gd` |
 | 自動遊玩煙霧測試（15 秒） | `godot --headless --path . --quit-after 900 -- --demo` |
 | 錄影驗收畫面 | `godot --path . --write-movie C:\tmp\f.png --fixed-fps 60 --quit-after 420 -- --demo` |
 | 匯出網頁版 | `godot --headless --path . --export-release "Web" docs/index.html`（輸出到 `docs/`，GitHub Pages 直接讀這裡） |

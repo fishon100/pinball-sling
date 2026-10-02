@@ -43,6 +43,7 @@ body {
 .balls { display: inline-flex; gap: 4px; }
 .balls i { width: 9px; height: 9px; border-radius: 50%; background: var(--lamp); display: inline-block; }
 .balls i.used { background: var(--line); }
+.timer { font-family: var(--font-display); color: var(--lamp); font-size: 15px; font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .icon-btn {
   appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
   font: 500 13px var(--font-body); padding: 7px 12px; border-radius: 999px; cursor: pointer;
@@ -66,6 +67,9 @@ canvas { display: block; touch-action: none; border-radius: 18px; box-shadow: 0 
 .row label small { color: var(--muted); font-family: var(--font-mono); font-size: 10px; margin-left: 4px; }
 .row output { font-family: var(--font-mono); font-size: 12px; color: var(--lamp); font-variant-numeric: tabular-nums; }
 .row input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--brass); }
+.stats { display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; margin: 0; font-size: 12px; }
+.stats dt { color: var(--muted); }
+.stats dd { margin: 0; font-family: var(--font-mono); color: var(--lamp); font-variant-numeric: tabular-nums; text-align: right; }
 .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 12px; }
 .btn {
   appearance: none; border: 1px solid var(--line); background: var(--field-deep); color: var(--ink);
@@ -109,6 +113,7 @@ textarea {
       <div class="meta">
         <span>倍率 <b id="mult">x1</b></span>
         <span class="balls" id="balls" aria-label="剩餘球數"></span>
+        <span class="timer" id="timer" hidden aria-label="剩餘秒數"></span>
         <button class="icon-btn" id="soundBtn" aria-pressed="true">音效</button>
         <button class="icon-btn sheet-toggle" id="sheetBtn" aria-pressed="false">調手感</button>
       </div>
@@ -121,6 +126,11 @@ textarea {
     <button class="icon-btn close-sheet" id="closeSheet">收起</button>
     <h2>手感調參</h2>
     <p class="sub">邊玩邊調，數值即時生效。調好按「匯出 JSON」，貼回 Godot 專案的 <code>data/tuning.json</code>。</p>
+    <div class="group">
+      <h3>本局數據</h3>
+      <dl class="stats" id="stats"></dl>
+      <div class="btns"><button class="btn" id="copyStatsBtn">複製數據</button></div>
+    </div>
     <div id="sliders"></div>
     <div class="btns">
       <button class="btn primary" id="exportBtn">匯出 JSON</button>
@@ -131,7 +141,7 @@ textarea {
     <textarea id="jsonOut" hidden readonly aria-label="手感參數 JSON"></textarea>
     <div class="group">
       <h3>自動測試（TDD）</h3>
-      <p class="sub" style="margin:0">對應規格 AC1–AC6，用目前的參數跑模擬。</p>
+      <p class="sub" style="margin:0">對應規格 AC1–AC6、AC11–AC12，用目前的參數跑模擬。</p>
       <div class="btns"><button class="btn" id="testBtn">執行自動測試</button></div>
       <ul class="tests" id="testList"></ul>
     </div>
@@ -144,22 +154,30 @@ textarea {
 /* ============================================================
    手感參數：與 Godot 專案 data/tuning.json 完全同一份結構
    ============================================================ */
+const TUNING_VERSION = 2;
 const DEFAULT_TUNING = {
-  ball:    { radius: 9, gravity: 1400, max_speed: 2600, restitution_wall: 0.45, friction: 0.04, damping: 0.05 },
+  version: TUNING_VERSION,
+  ball:    { radius: 12, gravity: 1400, max_speed: 2600, restitution_wall: 0.45, friction: 0.04, damping: 0.05 },
   flipper: { length: 72, radius_base: 11, radius_tip: 5, rest_deg: 30, stroke_deg: 58,
              up_speed_deg_s: 1700, down_speed_deg_s: 800, restitution: 0.3, power: 0.8 },
+  upper_flipper: { scale: 0.75 },
   plunger: { min_speed: 900, max_speed: 2300, charge_time: 0.9 },
   bumper:  { radius: 22, kick_speed: 950, score: 100 },
   sling:   { kick_speed: 800, score: 10 },
+  target:  { score: 250, min_hit_speed: 80 },
   lane:    { score: 50, max_mult: 5 },
+  fever:   { duration_s: 10, mult: 3 },
+  rules:   { ball_save_s: 3, time_attack_s: 60 },
   juice:   { hitstop_ms: 35, shake_px: 6, flash_ms: 90, vibrate_ms: 15, trail: 10 },
   physics: { substeps: 8 }
 };
 const clone = o => JSON.parse(JSON.stringify(o));
+const GROUPS = Object.keys(DEFAULT_TUNING).filter(g => typeof DEFAULT_TUNING[g] === "object");
 let T = clone(DEFAULT_TUNING);
 try {
+  // 參數結構改版時忽略舊的瀏覽器存檔，否則會沿用舊預設（例如 v1 的 9px 球）
   const saved = JSON.parse(localStorage.getItem("pinball.tuning") || "null");
-  if (saved) for (const g in DEFAULT_TUNING) Object.assign(T[g], saved[g] || {});
+  if (saved && saved.version === TUNING_VERSION) for (const g of GROUPS) Object.assign(T[g], saved[g] || {});
 } catch (e) {}
 function saveTuning() { try { localStorage.setItem("pinball.tuning", JSON.stringify(T)); } catch (e) {} }
 
@@ -169,6 +187,12 @@ function saveTuning() { try { localStorage.setItem("pinball.tuning", JSON.string
 const W = 400, H = 740, DRAIN_Y = 750;
 const D2R = Math.PI / 180;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const SLING_TRIS = [
+  [[58, 470], [58, 545], [94, 580]],
+  [[312, 470], [312, 545], [276, 580]]
+];
+// 落下靶：發射道內牆旁的三片直立靶（背後縫隙 < 球徑，球繞不到後面）
+const TARGETS = [[338, 340, 338, 364], [338, 372, 338, 396], [338, 404, 338, 428]];
 
 function seg(ax, ay, bx, by, kind = "wall", extra = {}) { return { ax, ay, bx, by, kind, ...extra }; }
 
@@ -190,38 +214,45 @@ function buildTable() {
   // 下方漏斗（左右對稱，對稱軸 x=185）
   segments.push(seg(20, 540, 100, 624));
   segments.push(seg(350, 540, 270, 624));
+  // 左上擋板導球片：沿左牆滾下的球導到擋板表面，避免卡在轉軸與牆之間（AC13）
+  segments.push(seg(20, 312, 42, 338));
   // 上方燈道分隔
   segments.push(seg(165, 66, 165, 108));
   segments.push(seg(215, 66, 215, 108));
   // 彈弓（三角形，斜邊是會踢球的橡膠）
-  const slings = [
-    [[58, 470], [58, 545], [94, 580]],
-    [[312, 470], [312, 545], [276, 580]]
-  ];
-  for (const [A, B, C] of slings) {
+  for (const [A, B, C] of SLING_TRIS) {
     segments.push(seg(A[0], A[1], B[0], B[1]));
     segments.push(seg(B[0], B[1], C[0], C[1]));
     segments.push(seg(A[0], A[1], C[0], C[1], "sling", { flash: 0 }));
   }
+  for (const [ax, ay, bx, by] of TARGETS) segments.push(seg(ax, ay, bx, by, "target", { down: false, flash: 0 }));
   const circles = [
     { x: 135, y: 250, kind: "bumper", flash: 0 },
     { x: 245, y: 250, kind: "bumper", flash: 0 },
     { x: 190, y: 330, kind: "bumper", flash: 0 },
+    { x: 190, y: 175, kind: "bumper", flash: 0 },
     { x: 58, y: 470, r: 4, kind: "post" }, { x: 312, y: 470, r: 4, kind: "post" },
     { x: 165, y: 66, r: 4, kind: "post" }, { x: 215, y: 66, r: 4, kind: "post" }
   ];
   const lanes = [{ x: 140, y: 92, lit: false }, { x: 190, y: 92, lit: false }, { x: 240, y: 92, lit: false }];
+  // 順序固定：0 左擋板、1 右擋板、2 左上擋板（測試依賴這個順序）
   const flippers = [
-    { side: "L", px: 100, py: 640, angle: 0, omega: 0, pressed: false },
-    { side: "R", px: 270, py: 640, angle: 0, omega: 0, pressed: false }
+    { side: "L", px: 100, py: 640, angle: 0, omega: 0, pressed: false, upper: false },
+    { side: "R", px: 270, py: 640, angle: 0, omega: 0, pressed: false, upper: false },
+    { side: "L", px: 36, py: 360, angle: 0, omega: 0, pressed: false, upper: true }
   ];
   for (const f of flippers) f.angle = flipperRest(f);
   return { segments, circles, lanes, flippers };
 }
 function flipperRest(f) { return f.side === "L" ? T.flipper.rest_deg * D2R : Math.PI - T.flipper.rest_deg * D2R; }
 function flipperUp(f) { return f.side === "L" ? (T.flipper.rest_deg - T.flipper.stroke_deg) * D2R : Math.PI - (T.flipper.rest_deg - T.flipper.stroke_deg) * D2R; }
+function flipperDims(f) {
+  const sc = f.upper ? T.upper_flipper.scale : 1;
+  return { L: T.flipper.length * sc, rb: T.flipper.radius_base * sc, rt: T.flipper.radius_tip * sc };
+}
+function allTargetsDown(world) { const ts = world.segments.filter(s => s.kind === "target"); return ts.length > 0 && ts.every(s => s.down); }
 
-function newBall(x = 365, y = 692) { return { x, y, vx: 0, vy: 0, r: T.ball.radius, inLane: [false, false, false] }; }
+function newBall(x = 365, y = 702 - T.ball.radius - 0.5) { return { x, y, vx: 0, vy: 0, r: T.ball.radius, inLane: [false, false, false] }; }
 
 function updateFlipper(f, dt) {
   const target = f.pressed ? flipperUp(f) : flipperRest(f);
@@ -232,6 +263,7 @@ function updateFlipper(f, dt) {
 }
 
 function collideSegment(b, s, ev) {
+  if (s.kind === "target" && s.down) return;
   const abx = s.bx - s.ax, aby = s.by - s.ay, len2 = abx * abx + aby * aby;
   const t = clamp(((b.x - s.ax) * abx + (b.y - s.ay) * aby) / len2, 0, 1);
   const cx = s.ax + abx * t, cy = s.ay + aby * t;
@@ -249,6 +281,9 @@ function collideSegment(b, s, ev) {
   if (s.kind === "sling" && -vn > 40) {
     vnNew = Math.max(vnNew, T.sling.kick_speed);
     ev.push({ type: "sling", x: cx, y: cy, s });
+  } else if (s.kind === "target" && -vn > T.target.min_hit_speed) {
+    s.down = true;
+    ev.push({ type: "target", x: cx, y: cy, s });
   } else if (-vn > 260) {
     ev.push({ type: "wall", x: cx, y: cy, speed: -vn });
   }
@@ -271,10 +306,10 @@ function collideCircle(b, c, ev) {
 }
 
 function collideFlipper(b, f, ev) {
-  const L = T.flipper.length, dx = Math.cos(f.angle), dy = Math.sin(f.angle);
+  const { L, rb, rt } = flipperDims(f), dx = Math.cos(f.angle), dy = Math.sin(f.angle);
   const t = clamp(((b.x - f.px) * dx + (b.y - f.py) * dy) / L, 0, 1);
   const qx = f.px + dx * L * t, qy = f.py + dy * L * t;
-  const rr = T.flipper.radius_base + (T.flipper.radius_tip - T.flipper.radius_base) * t;
+  const rr = rb + (rt - rb) * t;
   const ox = b.x - qx, oy = b.y - qy, R = b.r + rr, d2 = ox * ox + oy * oy;
   if (d2 >= R * R) return;
   const d = Math.sqrt(d2) || 1e-6, nx = ox / d, ny = oy / d;
@@ -287,7 +322,7 @@ function collideFlipper(b, f, ev) {
   const tx = -ny, ty = nx, vt = rvx * tx + rvy * ty;
   const vnNew = -vn * T.flipper.restitution, vtNew = vt * (1 - T.ball.friction);
   b.vx = vsx + nx * vnNew + tx * vtNew; b.vy = vsy + ny * vnNew + ty * vtNew;
-  if (Math.abs(f.omega) > 1 && -vn > 200) ev.push({ type: "flipper", x: qx, y: qy, speed: Math.hypot(b.vx, b.vy), t });
+  if (Math.abs(f.omega) > 1 && -vn > 200) ev.push({ type: "flipper", x: qx, y: qy, speed: Math.hypot(b.vx, b.vy), t, upper: f.upper });
 }
 
 /* 一個子步：擋板 → 球 → 碰撞 → 限速 */
@@ -319,16 +354,18 @@ function stepFrame(world, ev) {
 }
 
 /* ============================================================
-   自動測試（對應規格 AC1–AC6）
+   自動測試（對應規格 AC1–AC6、AC11–AC12）
    ============================================================ */
 function isoWorld(ball, opts = {}) {
   const t = buildTable();
   return { segments: opts.segments ? t.segments : [], circles: opts.circles || [], flippers: opts.flippers === false ? [] : [t.flippers[0]], lanes: null, ball };
 }
-function flipperHitSpeed(tAlong) {
-  const w = isoWorld(null), f = w.flippers[0], L = T.flipper.length;
+function flipperHitSpeed(tAlong, idx = 0) {
+  const f = buildTable().flippers[idx];
+  const w = { segments: [], circles: [], flippers: [f], lanes: null, ball: null };
+  const { L, rb, rt } = flipperDims(f);
   const a = flipperRest(f), dx = Math.cos(a), dy = Math.sin(a), nx = Math.sin(a), ny = -Math.cos(a);
-  const rr = T.flipper.radius_base + (T.flipper.radius_tip - T.flipper.radius_base) * tAlong;
+  const rr = rb + (rt - rb) * tAlong;
   const qx = f.px + dx * L * tAlong, qy = f.py + dy * L * tAlong;
   w.ball = newBall(qx + nx * (rr + T.ball.radius + 0.5), qy + ny * (rr + T.ball.radius + 0.5));
   f.pressed = true;
@@ -336,6 +373,43 @@ function flipperHitSpeed(tAlong) {
   for (let i = 0; i < 12; i++) { stepFrame(w, []); best = Math.max(best, Math.hypot(w.ball.vx, w.ball.vy)); }
   return best;
 }
+function overlapsGeometry(x, y, r) {
+  const t = buildTable();
+  for (const s of t.segments) {
+    const abx = s.bx - s.ax, aby = s.by - s.ay;
+    const k = clamp(((x - s.ax) * abx + (y - s.ay) * aby) / (abx * abx + aby * aby), 0, 1);
+    if (Math.hypot(x - s.ax - abx * k, y - s.ay - aby * k) < r) return true;
+  }
+  for (const c of t.circles) if (Math.hypot(x - c.x, y - c.y) < r + (c.kind === "bumper" ? T.bumper.radius : c.r)) return true;
+  for (const f of t.flippers) {
+    const { L, rb } = flipperDims(f), dx = Math.cos(f.angle), dy = Math.sin(f.angle);
+    const k = clamp(((x - f.px) * dx + (y - f.py) * dy) / L, 0, 1);
+    if (Math.hypot(x - f.px - dx * L * k, y - f.py - dy * L * k) < r + rb) return true;
+  }
+  return false;
+}
+/* 卡球測試的放球點：台面內、圓弧下方、漏斗上方、不在彈弓三角形裡、不在發射道、不和任何物件重疊 */
+function stuckProbePoints(step) {
+  const r = T.ball.radius, pts = [];
+  const inTri = (px, py, [A, B, C]) => {
+    const s = (p, q, w) => (q[0] - p[0]) * (w[1] - p[1]) - (q[1] - p[1]) * (w[0] - p[0]);
+    const P = [px, py], d1 = s(A, B, P), d2 = s(B, C, P), d3 = s(C, A, P);
+    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+  };
+  for (let x = 20 + r; x <= 350 - r; x += step) {
+    for (let y = 60; y <= 610; y += step) {
+      const arcY = 200 - Math.sqrt(Math.max(0, 180 * 180 - (x - 200) * (x - 200)));
+      if (y < arcY + r + 2) continue;
+      const funnelY = x < 185 ? 540 + (x - 20) * (84 / 80) : 540 + (350 - x) * (84 / 80);
+      if (y > funnelY - r - 2) continue;
+      if (SLING_TRIS.some(tri => inTri(x, y, tri))) continue;
+      if (overlapsGeometry(x, y, r)) continue;   // 放球點必須是空位，不能一開始就卡在牆裡
+      pts.push([x, y]);
+    }
+  }
+  return pts;
+}
+function withGravity(g, fn) { const old = T.ball.gravity; T.ball.gravity = g; try { return fn(); } finally { T.ball.gravity = old; } }
 const TESTS = [
   { id: "AC1", name: "擋板從靜止到全舉 ≤ 50 ms", run() {
       const w = isoWorld(null), f = w.flippers[0], n = Math.max(1, Math.round(T.physics.substeps)), dt = 1 / 60 / n;
@@ -351,7 +425,7 @@ const TESTS = [
       return { pass: tip > base * 1.2, value: `尖 ${Math.round(tip)} / 根 ${Math.round(base)}` };
   }},
   { id: "AC4", name: "最高速撞牆不穿出桌面", run() {
-      // 每個子步檢查球心路徑是否穿過任何一面牆（單向門除外）
+      // 每個子步檢查球心路徑是否穿過任何一面牆（單向門、落下靶除外）
       const cross = (p, q, s) => {
         const d = (ax, ay, bx, by, cx, cy) => (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
         const d1 = d(s.ax, s.ay, s.bx, s.by, p.x, p.y), d2 = d(s.ax, s.ay, s.bx, s.by, q.x, q.y);
@@ -364,7 +438,7 @@ const TESTS = [
         const a = (k / 32) * Math.PI * 2, t = buildTable();
         const w = { ...t, lanes: null, ball: newBall(185, 420) };
         w.ball.vx = Math.cos(a) * T.ball.max_speed; w.ball.vy = Math.sin(a) * T.ball.max_speed;
-        const walls = w.segments.filter(s => s.kind !== "gate");
+        const walls = w.segments.filter(s => s.kind !== "gate" && s.kind !== "target");
         for (let i = 0; i < 90 * n; i++) {
           const p = { x: w.ball.x, y: w.ball.y }, ev = [];
           substep(w, dt, ev); steps++;
@@ -377,10 +451,9 @@ const TESTS = [
   }},
   { id: "AC5", name: "撞彈跳柱後速度 ≥ kick_speed", run() {
       const c = { x: 200, y: 300, kind: "bumper", flash: 0 }, b = newBall(260, 300);
-      b.vx = -120; const g = T.ball.gravity; T.ball.gravity = 0;
+      b.vx = -120;
       const w = isoWorld(b, { circles: [c], flippers: false }); let best = 0;
-      try { for (let i = 0; i < 30; i++) { stepFrame(w, []); best = Math.max(best, Math.hypot(b.vx, b.vy)); } }
-      finally { T.ball.gravity = g; }
+      withGravity(0, () => { for (let i = 0; i < 30; i++) { stepFrame(w, []); best = Math.max(best, Math.hypot(b.vx, b.vy)); } });
       return { pass: best >= T.bumper.kick_speed * 0.99, value: `${Math.round(best)} / 目標 ${T.bumper.kick_speed}` };
   }},
   { id: "AC6", name: "球速永遠 ≤ max_speed", run() {
@@ -388,30 +461,73 @@ const TESTS = [
       w.ball.vy = -T.plunger.max_speed; let max = 0, seed = 7;
       const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
       for (let i = 0; i < 60 * 20; i++) {
-        if (i % 9 === 0) { w.flippers[0].pressed = rnd() > 0.5; w.flippers[1].pressed = rnd() > 0.5; }
+        if (i % 9 === 0) { const l = rnd() > 0.5, r = rnd() > 0.5; w.flippers.forEach(f => f.pressed = f.side === "L" ? l : r); }
         const ev = []; stepFrame(w, ev);
         max = Math.max(max, Math.hypot(w.ball.vx, w.ball.vy));
         if (ev.some(e => e.type === "drain")) { w.ball = newBall(); w.ball.vy = -T.plunger.max_speed; }
       }
       return { pass: max <= T.ball.max_speed + 1e-6, value: `最高 ${Math.round(max)} / 上限 ${T.ball.max_speed}` };
+  }},
+  { id: "AC11", name: "左上擋板尖端擊球速度 ≥ 1000 px/s", run() {
+      const v = flipperHitSpeed(0.85, 2); return { pass: v >= 1000, value: Math.round(v) + " px/s" };
+  }},
+  { id: "AC12", name: "落下靶撞倒後可穿過，全倒可偵測", run() {
+      const segs = buildTable().segments.filter(s => s.kind === "target");
+      const w = { segments: segs, circles: [], flippers: [], lanes: null, ball: null };
+      let hit = false, passed = false;
+      withGravity(0, () => {
+        w.ball = newBall(290, 352); w.ball.vx = 600;
+        for (let i = 0; i < 20; i++) { const ev = []; stepFrame(w, ev); if (ev.some(e => e.type === "target")) hit = true; }
+        w.ball = newBall(290, 352); w.ball.vx = 600;
+        for (let i = 0; i < 20; i++) stepFrame(w, []);
+        passed = w.ball.x > 338 + T.ball.radius;
+      });
+      const knocked = segs[0].down && !segs[1].down;
+      const before = allTargetsDown(w); segs.forEach(s => s.down = true); const after = allTargetsDown(w);
+      return { pass: hit && knocked && passed && !before && after, value: `撞倒 ${knocked ? "是" : "否"}・穿過 ${passed ? "是" : "否"}・全倒偵測 ${!before && after ? "正確" : "錯誤"}` };
+  }},
+  { id: "AC13", name: "台面沒有卡球死角", run() {
+      // 在台面上每 20px 放一顆球（給 ±5 px/s 的小擾動），擋板不動；
+      // 「卡住」＝速度 < 8 px/s 連續 3 秒（慢慢滾不算卡住）
+      const pts = stuckProbePoints(20), stuckAt = [];
+      let runs = 0;
+      for (const [x, y] of pts) for (const vx of [5, -5]) {
+        const w = { ...buildTable(), lanes: null, ball: newBall(x, y) };
+        w.ball.vx = vx; runs++;
+        let still = 0;
+        for (let i = 0; i < 60 * 10; i++) {
+          const ev = []; stepFrame(w, ev);
+          if (ev.some(e => e.type === "drain")) break;
+          still = Math.hypot(w.ball.vx, w.ball.vy) < 8 ? still + 1 : 0;
+          if (still >= 180) { stuckAt.push(`(${Math.round(w.ball.x)},${Math.round(w.ball.y)})`); break; }
+        }
+      }
+      const uniq = [...new Set(stuckAt)];
+      return { pass: stuckAt.length === 0, value: stuckAt.length ? `${runs} 次放球有 ${stuckAt.length} 次卡住：${uniq.slice(0, 4).join(" ")}` : `${runs} 次放球，0 次卡住` };
   }}
 ];
 function runTests() { return TESTS.map(t => { let r; try { r = t.run(); } catch (e) { r = { pass: false, value: String(e) }; } return { id: t.id, name: t.name, ...r }; }); }
 window.PinballTests = { runTests, T: () => T };
 
 /* ============================================================
-   遊戲狀態
+   遊戲狀態與規則
    ============================================================ */
+const MODES = { classic: "經典 3 球", timed: "限時" };
+function newStats() { return { flips: 0, speedSum: 0, speedMax: 0, zones: [0, 0, 0], upperFlips: 0, bumper: 0, sling: 0, target: 0, lane: 0, fevers: 0, maxBall: 0, launches: 0, drains: 0, saves: 0, aliveSum: 0 }; }
 const game = {
   ...buildTable(), ball: newBall(), score: 0, mult: 1, ballsLeft: 3, over: false,
+  mode: "classic", timeLeft: 0, fever: 0, ballSave: 0, targetReset: 0, ballClock: 0, stats: newStats(),
   plunger: { holding: false, charge: 0 }, hitstop: 0, shake: 0, popups: [], particles: [], trail: [],
   lastHit: null, slow: false, debug: true
 };
 function ballInLane() { const b = game.ball; return b && b.x > 350 && b.y > 600; }
-function resetGame() {
+function resetGame(mode = game.mode) {
   Object.assign(game, buildTable());
-  game.ball = newBall(); game.score = 0; game.mult = 1; game.ballsLeft = 3; game.over = false;
-  game.popups = []; game.particles = []; game.trail = [];
+  Object.assign(game, {
+    ball: newBall(), score: 0, mult: 1, ballsLeft: 3, over: false, mode,
+    timeLeft: T.rules.time_attack_s, fever: 0, ballSave: 0, targetReset: 0, ballClock: 0, stats: newStats(),
+    popups: [], particles: [], trail: []
+  });
   updateHud();
 }
 
@@ -439,13 +555,16 @@ function noise(dur, vol = 0.2, freq = 1800) {
   src.buffer = buf; src.connect(f).connect(g).connect(a.destination); src.start();
 }
 const SFX = {
-  bumper() { tone(660, 330, 0.12, "square", 0.12); noise(0.04, 0.25, 3000); },
+  bumper() { tone(game.fever > 0 ? 880 : 660, 330, 0.12, "square", 0.12); noise(0.04, 0.25, 3000); },
   sling() { tone(220, 110, 0.09, "triangle", 0.25); noise(0.05, 0.3, 1200); },
+  target() { tone(520, 780, 0.08, "square", 0.12); noise(0.03, 0.2, 2000); },
   flipper() { noise(0.035, 0.18, 900); },
   wall(s) { noise(0.03, Math.min(0.2, s / 8000), 2400); },
   launch() { noise(0.25, 0.25, 700); },
   lane() { tone(1320, 1320, 0.12, "sine", 0.12); },
   bonus() { tone(880, 1760, 0.3, "square", 0.1); },
+  fever() { tone(440, 1760, 0.5, "sawtooth", 0.12); tone(660, 1320, 0.5, "square", 0.08); },
+  save() { tone(990, 1480, 0.2, "sine", 0.15); },
   drain() { tone(330, 70, 0.6, "sawtooth", 0.1); }
 };
 function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
@@ -457,9 +576,10 @@ function burst(x, y, color, n = 10, speed = 260) {
     game.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.35, max: 0.35, color });
   }
 }
+function popup(x, y, text, big = false, life = 0.7) { game.popups.push({ x, y, text, life, big }); }
 function addScore(pts, x, y) {
   const v = pts * game.mult; game.score += v;
-  game.popups.push({ x, y, text: "+" + v, life: 0.7 });
+  popup(x, y, "+" + v);
   updateHud();
 }
 function hitFeedback(power) {
@@ -467,22 +587,46 @@ function hitFeedback(power) {
   game.shake = Math.max(game.shake, T.juice.shake_px * power);
   vibrate(T.juice.vibrate_ms);
 }
+function startFever() {
+  game.fever = T.fever.duration_s;
+  game.targetReset = 1;
+  game.stats.fevers++;
+  popup(185, 300, "狂熱 x" + T.fever.mult, true, 1.4);
+  burst(185, 400, "#e4563f", 30, 420);
+  hitFeedback(1.4); SFX.fever();
+}
+function raiseTargets() { for (const s of game.segments) if (s.kind === "target") s.down = false; }
 function handleEvents(ev) {
-  const seen = new Set();
+  const seen = new Set(), st = game.stats;
   for (const e of ev) {
     const key = e.type + (e.c ? game.circles.indexOf(e.c) : "") + (e.s ? game.segments.indexOf(e.s) : "") + (e.i ?? "");
     if (seen.has(key)) continue; seen.add(key);
-    if (e.type === "bumper") { e.c.flash = T.juice.flash_ms / 1000; addScore(T.bumper.score, e.c.x, e.c.y - 30); burst(e.x, e.y, "#f5e6bf", 12); hitFeedback(1); SFX.bumper(); }
-    else if (e.type === "sling") { e.s.flash = T.juice.flash_ms / 1000; addScore(T.sling.score, (e.s.ax + e.s.bx) / 2, (e.s.ay + e.s.by) / 2 - 20); burst(e.x, e.y, "#e4563f", 8); hitFeedback(0.7); SFX.sling(); }
-    else if (e.type === "flipper") { game.lastHit = { speed: e.speed, t: e.t, life: 1.6 }; if (e.speed > 1700) game.shake = Math.max(game.shake, T.juice.shake_px * 0.4); }
+    if (e.type === "bumper") {
+      e.c.flash = T.juice.flash_ms / 1000; st.bumper++;
+      addScore(T.bumper.score * (game.fever > 0 ? T.fever.mult : 1), e.c.x, e.c.y - 30);
+      burst(e.x, e.y, game.fever > 0 ? "#e4563f" : "#f5e6bf", 12); hitFeedback(1); SFX.bumper();
+    }
+    else if (e.type === "sling") { e.s.flash = T.juice.flash_ms / 1000; st.sling++; addScore(T.sling.score, (e.s.ax + e.s.bx) / 2, (e.s.ay + e.s.by) / 2 - 20); burst(e.x, e.y, "#e4563f", 8); hitFeedback(0.7); SFX.sling(); }
+    else if (e.type === "target") {
+      e.s.flash = T.juice.flash_ms / 1000; st.target++;
+      addScore(T.target.score, e.x - 30, e.y); burst(e.x, e.y, "#d8ab4c", 8); hitFeedback(0.6); SFX.target();
+      if (allTargetsDown(game) && game.targetReset <= 0) startFever();
+    }
+    else if (e.type === "flipper") {
+      game.lastHit = { speed: e.speed, t: e.t, life: 1.6 };
+      st.flips++; st.speedSum += e.speed; st.speedMax = Math.max(st.speedMax, e.speed);
+      st.zones[e.t < 0.35 ? 0 : e.t < 0.7 ? 1 : 2]++;
+      if (e.upper) st.upperFlips++;
+      if (e.speed > 1700) game.shake = Math.max(game.shake, T.juice.shake_px * 0.4);
+    }
     else if (e.type === "wall") SFX.wall(e.speed);
     else if (e.type === "lane") {
-      const l = game.lanes[e.i];
+      const l = game.lanes[e.i]; st.lane++;
       if (!l.lit) { l.lit = true; addScore(T.lane.score, l.x, l.y + 24); SFX.lane(); }
       if (game.lanes.every(x => x.lit)) {
         game.lanes.forEach(x => x.lit = false);
         if (game.mult < T.lane.max_mult) game.mult++;
-        game.popups.push({ x: 190, y: 150, text: "倍率 x" + game.mult, life: 1.2, big: true });
+        popup(190, 150, "倍率 x" + game.mult, true, 1.2);
         SFX.bonus(); updateHud();
       }
     }
@@ -490,27 +634,50 @@ function handleEvents(ev) {
   }
 }
 function loseBall() {
-  SFX.drain(); vibrate(60);
-  game.ballsLeft--; game.trail = [];
-  if (game.ballsLeft <= 0) { game.over = true; game.ball = null; saveBest(); }
-  else { game.ball = newBall(); game.mult = 1; }
+  const st = game.stats;
+  st.drains++; st.aliveSum += game.ballClock; game.ballClock = 0; game.trail = [];
+  if (game.mode === "timed") {
+    game.ball = newBall(); game.mult = 1; SFX.drain(); popup(185, 600, "補球", true);
+  } else if (game.ballSave > 0) {
+    game.ball = newBall(); game.ballSave = 0; st.saves++; SFX.save(); vibrate(30); popup(185, 600, "球保險！", true, 1.2);
+  } else {
+    SFX.drain(); vibrate(60);
+    game.ballsLeft--;
+    if (game.ballsLeft <= 0) endGame(); else { game.ball = newBall(); game.mult = 1; }
+  }
   updateHud();
 }
-let best = 0;
-try { best = +localStorage.getItem("pinball.best") || 0; } catch (e) {}
-function saveBest() { if (game.score > best) { best = game.score; try { localStorage.setItem("pinball.best", String(best)); } catch (e) {} } }
+function endGame() { game.over = true; game.ball = null; game.fever = 0; saveBest(); updateHud(); }
+/* 每個物理幀（1/60 秒）推進規則計時 */
+function gameTick() {
+  const tick = 1 / 60;
+  if (game.fever > 0) game.fever = Math.max(0, game.fever - tick);
+  if (game.ballSave > 0) game.ballSave = Math.max(0, game.ballSave - tick);
+  if (game.targetReset > 0) { game.targetReset -= tick; if (game.targetReset <= 0) raiseTargets(); }
+  if (game.ball && !ballInLane()) game.ballClock += tick;
+  if (game.ball) game.stats.maxBall = Math.max(game.stats.maxBall, Math.hypot(game.ball.vx, game.ball.vy));
+  if (game.mode === "timed") {
+    const before = Math.ceil(game.timeLeft);
+    game.timeLeft = Math.max(0, game.timeLeft - tick);
+    if (Math.ceil(game.timeLeft) !== before) updateHud();
+    if (game.timeLeft <= 0) endGame();
+  }
+}
+let best = { classic: 0, timed: 0 };
+try { best = { ...best, ...JSON.parse(localStorage.getItem("pinball.best2") || "{}") }; } catch (e) {}
+function saveBest() { if (game.score > (best[game.mode] || 0)) { best[game.mode] = game.score; try { localStorage.setItem("pinball.best2", JSON.stringify(best)); } catch (e) {} } }
 
 /* ---------- 輸入 ---------- */
 function setFlipper(side, down) {
-  const f = game.flippers[side === "L" ? 0 : 1];
-  if (down && !f.pressed) {
+  const fs = game.flippers.filter(f => f.side === side);
+  if (down && !fs[0].pressed) {
     SFX.flipper();
     // 按擋板會讓燈道亮燈輪轉（真實彈珠台的 lane change）
     const lit = game.lanes.map(l => l.lit);
     const shift = side === "L" ? 1 : lit.length - 1;
     game.lanes.forEach((l, i) => l.lit = lit[(i + shift) % lit.length]);
   }
-  f.pressed = down;
+  fs.forEach(f => f.pressed = down);
 }
 function setPlunger(down) {
   if (down) { if (ballInLane()) game.plunger.holding = true; return; }
@@ -519,6 +686,8 @@ function setPlunger(down) {
     if (ballInLane() && game.ball.y > 670) {
       const p = T.plunger, c = game.plunger.charge;
       game.ball.vy = -(p.min_speed + (p.max_speed - p.min_speed) * c);
+      if (game.mode === "classic") game.ballSave = T.rules.ball_save_s;
+      game.stats.launches++;
       SFX.launch(); vibrate(20);
     }
     game.plunger.charge = 0;
@@ -527,8 +696,15 @@ function setPlunger(down) {
 const KEYS = { KeyZ: "L", ArrowLeft: "L", Slash: "R", ArrowRight: "R", KeyM: "R" };
 addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  if (game.over) {
+    if (e.code === "Digit1") resetGame("classic");
+    else if (e.code === "Digit2") resetGame("timed");
+    else if (e.code === "Space") resetGame(game.mode);
+    else return;
+    e.preventDefault(); return;
+  }
   if (KEYS[e.code]) { setFlipper(KEYS[e.code], true); e.preventDefault(); }
-  else if (e.code === "Space") { if (game.over) resetGame(); else setPlunger(true); e.preventDefault(); }
+  else if (e.code === "Space") { setPlunger(true); e.preventDefault(); }
   else if (e.code === "ArrowUp" && game.ball && !e.repeat) { game.ball.vy -= 120; game.ball.vx += (Math.random() - 0.5) * 120; game.shake = 4; e.preventDefault(); }
 });
 addEventListener("keyup", e => {
@@ -539,9 +715,9 @@ const canvas = document.getElementById("game"), ctx = canvas.getContext("2d");
 const pointers = new Map();
 canvas.addEventListener("pointerdown", e => {
   e.preventDefault(); audio();
-  if (game.over) { resetGame(); return; }
-  canvas.setPointerCapture(e.pointerId);
   const rect = canvas.getBoundingClientRect(), side = (e.clientX - rect.left) < rect.width / 2 ? "L" : "R";
+  if (game.over) { resetGame(side === "L" ? "classic" : "timed"); return; }
+  canvas.setPointerCapture(e.pointerId);
   const plunge = side === "R" && ballInLane();
   pointers.set(e.pointerId, { side, plunge });
   if (plunge) setPlunger(true); else setFlipper(side, true);
@@ -562,20 +738,36 @@ function drawField() {
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, "#123b4e"); g.addColorStop(1, C.deep);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  if (game.fever > 0) {
+    const pulse = 0.12 + 0.06 * Math.sin(performance.now() / 120);
+    ctx.fillStyle = `rgba(228,86,63,${pulse})`; ctx.fillRect(0, 0, W, H);
+  }
   // 台面格線（台面刻度，每 40px）
   ctx.strokeStyle = "rgba(255,255,255,0.035)"; ctx.lineWidth = 1;
   for (let y = 40; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(350, y); ctx.stroke(); }
   // 發射道
   ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(350, 205, 30, 535);
-  // 中央標誌
-  ctx.save(); ctx.globalAlpha = 0.09; ctx.fillStyle = C.lamp; ctx.font = "44px Bungee, Impact, sans-serif"; ctx.textAlign = "center";
-  ctx.fillText("SLING", 185, 450); ctx.restore();
+  // 中央標誌：平時是 SLING，狂熱時換成倒數
+  ctx.save(); ctx.textAlign = "center";
+  if (game.fever > 0) {
+    ctx.globalAlpha = 0.9; ctx.fillStyle = C.lamp; ctx.font = "30px Bungee, Impact, sans-serif";
+    ctx.fillText("FEVER x" + T.fever.mult, 185, 440);
+    ctx.font = "18px Bungee, Impact, sans-serif"; ctx.fillStyle = C.brass;
+    ctx.fillText(Math.ceil(game.fever) + "s", 185, 466);
+  } else {
+    ctx.globalAlpha = 0.09; ctx.fillStyle = C.lamp; ctx.font = "44px Bungee, Impact, sans-serif";
+    ctx.fillText("SLING", 185, 450);
+  }
+  ctx.restore();
 }
 function drawSegments() {
   ctx.lineCap = "round";
   for (const s of game.segments) {
     if (s.kind === "sling") {
       ctx.strokeStyle = s.flash > 0 ? C.lamp : C.rubber; ctx.lineWidth = s.flash > 0 ? 7 : 5;
+    } else if (s.kind === "target") {
+      if (s.down) { ctx.strokeStyle = C.dim; ctx.lineWidth = 3; }
+      else { ctx.strokeStyle = s.flash > 0 ? "#ffffff" : C.lamp; ctx.lineWidth = 7; }
     } else if (s.kind === "gate") { ctx.strokeStyle = C.muted; ctx.lineWidth = 2; }
     else if (s.kind === "plunger") continue;
     else { ctx.strokeStyle = C.brass; ctx.lineWidth = 4; }
@@ -583,7 +775,7 @@ function drawSegments() {
   }
   // 彈弓三角形本體
   ctx.fillStyle = "rgba(216,171,76,0.12)";
-  for (const tri of [[[58, 470], [58, 545], [94, 580]], [[312, 470], [312, 545], [276, 580]]]) {
+  for (const tri of SLING_TRIS) {
     ctx.beginPath(); ctx.moveTo(...tri[0]); ctx.lineTo(...tri[1]); ctx.lineTo(...tri[2]); ctx.closePath(); ctx.fill();
   }
 }
@@ -607,7 +799,7 @@ function drawLanes() {
   ctx.fillText("LANES → x" + Math.min(game.mult + 1, T.lane.max_mult), 190, 128);
 }
 function drawFlipper(f) {
-  const L = T.flipper.length, rb = T.flipper.radius_base, rt = T.flipper.radius_tip;
+  const { L, rb, rt } = flipperDims(f);
   const dx = Math.cos(f.angle), dy = Math.sin(f.angle), nx = -dy, ny = dx;
   const tx = f.px + dx * L, ty = f.py + dy * L;
   ctx.beginPath();
@@ -639,6 +831,7 @@ function drawBall() {
   const g = ctx.createRadialGradient(b.x - b.r * 0.4, b.y - b.r * 0.4, 1, b.x, b.y, b.r);
   g.addColorStop(0, "#ffffff"); g.addColorStop(0.45, "#c9d3d8"); g.addColorStop(1, "#56646d");
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(14,20,28,0.6)"; ctx.lineWidth = 1; ctx.stroke();
 }
 function drawFx(dt) {
   for (const p of game.particles) {
@@ -649,10 +842,14 @@ function drawFx(dt) {
   ctx.textAlign = "center";
   for (const p of game.popups) {
     ctx.globalAlpha = Math.min(1, p.life * 2);
-    ctx.fillStyle = C.lamp; ctx.font = (p.big ? "26px" : "15px") + " Bungee, Impact, sans-serif";
-    ctx.fillText(p.text, p.x, p.y - (0.7 - p.life) * 30);
+    ctx.fillStyle = C.lamp; ctx.font = (p.big ? "26px" : "15px") + " Bungee, 'Noto Sans TC', Impact, sans-serif";
+    ctx.fillText(p.text, p.x, p.y - (0.7 - Math.min(p.life, 0.7)) * 30);
   }
   ctx.globalAlpha = 1;
+  if (game.ballSave > 0 && game.ball && !ballInLane()) {
+    ctx.fillStyle = C.ok || "#6fcf8f"; ctx.font = "700 11px 'Noto Sans TC', sans-serif";
+    ctx.fillText(`球保險 ${game.ballSave.toFixed(1)}s`, 185, 706);
+  }
   if (game.debug && game.lastHit && game.lastHit.life > 0) {
     ctx.globalAlpha = Math.min(1, game.lastHit.life);
     ctx.fillStyle = C.ink; ctx.font = "600 11px 'JetBrains Mono', monospace";
@@ -660,13 +857,23 @@ function drawFx(dt) {
     ctx.globalAlpha = 1;
   }
   if (game.over) {
-    ctx.fillStyle = "rgba(10,20,28,0.78)"; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = C.lamp; ctx.font = "34px Bungee, Impact, sans-serif"; ctx.fillText("GAME OVER", 200, 320);
-    ctx.font = "18px Bungee, Impact, sans-serif"; ctx.fillStyle = C.brass;
-    ctx.fillText(game.score.toLocaleString(), 200, 360);
-    ctx.font = "500 13px 'Noto Sans TC', sans-serif"; ctx.fillStyle = C.ink;
-    ctx.fillText("最高分 " + best.toLocaleString(), 200, 392);
-    ctx.fillText("點一下重新開始", 200, 430);
+    ctx.fillStyle = "rgba(10,20,28,0.82)"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = C.lamp; ctx.font = "34px Bungee, Impact, sans-serif"; ctx.fillText(game.stats.launches ? "GAME OVER" : "PINBALL", 200, 250);
+    if (game.stats.launches) {
+      ctx.font = "13px 'Noto Sans TC', sans-serif"; ctx.fillStyle = C.muted; ctx.fillText(MODES[game.mode], 200, 280);
+      ctx.font = "22px Bungee, Impact, sans-serif"; ctx.fillStyle = C.brass; ctx.fillText(game.score.toLocaleString(), 200, 312);
+    }
+    // 模式選擇：左半＝經典、右半＝限時
+    const box = (x, title, sub, bestScore) => {
+      ctx.strokeStyle = C.brass; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(x, 380, 160, 130, 14); ctx.stroke();
+      ctx.fillStyle = C.lamp; ctx.font = "700 18px 'Noto Sans TC', sans-serif"; ctx.fillText(title, x + 80, 420);
+      ctx.fillStyle = C.muted; ctx.font = "12px 'Noto Sans TC', sans-serif"; ctx.fillText(sub, x + 80, 446);
+      ctx.fillStyle = C.brass; ctx.font = "12px 'JetBrains Mono', monospace"; ctx.fillText("最高 " + (bestScore || 0).toLocaleString(), x + 80, 482);
+    };
+    box(28, "經典", "3 顆球・球保險", best.classic);
+    box(212, "限時", `${T.rules.time_attack_s} 秒・無限球`, best.timed);
+    ctx.fillStyle = C.ink; ctx.font = "13px 'Noto Sans TC', sans-serif";
+    ctx.fillText("點左邊或右邊選模式", 200, 550);
   }
 }
 function render(dt) {
@@ -698,9 +905,9 @@ function frame(now) {
   if (game.hitstop > 0) { game.hitstop -= dt; }   // 頓幀：物理暫停一瞬間
   else if (!game.over) {
     acc += dt;
-    while (acc >= 1 / 60) {
+    while (acc >= 1 / 60 && !game.over) {
       acc -= 1 / 60;
-      const ev = []; stepFrame(game, ev); handleEvents(ev);
+      const ev = []; stepFrame(game, ev); handleEvents(ev); gameTick();
       if (game.ball) { game.trail.push({ x: game.ball.x, y: game.ball.y }); while (game.trail.length > T.juice.trail) game.trail.shift(); }
       if (game.hitstop > 0) { acc = 0; break; }
     }
@@ -715,13 +922,16 @@ const $ = id => document.getElementById(id);
 function updateHud() {
   $("score").textContent = game.score.toLocaleString();
   $("mult").textContent = "x" + game.mult;
-  $("balls").innerHTML = [0, 1, 2].map(i => `<i class="${i < game.ballsLeft ? "" : "used"}"></i>`).join("");
+  const timed = game.mode === "timed";
+  $("balls").hidden = timed; $("timer").hidden = !timed;
+  if (timed) $("timer").textContent = Math.ceil(game.timeLeft) + "s";
+  else $("balls").innerHTML = [0, 1, 2].map(i => `<i class="${i < game.ballsLeft ? "" : "used"}"></i>`).join("");
 }
 let hintText = "";
 function updateHint() {
   const coarse = matchMedia("(pointer: coarse)").matches;
   let t;
-  if (game.over) t = coarse ? "點台面重新開始" : "按空白鍵重新開始";
+  if (game.over) t = coarse ? "點左半＝經典、右半＝限時" : "按 1＝經典、2＝限時，或點台面左右";
   else if (ballInLane()) t = coarse ? "按住右半邊蓄力，放開發射" : "按住空白鍵蓄力，放開發射";
   else t = coarse ? "點左半邊 / 右半邊 控制擋板" : "Z / ← 左擋板 · / / → 右擋板 · ↑ 推台";
   if (t !== hintText) { hintText = t; $("hint").textContent = t; }
@@ -738,17 +948,47 @@ function fit() {
 }
 addEventListener("resize", fit);
 
+/* ---------- 本局數據 ---------- */
+function statRows() {
+  const s = game.stats, avg = s.flips ? Math.round(s.speedSum / s.flips) : 0;
+  const alive = s.drains ? (s.aliveSum / s.drains).toFixed(1) + " s" : "—";
+  return [
+    ["模式", MODES[game.mode]],
+    ["分數", game.score.toLocaleString()],
+    ["擋板擊球（含左上）", `${s.flips}（${s.upperFlips}）`],
+    ["平均／最高擊球速度", `${avg} / ${Math.round(s.speedMax)}`],
+    ["打點 根／中／尖", s.zones.join(" / ")],
+    ["彈跳柱／彈弓", `${s.bumper} / ${s.sling}`],
+    ["落下靶／燈道", `${s.target} / ${s.lane}`],
+    ["狂熱次數", String(s.fevers)],
+    ["最高球速", Math.round(s.maxBall) + " px/s"],
+    ["發射／掉球／球保險", `${s.launches} / ${s.drains} / ${s.saves}`],
+    ["平均每球存活", alive]
+  ];
+}
+function renderStats() {
+  $("stats").innerHTML = statRows().map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+}
+setInterval(renderStats, 250);
+$("copyStatsBtn").addEventListener("click", () => {
+  const text = `彈珠本局數據 ${new Date().toLocaleString()}\n` + statRows().map(([k, v]) => `- ${k}：${v}`).join("\n");
+  const out = $("jsonOut");
+  navigator.clipboard?.writeText(text).then(() => toast("已複製本局數據"), () => { out.value = text; out.hidden = false; out.select(); toast("請手動複製下方數據"); })
+    ?? (out.value = text, out.hidden = false, out.select(), toast("請手動複製下方數據"));
+});
+
 /* ---------- 調參面板 ---------- */
 const SLIDERS = [
-  ["球", [["ball.gravity", "重力", 600, 3000, 10], ["ball.max_speed", "最高速", 1200, 4000, 10], ["ball.restitution_wall", "牆反彈", 0, 0.9, 0.01], ["ball.friction", "表面摩擦", 0, 0.3, 0.01]]],
-  ["擋板", [["flipper.up_speed_deg_s", "上舉速度 °/s", 600, 4000, 10], ["flipper.down_speed_deg_s", "下放速度 °/s", 200, 2000, 10], ["flipper.stroke_deg", "擺動角度 °", 30, 75, 1], ["flipper.power", "力道", 0.3, 1.5, 0.01], ["flipper.restitution", "擋板反彈", 0, 0.8, 0.01], ["flipper.length", "長度 px", 50, 90, 1]]],
-  ["發射與機關", [["plunger.max_speed", "發射最大力道", 1200, 3200, 10], ["plunger.charge_time", "蓄力時間 s", 0.3, 2, 0.05], ["bumper.kick_speed", "彈跳柱力道", 300, 1800, 10], ["sling.kick_speed", "彈弓力道", 300, 1600, 10]]],
+  ["球", [["ball.radius", "球半徑 px", 6, 16, 0.5], ["ball.gravity", "重力", 600, 3000, 10], ["ball.max_speed", "最高速", 1200, 4000, 10], ["ball.restitution_wall", "牆反彈", 0, 0.9, 0.01], ["ball.friction", "表面摩擦", 0, 0.3, 0.01]]],
+  ["擋板", [["flipper.up_speed_deg_s", "上舉速度 °/s", 600, 4000, 10], ["flipper.down_speed_deg_s", "下放速度 °/s", 200, 2000, 10], ["flipper.stroke_deg", "擺動角度 °", 30, 75, 1], ["flipper.power", "力道", 0.3, 1.5, 0.01], ["flipper.restitution", "擋板反彈", 0, 0.8, 0.01], ["flipper.length", "長度 px", 50, 90, 1], ["upper_flipper.scale", "左上擋板尺寸", 0.5, 1, 0.01]]],
+  ["發射與機關", [["plunger.max_speed", "發射最大力道", 1200, 3200, 10], ["plunger.charge_time", "蓄力時間 s", 0.3, 2, 0.05], ["bumper.kick_speed", "彈跳柱力道", 300, 1800, 10], ["sling.kick_speed", "彈弓力道", 300, 1600, 10], ["target.min_hit_speed", "落下靶門檻速度", 20, 400, 10]]],
+  ["玩法", [["fever.duration_s", "狂熱秒數", 3, 30, 1], ["fever.mult", "狂熱倍率", 1, 5, 0.5], ["rules.ball_save_s", "球保險秒數", 0, 10, 0.5], ["rules.time_attack_s", "限時模式秒數", 30, 180, 5]]],
   ["打擊感", [["juice.hitstop_ms", "頓幀 ms", 0, 120, 1], ["juice.shake_px", "震動 px", 0, 20, 0.5], ["juice.vibrate_ms", "手機震動 ms", 0, 60, 1], ["juice.trail", "拖尾長度", 0, 30, 1]]],
   ["物理", [["physics.substeps", "每幀子步數", 1, 16, 1]]]
 ];
 const getP = k => { const [g, p] = k.split("."); return T[g][p]; };
 const setP = (k, v) => { const [g, p] = k.split("."); T[g][p] = v; };
-const fmt = (v, step) => step < 1 ? (+v).toFixed(2) : String(Math.round(v));
+const fmt = (v, step) => step < 0.1 ? (+v).toFixed(2) : step < 1 ? (+v).toFixed(1) : String(Math.round(v));
 function buildSliders() {
   $("sliders").innerHTML = SLIDERS.map(([group, rows]) => `<div class="group"><h3>${group}</h3>${rows.map(([k, label, min, max, step]) => {
     const id = "s-" + k.replace(".", "-");
@@ -785,7 +1025,7 @@ $("sheetBtn").addEventListener("click", () => toggleSheet($("sheet").classList.c
 $("closeSheet").addEventListener("click", () => toggleSheet(false));
 if (matchMedia("(min-width: 761px)").matches) $("sheet").classList.remove("closed");
 
-buildSliders(); updateHud(); fit();
+resetGame("classic"); buildSliders(); renderStats(); fit();
 if (location.hash === "#test") { toggleSheet(true); showTests(); }
 requestAnimationFrame(t => { last = t; fit(); requestAnimationFrame(frame); });
 </script>
