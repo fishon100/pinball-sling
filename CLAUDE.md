@@ -27,7 +27,17 @@
 | 自動遊玩煙霧測試（15 秒） | `godot --headless --path . --quit-after 900 -- --demo` |
 | 錄影驗收畫面 | `godot --path . --write-movie C:\tmp\f.png --fixed-fps 60 --quit-after 420 -- --demo` |
 | 匯出網頁版 | `godot --headless --path . --export-release "Web" docs/index.html`（輸出到 `docs/`，GitHub Pages 直接讀這裡） |
-| 部署到手機預覽 | 匯出 → 把 `tools/tuning-prototype/index.html` 複製到 `docs/tuning/` → commit → `git push` |
+| 部署到手機預覽＋通知 | `powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Message "說明"` |
+| 只送通知 | `powershell -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "標題" -Message "內容"` |
+
+## 完成時一定要通知使用者（含預覽連結）
+使用者常不在電腦前，完成任務時要讓電腦和手機都收到通知：
+1. 有改到遊戲或原型 → 跑 `powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Message "<這次改了什麼>"`
+   （會自動測試、匯出、推上 GitHub、等網頁更新，最後跳 Windows 通知，按鈕直接開預覽）
+2. 最後用 PushNotification 送一則推播（Remote Control 會轉到手機），格式：
+   `✅ <做了什麼> 遊戲 https://fishon100.github.io/pinball-sling/ 調手感 https://fishon100.github.io/pinball-sling/tuning/`
+3. 失敗或需要使用者決定時，也要推播，並說明卡在哪裡
+4. 只改文件、沒有可預覽的東西時，推播附上 GitHub 或 Obsidian 對應位置
 
 ## 部署
 - GitHub repo：`pinball-sling`（公開），GitHub Pages 讀 `main` 分支的 `/docs`

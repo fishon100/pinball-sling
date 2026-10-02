@@ -1,3 +1,5 @@
 .godot/
 build/
 *.tmp
+# 個人推播設定（ntfy 主題名稱等於密碼，不要公開）
+tools/notify.config.json
