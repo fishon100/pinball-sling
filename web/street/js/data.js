@@ -10,31 +10,70 @@ var SR = window.SR || (window.SR = {});
    assists：新手輔助，越後面的街區越少（第 3 輪回饋：輔助關掉＝難度提高的因素之一）
      preview＝彈道預覽秒數、timing＝擋板時機提示、ballSave＝額外球保險秒數、finisher＝收尾輔助（只剩幾塊磚時把球往磚的方向吸）
      數值依「新手／進步中／熟練」三種自動玩家量測（見 Obsidian 10 號規格）。
-   cluster：台面上半部兩側的彈跳柱群（企劃說的「中柱」，參考 3D Space Cadet 的彈跳柱群），每側幾顆（0～3）。
-     新手自動玩家 45 局：沒有柱群每關掉 9.67 顆愛心 → 每側 3 顆時 2.69 顆（見 Obsidian 11 號規格） */
+   台面配置見下面的 SR.LAYOUTS／SR.layoutFor（第 5 輪：每關台面不同、第 1 區台面變矮） */
 SR.DISTRICTS = [
   { id: "alley",     name: "巷口",     en: "ALLEY",     act: "起", stages: [1, 10],  tempo: 88, root: 45,
     teaser: "遊樂場門口的那條巷子。第一面被打開的牆就在這裡。",
-    assists: { preview: 1.0, timing: true, ballSave: 3, finisher: true }, cluster: 3,
+    assists: { preview: 1.0, timing: true, ballSave: 3, finisher: true },
     colors: { a: "#ff3ea5", b: "#ffe14d", c: "#3ee0ff", glow: "#ff7ac6" } },
   { id: "subway",    name: "地鐵站",   en: "SUBWAY",    act: "承", stages: [11, 20], tempo: 92, root: 43,
     teaser: "每天上萬人經過的灰色長廊。",
-    assists: { preview: 0.7, timing: true, ballSave: 1.5, finisher: true }, cluster: 3,
+    assists: { preview: 0.7, timing: true, ballSave: 1.5, finisher: true },
     colors: { a: "#3ee0ff", b: "#b25cff", c: "#ffe14d", glow: "#7fe9ff" } },
   { id: "rooftops",  name: "屋頂",     en: "ROOFTOPS",  act: "轉", stages: [21, 30], tempo: 96, root: 41,
     teaser: "從這裡看得到整座城，也看得到整潔局的大樓。",
-    assists: { preview: 0.4, timing: false, ballSave: 0 }, cluster: 2,
+    assists: { preview: 0.4, timing: false, ballSave: 0 },
     colors: { a: "#ff8a1f", b: "#9dff3a", c: "#ff3ea5", glow: "#ffb066" } },
   { id: "riverside", name: "河堤",     en: "RIVERSIDE", act: "轉", stages: [31, 40], tempo: 84, root: 38,
     teaser: "橋墩下藏著被刷掉一半的舊塗鴉。",
-    assists: { preview: 0, timing: false, ballSave: 0 }, cluster: 1,
+    assists: { preview: 0, timing: false, ballSave: 0 },
     colors: { a: "#2f7bff", b: "#34e89e", c: "#ffe14d", glow: "#6fa6ff" } },
   { id: "downtown",  name: "市中心大牆", en: "DOWNTOWN", act: "合", stages: [41, 50], tempo: 100, root: 45,
     teaser: "整座城最大的一面灰牆。",
-    assists: { preview: 0, timing: false, ballSave: 0 }, cluster: 1,
+    assists: { preview: 0, timing: false, ballSave: 0 },
     colors: { a: "#ff3ea5", b: "#3ee0ff", c: "#ffe14d", glow: "#ffffff", rainbow: true } }
 ];
-SR.ASSIST_NAMES = { preview: "彈道預覽", timing: "擋板時機提示", ballSave: "加長球保險", finisher: "收尾輔助" };
+/* ---------- 台面配置（第 5 輪回饋）----------
+   ・第 1 區台面變矮（top 320＝整個台面一個畫面看完，磚離擋板近）；越後面越高（高台面留給難的街區）
+   ・每一關換一種配置，不會每關都長一樣
+   bumpers＝彈跳柱（企劃說的「中柱」）、rails＝導軌（rubber＝會彈的橡膠牆）、fish＝會左右游的阿鰭
+   座標是台面座標（寬 400，左牆 x=20、發射道內牆 x=340，台面中線 x=180）。M() 會自動補上左右對稱的另一顆 */
+const M = list => list.flatMap(([x, y]) => [[x, y], [360 - x, y]]);
+SR.LAYOUTS = {
+  // 第 1 區：矮台面
+  a_pair:    { name: "雙柱",   top: 320, bumpers: M([[78, 664]]) },
+  a_tri:     { name: "三角柱", top: 320, bumpers: M([[78, 640], [124, 688], [78, 736]]) },
+  a_rubber:  { name: "彈力牆", top: 320, bumpers: M([[96, 664]]), rails: [[23, 610, 23, 730, "rubber"], [337, 610, 337, 730, "rubber"]] },
+  a_fish:    { name: "阿鰭",   top: 320, bumpers: M([[70, 716]]), fish: { y: 652, x0: 70, x1: 290, speed: 70 } },
+  a_four:    { name: "四柱",   top: 320, bumpers: M([[74, 640], [116, 716]]) },
+  // 第 2 區：中台面
+  b_tri:     { name: "三角柱", top: 160, bumpers: M([[62, 500], [107, 540], [62, 580]]) },
+  b_steps:   { name: "階梯",   top: 160, bumpers: M([[70, 500], [110, 600]]) },
+  b_fish:    { name: "阿鰭",   top: 160, bumpers: M([[62, 600]]), fish: { y: 520, x0: 70, x1: 290, speed: 90 } },
+  // 第 3 區：偏高台面
+  c_pair:    { name: "雙柱",   top: 80, bumpers: M([[62, 440], [107, 480]]) },
+  c_rubber:  { name: "彈力牆", top: 80, bumpers: M([[80, 460]]), rails: [[23, 520, 23, 640, "rubber"], [337, 600, 337, 700, "rubber"]] },
+  c_fish:    { name: "阿鰭",   top: 80, bumpers: M([[62, 520]]), fish: { y: 440, x0: 70, x1: 290, speed: 110 } },
+  // 第 4、5 區：高台面（最早的台面）
+  d_classic: { name: "經典",   top: 0, bumpers: M([[56, 560]]) },
+  d_high:    { name: "高柱",   top: 0, bumpers: M([[105, 400], [56, 560]]) },
+  d_tri:     { name: "三角柱", top: 0, bumpers: M([[105, 400], [60, 440], [56, 560]]) },
+  d_fish:    { name: "阿鰭",   top: 0, bumpers: M([[56, 560]]), fish: { y: 420, x0: 70, x1: 290, speed: 130 } }
+};
+for (const id in SR.LAYOUTS) SR.LAYOUTS[id].id = id;
+SR.DISTRICT_LAYOUTS = [
+  ["a_pair", "a_tri", "a_rubber", "a_four", "a_fish", "a_tri", "a_rubber", "a_fish", "a_four", "a_pair"],
+  ["b_tri", "b_steps", "b_fish"],
+  ["c_pair", "c_rubber", "c_fish"],
+  ["d_tri", "d_high", "d_fish"],
+  ["d_high", "d_tri", "d_classic", "d_fish", "d_tri"]
+];
+// 首領關（每區第 10 關）不要用阿鰭的配置：阿鰭會擋住打首領的路線（AC-S8b 抓到第 50 關 7 分鐘打不完）
+SR.layoutFor = function (n) {
+  const d = Math.min(4, Math.floor((n - 1) / 10)), list = SR.DISTRICT_LAYOUTS[d];
+  return SR.LAYOUTS[list[(n - 1) % 10 % list.length]];
+};
+SR.ASSIST_NAMES ={ preview: "彈道預覽", timing: "擋板時機提示", ballSave: "加長球保險", finisher: "收尾輔助" };
 SR.districtOf = n => SR.DISTRICTS[Math.min(4, Math.floor((n - 1) / 10))];
 
 /* ---------- 關卡文字圖 ----------
@@ -176,7 +215,8 @@ SR.buildStage = function (n) {
     if (ch === "B") { cells.push({ r, c, type: "bucket", hp: 1 }); return; }
     let hp = +ch;
     if (rnd() < hpBonusChance) hp++;
-    if (d >= 3 && rnd() < hpBonusChance * 0.4) hp++;
+    // 第 4 區起原本還會再 +1 血：滑板模式量測第 5 區一關要 150 秒以上、拖太久，拿掉（難度改由高台面負責）
+    if (d >= 3) rnd();
     cells.push({ r, c, type: "brick", hp: Math.min(5, hp) });
   }));
   // 道具磚★：第 2 區起，每關把 1～2 塊 1 血的磚換成道具磚
@@ -201,7 +241,7 @@ SR.UPGRADES = [
   { id: "heavy",  name: "重漆",     icon: "⬢", max: 3, desc: "每次擊中 +1 傷害" },
   { id: "big",    name: "大罐",     icon: "●", max: 3, desc: "球變大一圈（半徑 +1.5），更好打中" },
   { id: "splash", name: "漆彈爆",   icon: "✺", max: 2, desc: "磚塊碎掉時，對相鄰磚造成 1 傷害" },
-  { id: "power",  name: "強力擋板", icon: "▲", max: 2, desc: "擋板擊球力道 +12%" },
+  { id: "power",  name: "強力擋板", icon: "▲", max: 2, desc: "擋板／滑板擊球力道 +12%" },
   { id: "safety", name: "保險罐",   icon: "⛨", max: 2, desc: "球保險時間 +3 秒" },
   { id: "refill", name: "補一罐",   icon: "♥", max: 99, desc: "立刻回 1 顆愛心（最多 5）" },
   { id: "bomb",   name: "連擊火力", icon: "✹", max: 2, desc: "每 15 連擊，在球的位置引爆一顆漆彈" }
@@ -221,7 +261,11 @@ SR.ACHIEVEMENTS = [
   { id: "flawless",  name: "無傷過關",   desc: "沒掉愛心通過一關" },
   { id: "multi4",    name: "多球狂歡",   desc: "場上同時有 4 顆球" },
   { id: "bricks500", name: "拆牆專家",   desc: "累計打碎 500 塊磚" },
-  { id: "stars30",   name: "滿天星",     desc: "累計拿到 30 顆星" },
+  { id: "gold10",    name: "金牌收藏家", desc: "累計拿到 10 面金牌（一顆愛心都沒掉）" },
+  { id: "silver",    name: "差一點點",   desc: "拿到第一面銀牌（只掉 1 顆愛心）" },
+  { id: "lastheart", name: "最後一顆心", desc: "只剩 1 顆愛心時過關" },
+  { id: "allgold",   name: "完美街區",   desc: "一整區 10 關都拿金牌" },
+  { id: "fish",      name: "吵醒阿鰭",   desc: "一關裡打到阿鰭 10 次" },
   { id: "chain6",    name: "連鎖爆破",   desc: "1 秒內打碎 6 塊磚" },
   { id: "onecoin",   name: "一枚硬幣",   desc: "不續關打完一整區" }
 ];
@@ -241,7 +285,8 @@ SR.SPEAKERS = {
   pinky:    { name: "噴噴",   color: "#ff3ea5" },
   grey:     { name: "灰先生", color: "#9a9aa3" },
   citizen:  { name: "路人",   color: "#3ee0ff" },
-  boy:      { name: "小男孩", color: "#9dff3a" }
+  boy:      { name: "小男孩", color: "#9dff3a" },
+  fish:     { name: "阿鰭",   color: "#5fd3c8" }
 };
 
 /* ---------- 劇情：童話＋漫畫格 ----------
@@ -269,6 +314,13 @@ SR.COMICS = {
     [ { w: 1, h: 1.1, bg: "tableMagic", cast: [PK("happy", 0.16, 0.8, 0.8)], say: [{ who: "pinky", text: "這台機器很神奇。你在台子裡打碎一面灰牆——", x: 0.6, y: 0.2 }] },
       { w: 1, h: 1, bg: "alleyColor", say: [{ who: "pinky", text: "外面真正的那面牆，就會開出顏色！", x: 0.5, y: 0.22, tail: "none" }] },
       { w: 1, h: 0.95, bg: "machineGlow", cast: [K("determined", 0.3, 1.02, 1)], say: [{ who: "kid", text: "那就從遊樂場門口那面牆開始吧！", x: 0.68, y: 0.3 }] } ]
+  ],
+  // 第 5 關前：阿鰭登場（之後的台面有時會有阿鰭游來游去）
+  d1_fish: [
+    [ { w: 1, h: 1.15, bg: "machineGlow", cast: [{ who: "fish", mood: "sleepy", x: 0.6, y: 0.8, s: 1.2 }], cap: "機台的角落，還住著另一個塗鴉。" },
+      { w: 0.5, h: 1.1, bg: "machineGlow", cast: [{ who: "fish", mood: "sleepy", x: 0.5, y: 0.86, s: 0.85 }], say: [{ who: "fish", text: "吵死了……誰在敲牆？", x: 0.5, y: 0.14 }] },
+      { w: 0.5, h: 1.1, bg: "machineGlow", cast: [PK("happy", 0.5, 0.84, 0.85)], say: [{ who: "pinky", text: "阿鰭！你醒啦！", x: 0.5, y: 0.14 }] },
+      { w: 1, h: 0.95, bg: "tableMagic", cast: [{ who: "fish", mood: "wow", x: 0.26, y: 0.8, s: 0.9 }], say: [{ who: "fish", text: "球別往我身上打……打到我，我就把它吐回去喔。", x: 0.64, y: 0.28 }] } ]
   ],
   d1_boss: [
     [ { w: 1, h: 1.2, bg: "alleyNight", cast: [GR("stern", 0.55, 1.0, 1)], cap: "巷口最後一面牆前，站著一個穿灰色大衣的人。" },
@@ -323,7 +375,9 @@ SR.COMICS = {
   d4_clear: [
     [ { w: 1, h: 1, bg: "riversideColor", cast: [GR("sad", 0.3, 1.05, 1.1)], say: [{ who: "grey", text: "……如果又被刷掉呢？", x: 0.68, y: 0.25 }] },
       { w: 1, h: 1, bg: "riversideColor", cast: [K("happy", 0.7, 1.02, 1, true)], say: [{ who: "kid", text: "那就再畫一次。這一次，你不是一個人。", x: 0.34, y: 0.26 }] },
-      { w: 1, h: 0.95, bg: "machineGlow", cast: [PK("happy", 0.5, 0.82, 0.95)], cap: "噴噴的臉頰，悄悄回來了一點粉紅色。" } ]
+      { w: 1, h: 0.95, bg: "machineGlow", cast: [PK("happy", 0.5, 0.82, 0.95)], cap: "噴噴的臉頰，悄悄回來了一點粉紅色。" } ],
+    [ { w: 1, h: 1.1, bg: "memoryWall", cast: [{ who: "fish", mood: "sleepy", x: 0.5, y: 0.82, s: 1.1 }], cap: "年輕的灰先生在橋墩上畫的第一個塗鴉，是一條愛睏的魚。", sepia: true },
+      { w: 1, h: 1, bg: "riversideColor", cast: [{ who: "fish", mood: "wow", x: 0.28, y: 0.8, s: 0.95 }], say: [{ who: "fish", text: "……我想起來了。是他把我畫出來的。", x: 0.66, y: 0.28 }] } ]
   ],
   d5_start: [
     [ { w: 1, h: 1.3, bg: "bigwall", cap: "城中心的大牆，是灰城最大、最灰的一面牆。" },
@@ -342,9 +396,18 @@ SR.COMICS = {
       { w: 1, h: 0.8, bg: "black", cap: "顏色可以被蓋住，但不會消失。　——完——" } ]
   ]
 };
+/* 劇情回放（地圖上的「劇情回放」）用的標題，照播放順序 */
+SR.COMIC_TITLES = {
+  intro: "序章：灰城", d1_fish: "阿鰭醒了", d1_boss: "整潔局的灰先生", d1_clear: "巷口開花",
+  d2_start: "地鐵站", d2_boss: "比刷的快", d2_clear: "抬起頭",
+  d3_start: "拔掉插頭", d3_boss: "修過機台的人", d3_clear: "屋頂上的風",
+  d4_start: "橋墩下的簽名", d4_boss: "被蓋住的東西", d4_clear: "再畫一次",
+  d5_start: "最後一面牆", d5_boss: "頑固的顏色", ending: "彩城"
+};
 /* 每一關開始前／後要播哪段漫畫 */
 SR.storyBefore = function (n) {
   if (n === 1) return ["intro"];
+  if (n === 5) return ["d1_fish"];
   const d = Math.floor((n - 1) / 10), local = (n - 1) % 10;
   const keys = [];
   if (local === 0 && d > 0) keys.push(`d${d + 1}_start`);

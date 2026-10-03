@@ -155,6 +155,26 @@ canvas#game {
   .card .ico { grid-area: ico; } .card b { grid-area: name; white-space: nowrap; } .card span { grid-area: desc; } .card i { grid-area: lv; white-space: nowrap; }
 }
 
+.card.picked { box-shadow: 0 0 0 4px var(--pink), 5px 5px 0 var(--ink); }
+/* 結果：獎牌（依愛心）＋抽到的強化 */
+.medal { display: flex; flex-direction: column; align-items: center; gap: 2px; animation: medalIn .6s cubic-bezier(.2,1.6,.4,1) both; }
+.medal .disc { position: relative; width: 104px; height: 104px; border-radius: 50%; border: 5px solid var(--ink); display: grid; place-items: center; font-size: 46px; font-weight: 900; color: var(--ink); box-shadow: 6px 6px 0 var(--ink), inset -8px -10px 0 rgba(0,0,0,.18), inset 8px 8px 0 rgba(255,255,255,.45); margin-top: 30px; }
+.medal .disc::before { content: ""; position: absolute; top: -38px; left: 50%; width: 46px; height: 40px; transform: translateX(-50%); background: linear-gradient(90deg, var(--pink) 0 33%, #fff 33% 66%, var(--cyan) 66%); border: 4px solid var(--ink); border-bottom: 0; z-index: -1; }
+.medal-3 .disc { background: radial-gradient(circle at 35% 30%, #fff6b0, #ffd23f 45%, #e09b00); }
+.medal-2 .disc { background: radial-gradient(circle at 35% 30%, #ffffff, #dfe6ee 45%, #98a4b1); }
+.medal-1 .disc { background: radial-gradient(circle at 35% 30%, #ffd9b8, #e0915a 45%, #9c5524); }
+.mc { font-style: normal; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ink); font-size: 10px; font-weight: 900; color: var(--ink); margin: 0 1px 0 4px; vertical-align: -3px; }
+.mc.m3, .node.m3 { background: #ffd23f; } .mc.m2, .node.m2 { background: #dfe6ee; } .mc.m1, .node.m1 { background: #e0915a; }
+.medal b { font-family: var(--font-block); font-size: 22px; letter-spacing: 2px; -webkit-text-stroke: 1px var(--ink); }
+.medal-3 b { color: #ffd23f; } .medal-2 b { color: #dfe6ee; } .medal-1 b { color: #e0915a; }
+@keyframes medalIn { from { transform: scale(2.4) rotate(-25deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.reward { display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: center; background: #fff; color: var(--ink); border: 3px solid var(--ink); border-radius: 14px; padding: 10px; box-shadow: 5px 5px 0 var(--ink); animation: medalIn .5s .25s both; }
+.reward .ico { width: 52px; height: 52px; border-radius: 50%; border: 3px solid var(--ink); display: grid; place-items: center; font-size: 26px; }
+.reward b { display: block; } .reward span { font-size: 12px; color: #444; }
+button.node { appearance: none; padding: 0; cursor: pointer; font-family: inherit; }
+button.node:disabled { cursor: default; opacity: .7; }
+button.node .s { font-size: 13px; letter-spacing: 0; }
+button.ach { appearance: none; color: inherit; font: inherit; }
 /* 結果 */
 .stars { font-size: 48px; text-align: center; letter-spacing: 6px; color: var(--yellow); -webkit-text-stroke: 2px var(--ink); text-shadow: 3px 3px 0 var(--ink); }
 .stars .off { color: #3a3a44; }
@@ -228,14 +248,14 @@ canvas#game {
 </div>
 <div class="toasts" id="toasts"></div>
 
-<script src="js/data.js?v=3.3.0"></script>
-<script src="js/tuning.js?v=3.3.0"></script>
-<script src="js/physics.js?v=3.3.0"></script>
-<script src="js/rules.js?v=3.3.0"></script>
-<script src="js/art.js?v=3.3.0"></script>
-<script src="js/comic.js?v=3.3.0"></script>
-<script src="js/audio.js?v=3.3.0"></script>
-<script src="js/tests.js?v=3.3.0"></script>
-<script src="js/game.js?v=3.3.0"></script>
+<script src="js/data.js?v=3.4.7"></script>
+<script src="js/tuning.js?v=3.4.7"></script>
+<script src="js/physics.js?v=3.4.7"></script>
+<script src="js/rules.js?v=3.4.7"></script>
+<script src="js/art.js?v=3.4.7"></script>
+<script src="js/comic.js?v=3.4.7"></script>
+<script src="js/audio.js?v=3.4.7"></script>
+<script src="js/tests.js?v=3.4.7"></script>
+<script src="js/game.js?v=3.4.7"></script>
 </body>
 </html>

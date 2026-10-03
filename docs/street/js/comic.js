@@ -200,10 +200,12 @@ SR.Comic = (function () {
       face(g, "happy", 4 * u, 7 * u, 20 * u, true);
     },
     pinky(g, c, u, t) { SR.Art.pinky(g, 0, -50 * u, 1.05 * u, c.mood || "happy", t, false); },
-    pinkyGrey(g, c, u, t) { SR.Art.pinky(g, 0, -50 * u, 1.05 * u, c.mood || "sad", t, true); }
+    pinkyGrey(g, c, u, t) { SR.Art.pinky(g, 0, -50 * u, 1.05 * u, c.mood || "sad", t, true); },
+    // 阿鰭：機台裡愛睏的魚（企劃第 5 輪給的角色）
+    fish(g, c, u, t) { SR.Art.fish(g, 0, -52 * u, 1.35 * u, c.mood || "sleepy", t, c.flip ? -1 : 1); }
   };
   // 頭的位置（對話框尾巴要指向這裡）
-  const HEAD = { kid: 122, grey: 146, greyYoung: 128, citizen: 122, boy: 74, pinky: 62, pinkyGrey: 62 };
+  const HEAD = { kid: 122, grey: 146, greyYoung: 128, citizen: 122, boy: 74, pinky: 62, pinkyGrey: 62, fish: 62 };
 
   /* ---------- 對話框位置（繪圖與測試共用）---------- */
   function bubbleFont(w) { return `700 ${Math.max(13, Math.min(16, w / 20))}px ${FONT}`; }

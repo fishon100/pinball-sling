@@ -97,7 +97,7 @@ SR.Rules = (function () {
     b.regenT -= dt;
     if (b.regenT > 0) return;
     b.regenT = b.regen;
-    const G = P().GRID, row = Math.round((b.y + b.h - G.y0) / G.ch) + 2;
+    const G = P().GRID, row = Math.round((b.y + b.h - G.y0 - (world.top || 0)) / G.ch) + 2;
     const c0 = Math.round((b.x + b.w / 2 - G.x0) / G.cw - 0.5);
     const hp = 1 + Math.floor(stage.district / 2);
     const added = [];
@@ -117,7 +117,7 @@ SR.Rules = (function () {
   function processEvents(T, run, world, ev, st) {
     const extra = [];
     for (const e of ev) {
-      if (e.type === "flipper_touch") { st.combo = 0; continue; }
+      if (e.type === "flipper_touch" || e.type === "paddle") { st.combo = 0; continue; }
       if (e.type === "ball_brick" || e.type === "bumper") {
         st.combo++; st.maxCombo = Math.max(st.maxCombo, st.combo);
         if (lv(run, "bomb") && st.combo % T.run.bomb_every === 0 && e.b) paintBomb(T, run, world, e.b.x, e.b.y, extra);
@@ -162,9 +162,12 @@ SR.Rules = (function () {
     if (world.boss) return !world.boss.alive;
     return P().liveBricks(world).length === 0;
   }
+  /* 獎牌（第 5 輪：依愛心）：一顆都沒掉＝金（3）、掉 1 顆＝銀（2）、掉 2 顆以上或續關＝銅（1）
+     存檔沿用 save.stars 的 1～3 */
+  const MEDALS = { 3: { name: "金牌", icon: "🥇" }, 2: { name: "銀牌", icon: "🥈" }, 1: { name: "銅牌", icon: "🥉" } };
   function stars(stage, heartsLost, seconds, continued) {
-    if (heartsLost > 0 || continued) return 1;
-    return seconds <= stage.parTime ? 3 : 2;
+    if (continued || heartsLost >= 2) return 1;
+    return heartsLost === 1 ? 2 : 3;
   }
 
   /* 成就判定：回傳這次新解鎖的成就 id */
@@ -179,16 +182,22 @@ SR.Rules = (function () {
     if (s.flawless) give("flawless");
     if (s.balls >= 4) give("multi4");
     if (save.stats.bricks >= 500) give("bricks500");
-    if (totalStars(save) >= 30) give("stars30");
+    if (medalCount(save, 3) >= 10) give("gold10");
+    if (s.medal === 2) give("silver");
+    if (s.medal && s.heartsLeft === 1) give("lastheart");
+    if ([0, 1, 2, 3, 4].some(d => { const [a, b] = SR.DISTRICTS[d].stages; for (let n = a; n <= b; n++) if (save.stars[n] !== 3) return false; return true; })) give("allgold");
+    if (s.fishHits >= 10) give("fish");
     if (s.chain >= 6) give("chain6");
     if (s.oneCoin) give("onecoin");
     return got;
   }
   function totalStars(save) { return Object.values(save.stars).reduce((a, b) => a + b, 0); }
+  function medalCount(save, m) { return Object.values(save.stars).filter(v => v === m).length; }
 
   /* 存檔 */
   const KEY = "sprayrun.save.v1";
-  function emptySave() { return { unlocked: 1, stars: {}, achievements: {}, stats: { bricks: 0, runs: 0, clears: 0 }, best: {}, seenStory: {}, items: {}, tutorialDone: false }; }
+  // seenComic：看過的漫畫（v3.4 起；舊的 seenStory 是對話框時代的紀錄，同名 key 會讓漫畫被當成看過而跳掉——第 5 輪「沒看到漫畫」的原因）
+  function emptySave() { return { unlocked: 1, stars: {}, achievements: {}, stats: { bricks: 0, runs: 0, clears: 0 }, best: {}, seenComic: {}, items: {}, tutorialDone: false, control: "paddle" }; }
   function load() {
     try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) return { ...emptySave(), ...s, stats: { ...emptySave().stats, ...s.stats } }; } catch (e) {}
     return emptySave();
@@ -199,5 +208,5 @@ SR.Rules = (function () {
   return { newRun, applyBonuses, ballSaveTime, piercePerLaunch, offerUpgrades, takeUpgrade, lv,
            launch, newPlayState, processEvents, paintBomb, simulatedBuild,
            assistsFor, grantItem, randomItem, useItem, tickItems, heartOnClear, continueRun, updateFinisher,
-           bossTick, isCleared, stars, checkAchievements, totalStars, load, persist, emptySave, districtUnlocked };
+           bossTick, isCleared, stars, MEDALS, medalCount, checkAchievements, totalStars, load, persist, emptySave, districtUnlocked };
 })();

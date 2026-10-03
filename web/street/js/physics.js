@@ -21,23 +21,25 @@ SR.Physics = (function () {
   function seg(ax, ay, bx, by, kind = "wall", extra = {}) { return { ax, ay, bx, by, kind, ...extra }; }
 
 
-  // 彈跳柱群（企劃的「中柱」）：台面上半部兩側各一組三角形，參考 3D Space Cadet。
-  // 放在磚塊區下方、主射擊線兩側，球打上去會在上半部多彈幾次，不會一直回到擋板（見 data.js 的 cluster）
-  const CLUSTER = [[105, 400], [60, 360], [60, 440]];
+  // 台面配置（見 data.js 的 SR.LAYOUTS）：top＝台面頂端往下移多少（越大台面越矮）、bumpers＝彈跳柱、rails＝導軌、fish＝會游的阿鰭
+  // 沒給配置時用最早的高台面（兩顆彈跳柱），舊測試都用這個
+  const DEFAULT_LAYOUT = { id: "classic", top: 0, bumpers: [[56, 560], [304, 560]], rails: [] };
+  const PADDLE_Y = 948;                     // 滑板（新操作）的中心線高度
 
-  function buildTable(T, assists = {}, cluster = 0) {
+  function buildTable(T, assists = {}, layout = null, control = "flipper") {
+    const L = layout || DEFAULT_LAYOUT, top = L.top || 0;
     const segments = [];
     const N = 28;
     for (let i = 0; i < N; i++) {
       const a0 = Math.PI + (i / N) * Math.PI, a1 = Math.PI + ((i + 1) / N) * Math.PI;
-      segments.push(seg(200 + 180 * Math.cos(a0), 200 + 180 * Math.sin(a0), 200 + 180 * Math.cos(a1), 200 + 180 * Math.sin(a1), "arc"));
+      segments.push(seg(200 + 180 * Math.cos(a0), 200 + top + 180 * Math.sin(a0), 200 + 180 * Math.cos(a1), 200 + top + 180 * Math.sin(a1), "arc"));
     }
     // 外側邊界是一條連續的線：牆 → 導球片 → 彈弓外側 → 漏斗 → 擋板轉軸。
     // 不留任何外側通道，球不會掉進彈弓和牆之間的窄縫卡住（AC-S7）
-    segments.push(seg(20, 200, 20, 760));            // 左牆
+    segments.push(seg(20, 200 + top, 20, 760));      // 左牆
     segments.push(seg(20, 760, 58, 790));            // 左導球片（到彈弓頂端）
     segments.push(seg(58, 865, 100, 944));           // 左漏斗（彈弓底部 → 左擋板）
-    segments.push(seg(380, 200, 380, H));            // 右外牆
+    segments.push(seg(380, 200 + top, 380, H));      // 右外牆
     segments.push(seg(340, 560, 340, H));            // 發射道內牆（道寬 40，放得下最大的球）
     segments.push(seg(340, 760, 312, 790));          // 右導球片
     segments.push(seg(312, 865, 270, 944));          // 右漏斗
@@ -49,48 +51,96 @@ SR.Physics = (function () {
       segments.push(seg(B[0], B[1], C[0], C[1]));
       segments.push(seg(A[0], A[1], C[0], C[1], "sling", { flash: 0 }));
     }
-    // 彈跳柱放兩側：不擋住擋板往上打的主線（放中間時球常被彈回下方，打不到磚；見 v3 規格的平衡紀錄）
-    const circles = [
-      { x: 56, y: 560, kind: "bumper", flash: 0 },
-      { x: 304, y: 560, kind: "bumper", flash: 0 },
-      { x: 58, y: 790, r: 4, kind: "post" }, { x: 312, y: 790, r: 4, kind: "post" }
-    ];
-    for (const [x, y] of CLUSTER.slice(0, cluster)) {
-      circles.push({ x, y, kind: "bumper", flash: 0 }, { x: 360 - x, y, kind: "bumper", flash: 0 });
-    }
-    const flippers = [
+    for (const r of L.rails || []) segments.push(seg(r[0], r[1], r[2], r[3], r[4] || "rail", { flash: 0 }));
+    // 彈跳柱放兩側：不擋住往上打的主線（放中間時球常被彈回下方，打不到磚；見 v3 規格的平衡紀錄）
+    const circles = [{ x: 58, y: 790, r: 4, kind: "post" }, { x: 312, y: 790, r: 4, kind: "post" }];
+    for (const [x, y] of L.bumpers || []) circles.push({ x, y, kind: "bumper", flash: 0 });
+    if (L.fish) circles.push({ x: (L.fish.x0 + L.fish.x1) / 2, y: L.fish.y, r: 20, kind: "fish", vx: L.fish.speed, x0: L.fish.x0, x1: L.fish.x1, flash: 0 });
+    const paddle = control === "paddle";
+    const flippers = paddle ? [] : [
       { side: "L", px: 100, py: FLIP_Y, angle: 0, omega: 0, pressed: false },
       { side: "R", px: 270, py: FLIP_Y, angle: 0, omega: 0, pressed: false }
     ];
     for (const f of flippers) f.angle = flipperRest(T, f);
     return { segments, circles, flippers, bricks: [], grid: new Map(), boss: null, balls: [], time: 0,
-             dmg: 1, flipperBonus: 0, radiusBonus: 0, nextId: 1 };
+             dmg: 1, flipperBonus: 0, radiusBonus: 0, nextId: 1, top, layout: L, control,
+             paddle: paddle ? { x: 185, y: PADDLE_Y, target: 185, vx: 0, kick: 0 } : null };
+  }
+
+  /* ---------- 滑板（第 5 輪回饋：兩支擋板要兩手配合、反應跟不上；滑鼠更來不及點）----------
+     一根手指（或滑鼠）左右移動就好，不用抓時機。打在滑板哪裡決定球往哪飛（打磚塊的玩法）：
+     中間＝直直往上、越靠邊角度越斜；滑板移動中擊球會帶一點側向速度 */
+  function paddleDims(T, world) { return { hw: T.paddle.half_width + (world.flipperBonus || 0) * 0.5, r: T.paddle.radius }; }
+  function paddleRange(T, world) { const { hw } = paddleDims(T, world); return [92 + hw, 278 - hw]; }
+  function movePaddle(T, world, dt) {
+    const p = world.paddle; if (!p) return;
+    const [lo, hi] = paddleRange(T, world), goal = clamp(p.target, lo, hi), step = T.paddle.max_speed * dt;
+    const prev = p.x;
+    p.x = Math.abs(goal - p.x) <= step ? goal : p.x + Math.sign(goal - p.x) * step;
+    p.vx = (p.x - prev) / dt;
+    if (p.kick > 0) p.kick = Math.max(0, p.kick - dt);
+  }
+  function collidePaddle(T, world, b, ev) {
+    const p = world.paddle, { hw, r } = paddleDims(T, world);
+    const cx = clamp(b.x, p.x - hw, p.x + hw), cy = p.y;
+    const dx = b.x - cx, dy = b.y - cy, R = b.r + r, d2 = dx * dx + dy * dy;
+    if (d2 >= R * R) return;
+    const d = Math.sqrt(d2) || 1e-6, nx = dx / d, ny = dy / d;
+    b.x = cx + nx * R; b.y = cy + ny * R;
+    const vn = (b.vx - p.vx) * nx + b.vy * ny;
+    if (vn >= 0) return;
+    if (ny < -0.35) {
+      // 從上面打到：依打點決定角度，速度固定（彈射感來自穩定、可預期的出球）
+      const off = clamp((b.x - p.x) / hw, -1, 1), ang = off * T.paddle.max_angle_deg * D2R;
+      const sp = T.paddle.speed * (world.flipperPower || 1);
+      b.vx = Math.sin(ang) * sp + p.vx * T.paddle.carry; b.vy = -Math.cos(ang) * sp;
+      if (!world.dry) { p.kick = 0.12; ev.push({ type: "paddle", x: b.x, y: cy - r, off, b }); }
+    } else {
+      const tx = -ny, ty = nx, vt = b.vx * tx + b.vy * ty, vnNew = -vn * T.ball.restitution_wall;
+      b.vx = nx * vnNew + tx * vt + p.vx * 0.3; b.vy = ny * vnNew + ty * vt;
+    }
+  }
+  /* 球會落在滑板高度的哪裡（給「落點提示」輔助與自動玩家用）：試跑到球往下穿過滑板高度為止 */
+  function landingPoint(world, T, ball, maxSec = 2.5) {
+    const shadow = { segments: world.segments, circles: world.circles.map(c => ({ ...c })), bricks: world.bricks.filter(k => k.alive), boss: null, balls: [],
+                     flippers: [], paddle: null, time: 0, dry: true, dmg: 0, radiusBonus: world.radiusBonus, nextId: 0, magnet: world.magnet };
+    const b = { ...ball, hits: {}, pierce: 0, dead: false, dryRun: true };
+    const n = Math.max(1, Math.round(T.physics.substeps)), dt = 1 / 60 / n, steps = Math.round(maxSec * 60 * n), ev = [];
+    const lineY = PADDLE_Y - T.paddle.radius - b.r;
+    for (let i = 0; i < steps; i++) {
+      const py = b.y;
+      substepBall(shadow, T, b, dt, ev); ev.length = 0;
+      if (b.vy > 0 && py < lineY && b.y >= lineY) return { x: b.x, t: (i + 1) * dt };
+      if (b.y > DRAIN_Y) return null;
+    }
+    return null;
   }
 
   /* ---------- 磚塊 ---------- */
-  function cellRect(r, c) {
-    return { x: GRID.x0 + c * GRID.cw + 1, y: GRID.y0 + r * GRID.ch, w: GRID.bw, h: GRID.bh };
+  function cellRect(r, c, top = 0) {
+    return { x: GRID.x0 + c * GRID.cw + 1, y: GRID.y0 + top + r * GRID.ch, w: GRID.bw, h: GRID.bh };
   }
   // 格子四個角都要在圓弧內（留 12px），而且在發射道左邊
-  function validRect(x, y, w, h) {
+  function validRect(x, y, w, h, top = 0) {
     for (const [px, py] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) {
-      if (py < 200 && Math.hypot(px - 200, py - 200) > 168) return false;
+      if (py < 200 + top && Math.hypot(px - 200, py - 200 - top) > 168) return false;
       if (px < 22 || px > 338) return false;
     }
     return true;
   }
   function placeStage(world, stage) {
     world.bricks = []; world.grid = new Map(); world.boss = null;
+    const top = world.top || 0;
     for (const cell of stage.cells) {
       if (cell.type === "boss") {
-        const w = 110, h = 44, x = 200 - w / 2, y = GRID.y0 + cell.r * GRID.ch;
+        const w = 110, h = 44, x = 200 - w / 2, y = GRID.y0 + top + cell.r * GRID.ch;
         world.boss = { id: "boss", type: "boss", x, y, w, h, hp: stage.boss.hp, maxHp: stage.boss.hp,
                        vx: stage.boss.speed, alive: true, flash: 0, regenT: stage.boss.regen, regen: stage.boss.regen };
         world.bricks.push(world.boss);
         continue;
       }
-      const rc = cellRect(cell.r, cell.c);
-      if (!validRect(rc.x, rc.y, rc.w, rc.h)) continue;
+      const rc = cellRect(cell.r, cell.c, top);
+      if (!validRect(rc.x, rc.y, rc.w, rc.h, top)) continue;
       const k = { id: world.nextId++, type: cell.type, r: cell.r, c: cell.c, ...rc, hp: cell.hp, maxHp: cell.hp, alive: true, flash: 0 };
       world.bricks.push(k); world.grid.set(cell.r * GRID.cols + cell.c, k);
     }
@@ -98,8 +148,8 @@ SR.Physics = (function () {
   function addBrick(world, r, c, hp) {
     const key = r * GRID.cols + c, old = world.grid.get(key);
     if (old && old.alive) return null;
-    const rc = cellRect(r, c);
-    if (!validRect(rc.x, rc.y, rc.w, rc.h)) return null;
+    const top = world.top || 0, rc = cellRect(r, c, top);
+    if (!validRect(rc.x, rc.y, rc.w, rc.h, top)) return null;
     const k = { id: world.nextId++, type: "brick", r, c, ...rc, hp, maxHp: hp, alive: true, flash: 0.2, fresh: true };
     world.bricks.push(k); world.grid.set(key, k);
     return k;
@@ -169,6 +219,7 @@ SR.Physics = (function () {
     const tx = -ny, ty = nx, vt = b.vx * tx + b.vy * ty;
     let vnNew = -vn * T.ball.restitution_wall;
     if (s.kind === "sling" && -vn > 40) { vnNew = Math.max(vnNew, T.sling.kick_speed); ev.push({ type: "sling", x: cx, y: cy, s, b }); }
+    else if (s.kind === "rubber" && -vn > 40) { vnNew = Math.max(vnNew, T.sling.kick_speed * 0.8); ev.push({ type: "sling", x: cx, y: cy, s, b }); }
     else if (-vn > 260) ev.push({ type: "wall", x: cx, y: cy, speed: -vn });
     const vtNew = vt * (1 - friction(T, vn));
     b.vx = nx * vnNew + tx * vtNew; b.vy = ny * vnNew + ty * vtNew;
@@ -183,7 +234,8 @@ SR.Physics = (function () {
     const vn = b.vx * nx + b.vy * ny;
     if (vn >= 0) return;
     let vnNew = -vn * T.ball.restitution_wall;
-    if (c.kind === "bumper") { vnNew = Math.max(vnNew, T.bumper.kick_speed); ev.push({ type: "bumper", x: c.x, y: c.y, c, b }); }
+    // 阿鰭（會游的彈跳柱）跟彈跳柱一樣會把球彈開
+    if (c.kind === "bumper" || c.kind === "fish") { vnNew = Math.max(vnNew, T.bumper.kick_speed); if (!b.dryRun) ev.push({ type: "bumper", x: c.x, y: c.y, c, b }); }
     const tx = -ny, ty = nx, vt = b.vx * tx + b.vy * ty;
     b.vx = nx * vnNew + tx * vt; b.vy = ny * vnNew + ty * vt;
   }
@@ -253,6 +305,12 @@ SR.Physics = (function () {
   function substep(world, T, dt, ev) {
     world.time += dt;
     for (const f of world.flippers) updateFlipper(T, f, dt);
+    movePaddle(T, world, dt);
+    for (const c of world.circles) if (c.kind === "fish") {
+      c.x += c.vx * dt;
+      if (c.x < c.x0) { c.x = c.x0; c.vx = Math.abs(c.vx); }
+      if (c.x > c.x1) { c.x = c.x1; c.vx = -Math.abs(c.vx); }
+    }
     const boss = world.boss;
     if (boss && boss.alive) {
       boss.x += boss.vx * dt;
@@ -282,6 +340,7 @@ SR.Physics = (function () {
     for (const c of world.circles) collideCircle(T, b, c, ev);
     for (const k of world.bricks) if (k.alive) collideBrick(T, world, b, k, ev);
     for (const f of world.flippers) collideFlipper(T, world, b, f, ev);
+    if (world.paddle) collidePaddle(T, world, b, ev);
     if (world.dry) { const sp = Math.hypot(b.vx, b.vy), max = T.ball.max_speed; if (sp > max) { b.vx *= max / sp; b.vy *= max / sp; } }
   }
 
@@ -297,6 +356,7 @@ SR.Physics = (function () {
     const shadow = {
       segments: world.segments, circles: world.circles, bricks: world.bricks.filter(k => k.alive), boss: null, balls: [],
       flippers: world.flippers.map(f => ({ ...f, pressed: f.pressed, omega: 0 })),
+      paddle: world.paddle ? { ...world.paddle, vx: 0 } : null, flipperBonus: world.flipperBonus,
       time: 0, dry: true, dmg: 0, radiusBonus: world.radiusBonus, flipperPower: world.flipperPower, nextId: 0, magnet: world.magnet
     };
     for (const f of shadow.flippers) f.angle = f.pressed ? flipperUp(T, f) : flipperRest(T, f);
@@ -324,7 +384,8 @@ SR.Physics = (function () {
     if (!balls.length) return CAM_MAX;
     if (balls.some(b => ballInLane(b) || b.y > FLIP_Y - 300 || (b.vy > 0 && b.y > 540))) return CAM_MAX;
     const lowest = balls.reduce((m, b) => (b.y > m.y ? b : m));
-    return clamp(lowest.y + lowest.vy * 0.15 - VIEW_H * 0.42, 0, CAM_MAX);
+    // 矮台面（top 大）鏡頭幾乎不用動；第 1 區 top＝CAM_MAX，整個台面一次看完
+    return clamp(lowest.y + lowest.vy * 0.15 - VIEW_H * 0.42, Math.min(world.top || 0, CAM_MAX), CAM_MAX);
   }
   function updateCamera(cam, world, dt) {
     const target = cameraTarget(world);
@@ -336,8 +397,9 @@ SR.Physics = (function () {
   // 兩支擋板（含尖端）是否完整在畫面內
   function flippersVisible(camY, T) { return camY + VIEW_H >= FLIP_Y + T.flipper.length * 0.5 + 12; }
 
-  return { W, H, VIEW_H, CAM_MAX, DRAIN_Y, FLIP_Y, GRID, SLING_TRIS, CLUSTER, clamp,
+  return { W, H, VIEW_H, CAM_MAX, DRAIN_Y, FLIP_Y, PADDLE_Y, GRID, SLING_TRIS, DEFAULT_LAYOUT, clamp,
            buildTable, cellRect, validRect, placeStage, addBrick, liveBricks, neighbors, damageBrick,
+           paddleDims, paddleRange, movePaddle, landingPoint,
            newBall, ballRadius, flipperRest, flipperUp, flipperDims, ballInLane, updateFlipper,
            substep, stepFrame, cameraTarget, updateCamera, flippersVisible, predictPath };
 })();

@@ -45,6 +45,23 @@ SR.Art = (function () {
       g.stroke();
     }
     g.restore();
+    // 第 5 輪「美術大膽一點」：街區色的霓虹打光＋巨大的半透明噴漆字，牆不再只是灰
+    const p = district.colors;
+    for (const [cx, cy, col] of [[0, H * 0.25, p.a], [W, H * 0.55, p.c], [W * 0.3, H * 0.9, p.b]]) {
+      const lg = g.createRadialGradient(cx, cy, 10, cx, cy, W * 0.9);
+      lg.addColorStop(0, rgba(col, 0.22)); lg.addColorStop(1, rgba(col, 0));
+      g.fillStyle = lg; g.fillRect(0, 0, W, H);
+    }
+    g.save(); g.globalAlpha = 0.09; g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
+    const words = ["SPRAY", "RUN", district.en, "COLOR"];
+    for (let i = 0; i < 6; i++) {
+      g.save(); g.translate(W * (0.2 + rnd() * 0.6), H * (0.08 + i * 0.16)); g.rotate((rnd() - 0.5) * 0.5);
+      g.font = `${70 + rnd() * 40}px ${FONT_TAG}`;
+      g.lineWidth = 10; g.strokeStyle = "#000"; g.strokeText(words[i % words.length], 0, 0);
+      g.fillStyle = [p.a, p.b, p.c][i % 3]; g.fillText(words[i % words.length], 0, 0);
+      g.restore();
+    }
+    g.restore();
     wallCache.set(key, c);
     return c;
   }
@@ -84,10 +101,15 @@ SR.Art = (function () {
     // 兩次描繪：先把所有黑邊畫完，再統一上色（逐段畫的話，下一段的黑邊會蓋掉上一段的顏色，變成虛線）
     const walls = world.segments.filter(s => s.kind !== "plunger" && s.kind !== "gate");
     const path = list => { g.beginPath(); for (const s of list) { g.moveTo(s.ax, s.ay); g.lineTo(s.bx, s.by); } };
-    path(walls); strokeInk(g, 10);
-    path(walls.filter(s => s.kind === "arc")); g.strokeStyle = pal.b; g.lineWidth = 4.5; g.stroke();
-    path(walls.filter(s => s.kind === "wall")); g.strokeStyle = pal.c; g.lineWidth = 4.5; g.stroke();
-    for (const s of walls.filter(s => s.kind === "sling")) { path([s]); g.strokeStyle = s.flash > 0 ? "#fff" : pal.a; g.lineWidth = 6; g.stroke(); }
+    // 霓虹外光：先畫一層粗的半透明色，再畫黑邊、上色（大膽、像霓虹燈管）
+    path(walls.filter(s => s.kind === "arc" || s.kind === "wall")); g.strokeStyle = rgba(pal.glow, 0.28); g.lineWidth = 20; g.stroke();
+    path(walls); strokeInk(g, 12);
+    path(walls.filter(s => s.kind === "arc")); g.strokeStyle = pal.b; g.lineWidth = 6; g.stroke();
+    path(walls.filter(s => s.kind === "wall" || s.kind === "rail")); g.strokeStyle = pal.c; g.lineWidth = 6; g.stroke();
+    for (const s of walls.filter(s => s.kind === "sling" || s.kind === "rubber")) {
+      path([s]); g.strokeStyle = s.flash > 0 ? "#fff" : pal.a; g.lineWidth = s.kind === "rubber" ? 8 : 7; g.stroke();
+      if (s.kind === "rubber") { g.strokeStyle = rgba("#ffffff", 0.6); g.lineWidth = 2; g.setLineDash([6, 8]); g.lineDashOffset = -t * 30; path([s]); g.stroke(); g.setLineDash([]); }
+    }
     const gate = world.segments.find(s => s.kind === "gate");
     if (gate) { path([gate]); g.strokeStyle = "#ddd"; g.lineWidth = 2; g.stroke(); }
     // 彈弓本體
@@ -97,12 +119,14 @@ SR.Art = (function () {
     }
     for (const c of world.circles) {
       if (c.kind === "post") { g.beginPath(); g.arc(c.x, c.y, c.r + 1, 0, Math.PI * 2); g.fillStyle = INK; g.fill(); continue; }
+      if (c.kind === "fish") { fish(g, c.x, c.y, c.r / 46, c.flash > 0 ? "wow" : "sleepy", t, c.vx < 0 ? -1 : 1); continue; }
       sprayCan(g, c.x, c.y, SR.T.bumper.radius, pal, c.flash > 0, t);
     }
   }
   // 彈跳柱＝從上往下看的噴漆罐
   function sprayCan(g, x, y, r, pal, lit, t) {
-    if (lit) { g.fillStyle = rgba(pal.glow, 0.45); g.beginPath(); g.arc(x, y, r * 1.9, 0, Math.PI * 2); g.fill(); }
+    // 平常就有一圈霓虹光（大膽一點），被打到時更亮
+    g.fillStyle = rgba(pal.glow, lit ? 0.55 : 0.16 + 0.06 * Math.sin(t * 4 + x)); g.beginPath(); g.arc(x, y, r * (lit ? 2.1 : 1.55), 0, Math.PI * 2); g.fill();
     g.beginPath(); g.arc(x + 3, y + 4, r, 0, Math.PI * 2); g.fillStyle = "rgba(0,0,0,0.35)"; g.fill();
     g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = lit ? "#fff" : pal.c; g.fill(); strokeInk(g, 4);
     g.beginPath(); g.arc(x, y, r * 0.62, 0, Math.PI * 2); g.fillStyle = lit ? pal.c : shade(pal.c, -0.25); g.fill(); strokeInk(g, 3);
@@ -117,17 +141,19 @@ SR.Art = (function () {
   function brick(g, k, pal, t) {
     if (!k.alive) return;
     if (k.type === "boss") return;
-    const depth = 5;
+    const depth = 6;
     const base = k.type === "bucket" ? pal.a : k.type === "gift" ? "#ffd23f" : HP_COLORS[Math.min(4, k.hp - 1)];
+    // 貼紙風的彩色錯位影（大膽一點：灰磚也帶街區色）
+    g.fillStyle = rgba(pal.a, 0.75); g.fillRect(k.x - 2, k.y + 3, k.w, k.h);
     // 側面（立體感）
     g.fillStyle = shade(base, -0.35);
     g.beginPath(); g.moveTo(k.x + k.w, k.y); g.lineTo(k.x + k.w + depth, k.y + depth); g.lineTo(k.x + k.w + depth, k.y + k.h + depth);
     g.lineTo(k.x + depth, k.y + k.h + depth); g.lineTo(k.x, k.y + k.h); g.lineTo(k.x + k.w, k.y + k.h); g.closePath(); g.fill();
-    g.strokeStyle = INK; g.lineWidth = 2; g.stroke();
+    g.strokeStyle = INK; g.lineWidth = 2.5; g.stroke();
     // 正面
     g.fillStyle = k.flash > 0 ? "#ffffff" : base;
     g.fillRect(k.x, k.y, k.w, k.h);
-    g.strokeStyle = INK; g.lineWidth = 2.5; g.strokeRect(k.x, k.y, k.w, k.h);
+    g.strokeStyle = INK; g.lineWidth = 3.5; g.strokeRect(k.x, k.y, k.w, k.h);
     // 高光
     g.fillStyle = "rgba(255,255,255,0.25)"; g.fillRect(k.x + 3, k.y + 3, k.w - 6, 3);
     if (k.type === "gift") {
@@ -271,6 +297,75 @@ SR.Art = (function () {
     g.beginPath(); g.arc(f.px, f.py, 4, 0, Math.PI * 2); g.fillStyle = INK; g.fill();
   }
 
+  /* ---------- 滑板（新操作：一根手指左右移動）---------- */
+  function paddle(g, p, dims, pal, t, highlight) {
+    const { hw, r } = dims, x = p.x, y = p.y, k = p.kick / 0.12;   // 擊球瞬間壓扁＋發光
+    g.save(); g.translate(x, y); g.scale(1 + k * 0.08, 1 - k * 0.25);
+    if (highlight || k > 0) { g.fillStyle = rgba(pal.glow, 0.35 + k * 0.4); roundRect(g, -hw - 10, -r - 10, hw * 2 + 20, r * 2 + 20, r + 10); g.fill(); }
+    g.fillStyle = "rgba(0,0,0,0.4)"; roundRect(g, -hw + 4, -r + 6, hw * 2, r * 2, r); g.fill();
+    // 輪子（從板子兩端露出來）
+    for (const wx of [-hw + 12, hw - 12]) for (const wy of [-r - 2, r + 2]) { g.beginPath(); g.arc(wx, wy, 4, 0, Math.PI * 2); g.fillStyle = pal.c; g.fill(); g.strokeStyle = INK; g.lineWidth = 2; g.stroke(); }
+    roundRect(g, -hw, -r, hw * 2, r * 2, r); g.fillStyle = pal.b; g.fill(); g.strokeStyle = INK; g.lineWidth = 4; g.stroke();
+    // 板面噴漆圖案：粉紅閃電條紋
+    g.save(); roundRect(g, -hw, -r, hw * 2, r * 2, r); g.clip();
+    g.fillStyle = pal.a; g.beginPath(); g.moveTo(-hw * 0.6, -r); g.lineTo(-hw * 0.1, -r); g.lineTo(-hw * 0.3, 0); g.lineTo(hw * 0.25, 0); g.lineTo(hw * 0.05, r); g.lineTo(-hw * 0.6, r); g.lineTo(-hw * 0.35, 0); g.closePath(); g.fill();
+    g.fillStyle = "rgba(255,255,255,0.45)"; g.fillRect(-hw + 6, -r + 2, hw * 2 - 12, 3);
+    g.restore();
+    g.restore();
+  }
+
+  /* ---------- 阿鰭（第 5 輪企劃給的角色：藍綠色的魚、眼皮半垂、愛打哈欠、咖啡色粗描邊）---------- */
+  const FISH_INK = "#4a2a17";
+  function fish(g, x, y, s, mood, t, dir = 1) {
+    const bob = Math.sin(t * 2.2 + x * 0.05) * 2;
+    g.save(); g.translate(x, y + bob); g.scale(s * dir, s);
+    g.lineJoin = "round"; g.lineCap = "round";
+    const body = "#a8e6df", dark = "#3aa9a6", line = () => { g.strokeStyle = FISH_INK; g.lineWidth = 5; g.stroke(); };
+    // 影子
+    g.fillStyle = "rgba(0,0,0,0.28)"; g.beginPath(); g.ellipse(4, 40, 40, 8, 0, 0, Math.PI * 2); g.fill();
+    // 尾巴（會擺）
+    g.save(); g.translate(-40, 0); g.rotate(Math.sin(t * 5) * 0.18);
+    g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(-18, -30, -30, -28); g.quadraticCurveTo(-20, 0, -30, 28); g.quadraticCurveTo(-18, 30, 0, 0); g.closePath();
+    g.fillStyle = dark; g.fill(); line(); g.restore();
+    // 背鰭
+    g.beginPath(); g.moveTo(-18, -28); g.quadraticCurveTo(-6, -48, 12, -32); g.closePath(); g.fillStyle = dark; g.fill(); line();
+    // 身體
+    g.beginPath(); g.ellipse(0, 0, 44, 34, 0, 0, Math.PI * 2); g.fillStyle = body; g.fill(); line();
+    // 背上的鱗片
+    g.save(); g.beginPath(); g.ellipse(0, 0, 42, 32, 0, 0, Math.PI * 2); g.clip();
+    g.fillStyle = dark;
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) { g.beginPath(); g.arc(-30 + c * 11 + r * 5, -22 + r * 11, 5, 0, Math.PI); g.fill(); }
+    g.fillStyle = "rgba(255,255,255,0.55)"; g.beginPath(); g.ellipse(10, -22, 14, 4, -0.2, 0, Math.PI * 2); g.fill();
+    g.restore();
+    // 胸鰭
+    g.beginPath(); g.moveTo(-6, 12); g.quadraticCurveTo(-20, 30, -4, 32); g.quadraticCurveTo(4, 24, -6, 12); g.fillStyle = dark; g.fill(); line();
+    // 大嘴（參考圖最大的特徵）：佔臉的下半，打哈欠、兩顆小尖牙、粉紅舌頭
+    const open = mood === "wow" ? 1.12 : 0.8 + 0.2 * Math.max(0, Math.sin(t * 1.3));
+    g.save(); g.translate(22, 12);
+    g.beginPath(); g.moveTo(-14, -12 * open); g.quadraticCurveTo(10, -20 * open, 22, -8 * open);
+    g.quadraticCurveTo(26, 14 * open, 6, 22 * open); g.quadraticCurveTo(-16, 24 * open, -18, 2); g.closePath();
+    g.fillStyle = "#24100b"; g.fill(); line();
+    g.beginPath(); g.ellipse(2, 14 * open, 12, 6 * open, -0.1, 0, Math.PI * 2); g.fillStyle = "#e8848c"; g.fill();
+    g.strokeStyle = "#b8545c"; g.lineWidth = 2; g.beginPath(); g.moveTo(2, 10 * open); g.lineTo(2, 17 * open); g.stroke();
+    g.fillStyle = "#fff2c7"; g.strokeStyle = FISH_INK; g.lineWidth = 1.5;
+    for (const fx of [-8, 10]) { g.beginPath(); g.moveTo(fx - 3, -12 * open + (fx > 0 ? -3 : 0)); g.lineTo(fx + 3, -12 * open + (fx > 0 ? -3 : 0)); g.lineTo(fx, -4 * open); g.closePath(); g.fill(); g.stroke(); }
+    g.restore();
+    // 眼睛（在嘴的上方）：平常上眼皮垂到一半（愛睏、厭世）；被打到時睜大
+    const ex = 10, ey = -16, er = 13;
+    g.beginPath(); g.ellipse(ex, ey, er, er * 0.9, 0, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); line();
+    if (mood === "wow") {
+      g.beginPath(); g.arc(ex + 2, ey, 5, 0, Math.PI * 2); g.fillStyle = FISH_INK; g.fill();
+    } else {
+      g.beginPath(); g.arc(ex + 1, ey + 5, 4, 0, Math.PI * 2); g.fillStyle = FISH_INK; g.fill();
+      g.save(); g.beginPath(); g.ellipse(ex, ey, er, er * 0.9, 0, 0, Math.PI * 2); g.clip();
+      g.fillStyle = "#4fb8b2"; g.fillRect(ex - er - 2, ey - er - 2, er * 2 + 4, er + 3);
+      g.fillStyle = "rgba(255,255,255,0.45)"; g.fillRect(ex - er * 0.6, ey - er * 0.7, er * 0.7, 2.5);
+      g.restore();
+      g.strokeStyle = FISH_INK; g.lineWidth = 4.5; g.beginPath(); g.moveTo(ex - er, ey + 1); g.quadraticCurveTo(ex, ey + 4, ex + er, ey + 1); g.stroke();
+    }
+    g.restore();
+  }
+
   /* ---------- 噴漆字 ---------- */
   function tag(g, text, x, y, size, colors, opts = {}) {
     const font = opts.cjk ? `900 ${size}px ${FONT_CJK}` : `${size}px ${opts.marker ? FONT_TAG : FONT_BLOCK}`;
@@ -296,5 +391,5 @@ SR.Art = (function () {
     g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
   }
 
-  return { INK, FONT_TAG, FONT_BLOCK, FONT_CJK, shade, rgba, off, wall, splat, table, sprayCan, brick, boss, pinky, bossPortrait, ball, flipper, tag, roundRect };
+  return { INK, FONT_TAG, FONT_BLOCK, FONT_CJK, shade, rgba, off, wall, splat, table, sprayCan, brick, boss, pinky, bossPortrait, ball, flipper, paddle, fish, tag, roundRect };
 })();
