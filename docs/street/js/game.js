@@ -34,7 +34,7 @@
   // 操作方式：paddle＝滑板（預設，一根手指／滑鼠）、flipper＝經典兩支擋板
   function control() { return save.control === "flipper" ? "flipper" : "paddle"; }
   function newPaintLayer() { G.paint = A.off(VW, P.H); }
-  function vibrate(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+  function vibrate(ms) { if (save.vibrate === false) return; try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
 
   /* ---------- 噴噴（HUD 角落＋對話泡泡）---------- */
   const pinkyHud = $("pinkyHud").getContext("2d");
@@ -454,7 +454,19 @@
           break;
         case "sling": e.s.flash = 0.1; AU.play("sling"); vibrate(10); break;
         case "flipper": if (e.speed > 1700) G.shake = Math.max(G.shake, 2); vibrate(12); break;
-        case "paddle": if (G.tut && G.tut.step === "move") G.tut.hit = true; AU.play("flipper"); vibrate(e.off && Math.abs(e.off) > 0.6 ? 22 : 16); G.shake = Math.max(G.shake, 1.5); break;
+        case "paddle": {
+          if (G.tut && G.tut.step === "move") G.tut.hit = true;
+          AU.play("flipper"); const edge = Math.abs(e.off || 0) > 0.6;
+          vibrate(edge ? 24 : 16); G.shake = Math.max(G.shake, edge ? 3 : 1.5);
+          // 擊球回饋：接觸點噴一小團漆，往出球方向飛；打邊邊（斜射）更大、更亮
+          const ang = Math.atan2(e.b.vy, e.b.vx), c = edge ? pal().a : pal().c;
+          for (let i = 0; i < (edge ? 12 : 7); i++) {
+            const a = ang + (Math.random() - 0.5) * 0.9, s = 160 + Math.random() * (edge ? 320 : 200);
+            G.particles.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.35, max: 0.35, color: c, r: 2 + Math.random() * 2.5 });
+          }
+          if (edge) popup(e.x, e.y - 24, e.off < 0 ? "↖" : "↗", false, c);
+          break;
+        }
         case "wall": AU.play("wall", e.speed); break;
         case "split": popup(e.x, e.y - 20, `分裂 ×${e.n + 1}`, true, pal().c); AU.play("card"); break;
         case "pierce": burstPaint(e.x, e.y, 8); break;
@@ -898,11 +910,12 @@
     if (!G.paused) { hideScreen(); return; }
     show(`<h2 class="tag-title" style="font-size:52px">PAUSE</h2>
       <button class="big-btn" id="resume">繼續</button>
-      <div class="row"><button class="big-btn ghost" id="pSfx">${AU.sfxOn ? "音效：開" : "音效：關"}</button><button class="big-btn ghost" id="pMusic">${AU.musicOn ? "音樂：開" : "音樂：關"}</button></div>
+      <div class="row"><button class="big-btn ghost" id="pSfx">${AU.sfxOn ? "音效：開" : "音效：關"}</button><button class="big-btn ghost" id="pMusic">${AU.musicOn ? "音樂：開" : "音樂：關"}</button><button class="big-btn ghost" id="pVib">${save.vibrate === false ? "震動：關" : "震動：開"}</button></div>
       <button class="big-btn ghost" id="quit">放棄這一輪，回地圖</button>`);
     on("resume", togglePause);
     on("pSfx", () => { AU.setSfx(!AU.sfxOn); G.paused = false; togglePause(); });
     on("pMusic", () => { AU.setMusic(!AU.musicOn); G.paused = false; togglePause(); });
+    on("pVib", () => { save.vibrate = save.vibrate === false; R.persist(save); if (save.vibrate) vibrate([30, 40, 60]); G.paused = false; togglePause(); });
     on("quit", () => { G.paused = false; mapScreen(); });
   }
   $("pauseBtn").addEventListener("click", () => { AU.ensure(); togglePause(); });
