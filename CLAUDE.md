@@ -22,6 +22,15 @@
 - 美術目前是程式繪製的占位圖形；正式資產放 `assets/`，命名 `物件_狀態.png`
 - 改了規格要同步更新 Obsidian 的對應文件
 
+## v3 噴漆闖關（`web/street/`，網頁版，部署在 `/street/`）
+- 規格：Obsidian `彈珠專案/08 遊戲規格 v3-噴漆闖關`；素材提示詞：`09`
+- 只有網頁版（設計驗證階段），Godot 版仍是 v2 台面；移植要等設計定案
+- 檔案分工：`data.js` 企劃可改的資料（關卡文字圖、劇情、強化卡、成就）／`physics.js` 物理／`rules.js` 規則／`art.js` 美術／`audio.js` 聲音／`game.js` 流程與畫面／`tests.js` 測試
+- 手感讀 `tuning.json`（部署時從 `data/tuning.json` 複製過去），噴漆闖關專用參數在 `tuning.js` 的 `STREET_TUNING`
+- **改了任何 street 的程式都要開 `web/street/test.html` 跑測試，13 項全過才能部署**（本機：`python -m http.server --directory web/street`）
+- 改台面幾何後 AC-S7（卡球）與 AC-S9c（最大顆的球）一定要過；改數值後看 AC-S8／AC-S8b（自動遊玩清關時間）
+- 測試用的自動玩家要「按一下就放開」，一直按住會把球卡在接球位置，誤判成遊戲問題
+
 ## 常用指令
 | 做什麼 | 指令 |
 |---|---|

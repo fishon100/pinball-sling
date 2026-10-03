@@ -2,6 +2,12 @@
 
 Godot 4.7 彈珠台。物理自製、手感參數全在 `data/tuning.json`。
 
+| 版本 | 網址 | 原始碼 |
+|---|---|---|
+| v3 噴漆闖關 SPRAY RUN（彈珠 × 打磚塊 × Roguelite，5 區 50 關） | https://fishon100.github.io/pinball-sling/street/ | `web/street/` |
+| v2 Godot 網頁版 | https://fishon100.github.io/pinball-sling/ | `scripts/`、`scenes/` |
+| 手感調參原型 | https://fishon100.github.io/pinball-sling/tuning/ | `tools/tuning-prototype/` |
+
 ## 快速開始
 1. 用 Godot 4.7 開啟這個資料夾（`project.godot`）
 2. 按 F5 執行

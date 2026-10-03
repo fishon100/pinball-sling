@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>噴漆闖關 自動測試</title>
+<style>
+  body { margin: 0; padding: 20px 16px; background: #141418; color: #eee; font: 14px/1.6 "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p { color: #9a9aa3; margin: 0 0 16px; }
+  li { list-style: none; margin: 0 0 10px; display: grid; grid-template-columns: 28px 1fr; }
+  ul { padding: 0; max-width: 760px; }
+  .ok { color: #7cff4f; } .bad { color: #ff5a5a; }
+  small { color: #9a9aa3; font-family: Consolas, monospace; }
+</style>
+</head>
+<body>
+<h1>噴漆闖關｜自動測試</h1>
+<p id="meta">執行中…</p>
+<ul id="list"></ul>
+<script src="js/data.js"></script>
+<script src="js/tuning.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/tests.js"></script>
+<script>
+(async () => {
+  const T = await SR.loadTuning();
+  const t0 = performance.now();
+  const res = SR.Tests.run(T);
+  window.SR_TEST_RESULTS = res;
+  const ok = res.filter(r => r.pass).length;
+  document.getElementById("meta").textContent = `${ok}/${res.length} 通過・參數來源：${T._source}・${Math.round(performance.now() - t0)} ms`;
+  document.getElementById("list").innerHTML = res.map(r =>
+    `<li><span class="${r.pass ? "ok" : "bad"}">${r.pass ? "✓" : "✗"}</span><span><b>${r.id}</b> ${r.name}<br><small>${r.value}（${r.ms} ms）</small></span></li>`).join("");
+})();
+</script>
+</body>
+</html>

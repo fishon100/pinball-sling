@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "ball": { "radius": 12, "gravity": 1400, "max_speed": 2600, "restitution_wall": 0.45, "friction": 0.04, "damping": 0.05 },
+  "flipper": { "length": 72, "radius_base": 11, "radius_tip": 5, "rest_deg": 30, "stroke_deg": 58,
+               "up_speed_deg_s": 1700, "down_speed_deg_s": 800, "restitution": 0.3, "power": 0.8 },
+  "upper_flipper": { "scale": 0.75 },
+  "plunger": { "min_speed": 900, "max_speed": 2300, "charge_time": 0.9 },
+  "bumper": { "radius": 22, "kick_speed": 950, "score": 100 },
+  "sling": { "kick_speed": 800, "score": 10 },
+  "target": { "score": 250, "min_hit_speed": 80 },
+  "lane": { "score": 50, "max_mult": 5 },
+  "fever": { "duration_s": 10, "mult": 3 },
+  "rules": { "ball_save_s": 3, "time_attack_s": 60 },
+  "juice": { "hitstop_ms": 35, "shake_px": 6, "flash_ms": 90, "vibrate_ms": 15, "trail": 10 },
+  "physics": { "substeps": 8 }
+}

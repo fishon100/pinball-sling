@@ -12,7 +12,7 @@ $env:PATH = [Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [En
 
 $repo = "fishon100/pinball-sling"
 $site = "https://fishon100.github.io/pinball-sling/"
-$links = [ordered]@{ "開啟遊戲" = $site; "調手感" = "${site}tuning/"; "看程式碼" = "https://github.com/$repo" }
+$links = [ordered]@{ "噴漆闖關" = "${site}street/"; "Godot 版" = $site; "調手感" = "${site}tuning/" }
 $notify = Join-Path $PSScriptRoot "notify.ps1"
 
 function Fail([string]$why) {
@@ -32,9 +32,13 @@ Write-Host "2/5 匯出 Godot 網頁版…"
 & $godot --headless --path . --export-release "Web" docs/index.html *> $null
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path docs\index.wasm)) { Fail "Godot 匯出失敗" }
 
-Write-Host "3/5 同步手感調參原型…"
+Write-Host "3/5 同步網頁版：手感調參原型、噴漆闖關…"
 New-Item -ItemType Directory -Force docs\tuning | Out-Null
 Copy-Item tools\tuning-prototype\index.html docs\tuning\index.html -Force
+# 噴漆闖關讀同一份 tuning.json（手感單一真相來源）
+Copy-Item data\tuning.json web\street\tuning.json -Force
+if (Test-Path docs\street) { Remove-Item -Recurse -Force docs\street }
+Copy-Item web\street docs\street -Recurse -Force
 if (-not (Test-Path docs\.nojekyll)) { New-Item -ItemType File docs\.nojekyll | Out-Null }
 
 Write-Host "4/5 推上 GitHub…"
