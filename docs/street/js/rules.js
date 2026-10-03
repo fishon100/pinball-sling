@@ -54,7 +54,7 @@ SR.Rules = (function () {
     return true;
   }
   function randomItem(rnd) { return SR.ITEMS[Math.floor(rnd() * SR.ITEMS.length)].id; }
-  /* 使用道具：fx 是計時器 {slow, guard}，回傳產生的事件（漆彈碎磚等） */
+  /* 使用道具：fx 是計時器 {slow, save}，回傳產生的事件（漆彈碎磚等） */
   function useItem(T, world, id, fx) {
     const out = [];
     if (id === "bomb") {
@@ -68,13 +68,13 @@ SR.Rules = (function () {
         }
       }
     } else if (id === "slow") fx.slow = T.items.slow_s;
-    else if (id === "guard") { fx.guard = T.items.guard_s; P().setGuard(world, true); }
+    else if (id === "save") fx.save = T.items.save_s;          // 球保險：這段時間內掉球會把球還回發射道（真實彈珠台的 ball save）
     else if (id === "ball") { const nb = P().newBall(T, world, 185, 110); nb.vx = (Math.random() - 0.5) * 200; world.balls.push(nb); out.push({ type: "extra_ball", b: nb }); }
     return out;
   }
   function tickItems(world, fx, dt) {
     if (fx.slow > 0) fx.slow = Math.max(0, fx.slow - dt);
-    if (fx.guard > 0) { fx.guard = Math.max(0, fx.guard - dt); if (fx.guard === 0) P().setGuard(world, false); }
+    if (fx.save > 0) fx.save = Math.max(0, fx.save - dt);
   }
   function piercePerLaunch(run) { return 2 * lv(run, "pierce"); }
 

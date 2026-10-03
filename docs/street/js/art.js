@@ -97,25 +97,7 @@ SR.Art = (function () {
     }
     for (const c of world.circles) {
       if (c.kind === "post") { g.beginPath(); g.arc(c.x, c.y, c.r + 1, 0, Math.PI * 2); g.fillStyle = INK; g.fill(); continue; }
-      if (c.kind === "kicker") { kicker(g, c, pal, t); continue; }
       sprayCan(g, c.x, c.y, SR.T.bumper.radius, pal, c.flash > 0, t);
-    }
-  }
-  // 救球柱：擋板中間的橡膠柱。次數有限時，每用掉一次多一道裂痕；用完剩一截斷柱
-  function kicker(g, c, pal, t) {
-    const broken = c.charges <= 0, guard = c.tag === "guard";
-    if (broken) { g.beginPath(); g.arc(c.x, c.y + 3, c.r * 0.6, 0, Math.PI * 2); g.fillStyle = "#4a4a55"; g.fill(); g.strokeStyle = INK; g.lineWidth = 2; g.stroke(); return; }
-    const color = guard ? "#9dff3a" : pal.a;
-    if (c.flash > 0 || guard) { g.fillStyle = rgba(color, 0.35 + 0.15 * Math.sin(t * 8)); g.beginPath(); g.arc(c.x, c.y, c.r * 2.4, 0, Math.PI * 2); g.fill(); }
-    g.beginPath(); g.arc(c.x, c.y, c.r + 1.5, 0, Math.PI * 2); g.fillStyle = c.flash > 0 ? "#fff" : color; g.fill(); strokeInk(g, 3);
-    g.beginPath(); g.arc(c.x - 2, c.y - 2, 2, 0, Math.PI * 2); g.fillStyle = "rgba(255,255,255,0.8)"; g.fill();
-    if (c.maxCharges && c.maxCharges < 99) {
-      const used = c.maxCharges - c.charges;
-      g.strokeStyle = INK; g.lineWidth = 1.3; g.beginPath();
-      for (let i = 0; i < used; i++) { const a = i * 2.1; g.moveTo(c.x, c.y); g.lineTo(c.x + Math.cos(a) * (c.r + 1), c.y + Math.sin(a) * (c.r + 1)); }
-      g.stroke();
-      g.fillStyle = "#fff"; g.font = "900 10px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
-      g.strokeStyle = INK; g.lineWidth = 3; g.strokeText("×" + c.charges, c.x, c.y + 18); g.fillText("×" + c.charges, c.x, c.y + 18);
     }
   }
   // 彈跳柱＝從上往下看的噴漆罐

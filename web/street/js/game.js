@@ -21,7 +21,7 @@
     paint: null, particles: [], popups: [], trails: new Map(),
     plunger: { holding: false, charge: 0 }, ballSave: 0, stageTime: 0, heartsLost: 0,
     lastBreak: null, comboFx: { n: 0, t: 0 }, attract: false, ending: false, t: 0,
-    assists: {}, itemFx: { slow: 0, guard: 0 }, continued: false, tut: null, previews: []
+    assists: {}, itemFx: { slow: 0, save: 0 }, continued: false, tut: null, previews: []
   };
 
   /* ---------- 小工具 ---------- */
@@ -66,11 +66,11 @@
     const show = G.stage && G.screen !== "title" && G.screen !== "map" && (G.stage.district >= 1 || SR.ITEMS.some(i => items[i.id] > 0));
     bar.hidden = !show;
     if (!show) return;
-    const key = SR.ITEMS.map(i => (items[i.id] || 0) + (G.itemFx.slow > 0 && i.id === "slow" ? "a" : "") + (G.itemFx.guard > 0 && i.id === "guard" ? "a" : "")).join(",") + G.screen;
+    const key = SR.ITEMS.map(i => (items[i.id] || 0) + (G.itemFx.slow > 0 && i.id === "slow" ? "a" : "") + (G.itemFx.save > 0 && i.id === "save" ? "a" : "")).join(",") + G.screen;
     if (bar.dataset.key === key) return;
     bar.dataset.key = key;
     bar.innerHTML = SR.ITEMS.map(i => {
-      const n = items[i.id] || 0, active = (i.id === "slow" && G.itemFx.slow > 0) || (i.id === "guard" && G.itemFx.guard > 0);
+      const n = items[i.id] || 0, active = (i.id === "slow" && G.itemFx.slow > 0) || (i.id === "save" && G.itemFx.save > 0);
       return `<button class="item-btn ${active ? "active" : ""}" data-item="${i.id}" ${n && G.screen === "play" ? "" : "disabled"} title="${i.desc}"><span class="ico">${i.icon}</span>${i.name}${n ? `<span class="n">${n}</span>` : ""}</button>`;
     }).join("");
     bar.querySelectorAll("[data-item]").forEach(b => b.addEventListener("click", () => useItem(b.dataset.item)));
@@ -165,7 +165,6 @@
     const parts = [];
     if (a.preview) parts.push(`彈道預覽 ${a.preview} 秒`);
     if (a.timing) parts.push("擋板時機提示");
-    if (a.centerPost) parts.push(a.centerPost >= 99 ? "救球柱（不限次數）" : `救球柱 ×${a.centerPost}`);
     if (a.ballSave) parts.push(`球保險 +${a.ballSave} 秒`);
     return parts.length ? "輔助：" + parts.join("・") : "";
   }
@@ -261,43 +260,17 @@
     on("endMap", mapScreen);
   }
 
-  /* ---------- 劇情對話 ---------- */
-  const portrait = $("portrait").getContext("2d");
-  let dlg = null;
+  /* ---------- 劇情：漫畫格（背景框 → 角色 → 旁白 → 對話框，點一下下一格）---------- */
+  let dlg = null;                                         // 播漫畫時為 true（遊戲暫停）
   function playStory(keys, done) {
-    const lines = keys.flatMap(k => SR.STORY[k] || []);
-    if (!lines.length) { done(); return; }
+    if (!keys.some(k => SR.COMICS[k])) { done(); return; }
     keys.forEach(k => save.seenStory[k] = true); R.persist(save);
-    dlg = { lines, i: 0, shown: 0, done, speed: 38 };
-    $("dialog").hidden = false; renderLine();
+    dlg = true; AU.ensure();
+    SR.Comic.play(keys, () => { dlg = null; done(); });
   }
-  function renderLine() {
-    const l = dlg.lines[dlg.i], sp = SR.SPEAKERS[l.who];
-    $("dialog").classList.toggle("narrator", l.who === "narrator");
-    $("dialogName").textContent = sp.name; $("dialogName").style.background = sp.color; $("dialogName").hidden = !sp.name;
-    dlg.shown = 0; $("dialogText").textContent = "";
-    $("dialogHint").textContent = `${dlg.i + 1}/${dlg.lines.length}・點一下繼續`;
-  }
-  function advanceDialog() {
-    if (!dlg) return;
-    const l = dlg.lines[dlg.i];
-    if (dlg.shown < l.text.length) { dlg.shown = l.text.length; return; }
-    dlg.i++;
-    if (dlg.i >= dlg.lines.length) { closeDialog(); return; }
-    AU.play("ui"); renderLine();
-  }
-  function closeDialog() { const d = dlg; dlg = null; $("dialog").hidden = true; if (d) d.done(); }
-  $("dialogBox").addEventListener("click", e => { if (e.target.id !== "dialogSkip") { AU.ensure(); advanceDialog(); } });
-  $("dialogSkip").addEventListener("click", () => { AU.play("ui"); closeDialog(); });
-  function tickDialog(dt) {
-    if (!dlg) return;
-    const l = dlg.lines[dlg.i];
-    if (dlg.shown < l.text.length) { dlg.shown = Math.min(l.text.length, dlg.shown + dlg.speed * dt); $("dialogText").textContent = l.text.slice(0, Math.floor(dlg.shown)); }
-    const g = portrait; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 192, 192);
-    if (l.who === "pinky") A.pinky(g, 96, 112, 1.5, l.mood || "happy", G.t, G.district.id === "rooftops" || G.district.id === "riverside");
-    else if (l.who === "boss") A.bossPortrait(g, 96, 100, 1.45, G.t);
-    else if (l.who === "citizen") { g.fillStyle = "#3ee0ff"; g.beginPath(); g.arc(96, 70, 30, 0, Math.PI * 2); g.fill(); g.strokeStyle = A.INK; g.lineWidth = 6; g.stroke(); g.fillRect(56, 104, 80, 70); g.strokeRect(56, 104, 80, 70); }
-  }
+  function advanceDialog() { SR.Comic.tap(); }
+  function closeDialog() { SR.Comic.finish(); }
+  function tickDialog(dt) { SR.Comic.update(dt); }
 
   /* ============================================================
      一輪／一關
@@ -316,7 +289,7 @@
     G.world = P.buildTable(T, G.assists); P.placeStage(G.world, G.stage); R.applyBonuses(G.run, G.world);
     G.world.balls = [P.newBall(T, G.world)];
     G.run.stage = n; G.ps = R.newPlayState(); G.stageTime = 0; G.heartsLost = 0; G.ballSave = 0;
-    G.continued = !!opts.continued; G.itemFx = { slow: 0, guard: 0 }; G.lastBreakT = 0; G._finTold = false;
+    G.continued = !!opts.continued; G.itemFx = { slow: 0, save: 0 }; G.lastBreakT = 0; G._finTold = false;
     G.particles = []; G.popups = []; G.trails = new Map(); G.lastBreak = null; G.plunger = { holding: false, charge: 0 };
     newPaintLayer(); G.cam.y = 0; G.timeScale = 1; G.screen = "story";
     G.tut = n === 1 && !save.tutorialDone ? { step: "press", t: 0, flips: 0 } : null;
@@ -347,7 +320,7 @@
   }
 
   function ballLost() {
-    if (G.ballSave > 0) {
+    if (G.ballSave > 0 || G.itemFx.save > 0) {
       G.world.balls = [P.newBall(T, G.world)]; G.ballSave = 0;
       AU.play("save"); say("球保險！再來一次！", "wow"); popup(185, 900, "BALL SAVED", true);
       return;
@@ -436,13 +409,6 @@
         case "pierce": burstPaint(e.x, e.y, 8); break;
         case "bomb": A.splat(G.paint.getContext("2d"), e.x, e.y, paintColor(), e.r * 0.8); AU.play("bucket"); G.shake = 10; G.hitstop = 0.05; popup(e.x, e.y, "漆彈！", true, pal().a); break;
         case "boss_regen": AU.play("bossRegen"); say("他在補灰磚！", "wow", 1500); break;
-        case "kicker":
-          e.c.flash = 0.15; AU.play("bumper");
-          if (e.c.tag !== "guard" && e.c.charges !== Infinity) {
-            if (e.broke) { popup(185, 975, "救球柱碎了！", true, "#ff5a5a"); say("救球柱用完了，接下來要靠擋板！", "wow"); }
-            else if (!G._kickerTold) { G._kickerTold = true; say("擋板中間的救球柱幫你擋了一下！", "happy"); }
-          } else if (!G._kickerTold) { G._kickerTold = true; say("擋板中間的救球柱幫你擋了一下！", "happy"); }
-          break;
         case "boss_enrage": popup(200, 120, "灰先生生氣了！", true, "#ff5a5a"); AU.setIntensity(2); say("他生氣了！速度變快！", "wow"); break;
       }
     }
@@ -515,9 +481,7 @@
             const fin = R.updateFinisher(T, G.world, G.assists, G.stageTime - (G.lastBreakT || 0));
             if (fin && !G._finTold) { G._finTold = true; say("剩下的磚我幫你標出來了，球會往那邊偏！", "happy", 3000); }
             R.bossTick(T, G.world, G.stage, 1 / 60, ev);
-            const hadGuard = G.itemFx.guard > 0;
             R.tickItems(G.world, G.itemFx, 1 / 60);
-            if (hadGuard && G.itemFx.guard === 0) say("護欄消失了。", "wow", 1400);
             G.stageTime += 1 / 60;
             if (G.ballSave > 0 && G.world.balls.some(b => !P.ballInLane(b))) G.ballSave = Math.max(0, G.ballSave - 1 / 60);
             handleEvents(ev);
@@ -703,7 +667,7 @@
       if (!w.boss) { g.fillStyle = "rgba(17,17,20,0.7)"; g.fillRect(8, 8, 74, 22); g.fillStyle = "#fff"; g.font = `900 12px ${A.FONT_CJK}`; g.textAlign = "left"; g.fillText(`灰磚 ${left}`, 14, 20); }
     }
     if (G.screen === "play" && G.itemFx.slow > 0) { g.fillStyle = "rgba(62,224,255,0.10)"; g.fillRect(0, 0, VW, VH); A.tag(g, `⏳ ${G.itemFx.slow.toFixed(1)}`, 60, VH - 40, 16, ["#3ee0ff"], { drips: false, rot: 0 }); }
-    if (G.screen === "play" && G.itemFx.guard > 0) A.tag(g, `🛡️ ${Math.ceil(G.itemFx.guard)}`, 340, VH - 40, 16, ["#9dff3a"], { drips: false, rot: 0 });
+    if (G.screen === "play" && G.itemFx.save > 0) A.tag(g, `🛟 ${Math.ceil(G.itemFx.save)}`, 340, VH - 40, 16, ["#9dff3a"], { drips: false, rot: 0 });
     if (G.tut && G.screen === "play") drawTutorial(g);
     if (G.cine && G.cine.type === "intro") {
       const k = G.cine.t;
@@ -857,6 +821,6 @@
     const res = SR.Tests.run(T); window.SR_TEST_RESULTS = res;
     console.log(res.map(r => `${r.pass ? "PASS" : "FAIL"} ${r.id} ${r.value}`).join("\n"));
   }
-  window.SR_GAME = { G, save, goStage, startDistrict, mapScreen, titleScreen, T, tick, closeDialog: () => dlg && closeDialog(), setPlunger, setFlipper };
+  window.SR_GAME = { G, save, goStage, startDistrict, mapScreen, titleScreen, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper };
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 })();

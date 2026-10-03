@@ -8,31 +8,31 @@ var SR = window.SR || (window.SR = {});
 /* ---------- 街區（5 區 × 10 關）---------- */
 /* act（起承轉合）只給設計溝通用，不顯示在遊戲畫面上。
    assists：新手輔助，越後面的街區越少（第 3 輪回饋：輔助關掉＝難度提高的因素之一）
-     preview＝彈道預覽秒數、timing＝擋板時機提示、centerPost＝擋板中間救球柱的次數（每關；99＝不限）、ballSave＝額外球保險秒數、finisher＝收尾輔助（只剩幾塊磚時把球往磚的方向吸）
+     preview＝彈道預覽秒數、timing＝擋板時機提示、ballSave＝額外球保險秒數、finisher＝收尾輔助（只剩幾塊磚時把球往磚的方向吸）
      數值依「新手／進步中／熟練」三種自動玩家量測（見 Obsidian 10 號規格）。中段反彈柱量測後沒有幫助（還會擋住往上打的球），已拿掉 */
 SR.DISTRICTS = [
   { id: "alley",     name: "巷口",     en: "ALLEY",     act: "起", stages: [1, 10],  tempo: 88, root: 45,
     teaser: "遊樂場門口的那條巷子。第一面被打開的牆就在這裡。",
-    assists: { preview: 1.0, timing: true, centerPost: 99, ballSave: 3, finisher: true },
+    assists: { preview: 1.0, timing: true, ballSave: 3, finisher: true },
     colors: { a: "#ff3ea5", b: "#ffe14d", c: "#3ee0ff", glow: "#ff7ac6" } },
   { id: "subway",    name: "地鐵站",   en: "SUBWAY",    act: "承", stages: [11, 20], tempo: 92, root: 43,
     teaser: "每天上萬人經過的灰色長廊。",
-    assists: { preview: 0.7, timing: true, centerPost: 8, ballSave: 1.5, finisher: true },
+    assists: { preview: 0.7, timing: true, ballSave: 1.5, finisher: true },
     colors: { a: "#3ee0ff", b: "#b25cff", c: "#ffe14d", glow: "#7fe9ff" } },
   { id: "rooftops",  name: "屋頂",     en: "ROOFTOPS",  act: "轉", stages: [21, 30], tempo: 96, root: 41,
     teaser: "從這裡看得到整座城，也看得到整潔局的大樓。",
-    assists: { preview: 0.4, timing: false, centerPost: 4, ballSave: 0 },
+    assists: { preview: 0.4, timing: false, ballSave: 0 },
     colors: { a: "#ff8a1f", b: "#9dff3a", c: "#ff3ea5", glow: "#ffb066" } },
   { id: "riverside", name: "河堤",     en: "RIVERSIDE", act: "轉", stages: [31, 40], tempo: 84, root: 38,
     teaser: "橋墩下藏著被刷掉一半的舊塗鴉。",
-    assists: { preview: 0, timing: false, centerPost: 0, ballSave: 0 },
+    assists: { preview: 0, timing: false, ballSave: 0 },
     colors: { a: "#2f7bff", b: "#34e89e", c: "#ffe14d", glow: "#6fa6ff" } },
   { id: "downtown",  name: "市中心大牆", en: "DOWNTOWN", act: "合", stages: [41, 50], tempo: 100, root: 45,
     teaser: "整座城最大的一面灰牆。",
-    assists: { preview: 0, timing: false, centerPost: 0, ballSave: 0 },
+    assists: { preview: 0, timing: false, ballSave: 0 },
     colors: { a: "#ff3ea5", b: "#3ee0ff", c: "#ffe14d", glow: "#ffffff", rainbow: true } }
 ];
-SR.ASSIST_NAMES = { preview: "彈道預覽", timing: "擋板時機提示", centerPost: "救球柱", ballSave: "加長球保險", finisher: "收尾輔助" };
+SR.ASSIST_NAMES = { preview: "彈道預覽", timing: "擋板時機提示", ballSave: "加長球保險", finisher: "收尾輔助" };
 SR.districtOf = n => SR.DISTRICTS[Math.min(4, Math.floor((n - 1) / 10))];
 
 /* ---------- 關卡文字圖 ----------
@@ -228,110 +228,119 @@ SR.ACHIEVEMENTS = [
 SR.ITEMS = [
   { id: "bomb",  name: "漆彈",   icon: "💣", desc: "每顆球的位置炸開一顆漆彈" },
   { id: "slow",  name: "慢動作", icon: "⏳", desc: "5 秒內時間變慢一半" },
-  { id: "guard", name: "護欄",   icon: "🛡️", desc: "12 秒內擋板中間出現救球柱" },
+  { id: "save",  name: "球保險", icon: "🛟", desc: "10 秒內掉球，球會回到發射道" },
   { id: "ball",  name: "加一顆", icon: "➕", desc: "從上方多放一顆球" }
 ];
 SR.ITEM_MAX = 3;
 
 /* ---------- 角色 ---------- */
 SR.SPEAKERS = {
+  kid:      { name: "小葵",   color: "#ffb21f" },
   pinky:    { name: "噴噴",   color: "#ff3ea5" },
-  boss:     { name: "灰先生", color: "#9a9aa3" },
-  narrator: { name: "",       color: "#ffe14d" },
-  citizen:  { name: "路人",   color: "#3ee0ff" }
+  grey:     { name: "灰先生", color: "#9a9aa3" },
+  citizen:  { name: "路人",   color: "#3ee0ff" },
+  boy:      { name: "小男孩", color: "#9dff3a" }
 };
 
-/* ---------- 劇情 ----------
-   前提：你（玩家）在快拆的老遊樂場投幣玩一台彈珠台。台面上每面牆都連著城裡一面真的牆；
-   在機台裡打碎灰磚，外面那面牆被蓋住的畫就會回來。噴噴是住在機台裡的噴漆精靈。
-   設計用的段落：起（巷口）承（地鐵站）轉（屋頂、河堤）合（市中心）— 只在文件裡用，不顯示給玩家 */
-SR.STORY = {
+/* ---------- 劇情：童話＋漫畫格 ----------
+   童話骨架：很久很久以前（設定）→ 願望 → 魔法幫手 → 三次考驗 → 最低潮 → 真相與轉變 → 從此以後（結局＋寓意）
+   設計用的段落：起（序章、巷口）承（地鐵站）轉（屋頂、河堤）合（市中心、結局）— 只在文件裡用，不顯示給玩家
+   漫畫格式：每段＝幾頁；每頁＝幾格；同一列的格寬加起來 ≤ 1（1＝整列、0.5＝半列）；h＝格子高度比例
+   每一格依序出現：背景框 → 角色 → 旁白框（cap）→ 對話框（say，尾巴指向說話的角色）
+   cast：who＝kid／pinky／pinkyGrey／grey／greyYoung／citizen／boy，x/y＝在格子裡的位置（0～1），s＝大小，mood＝表情 */
+const K = (mood, x, y, s = 1, flip) => ({ who: "kid", mood, x, y, s, flip });
+const PK = (mood, x, y, s = 1) => ({ who: "pinky", mood, x, y, s });
+const PG = (mood, x, y, s = 1) => ({ who: "pinkyGrey", mood, x, y, s });
+const GR = (mood, x, y, s = 1, flip) => ({ who: "grey", mood, x, y, s, flip });
+SR.COMICS = {
   intro: [
-    { who: "narrator", text: "灰城有一條規定：所有的牆，都必須是灰色。" },
-    { who: "narrator", text: "城東那間快要拆掉的老遊樂場裡，有一台蓋著布的彈珠台。" },
-    { who: "narrator", text: "你掀開布。機台側面噴著褪色的字：SPRAY RUN。" },
-    { who: "narrator", text: "投下一枚硬幣，台面一格一格亮了起來。" },
-    { who: "pinky", mood: "wow", text: "……有人投幣了？好久沒人來玩了。" },
-    { who: "pinky", mood: "happy", text: "我是噴噴，住在這台機器裡的噴漆精靈。" },
-    { who: "pinky", mood: "happy", text: "這台機器很特別：台面上的每一面牆，都連著城裡一面真正的牆。" },
-    { who: "pinky", mood: "sad", text: "那些牆原本都有畫，後來被灰漆蓋住了。在這裡把灰磚打碎，外面的畫就會回來。" },
-    { who: "pinky", mood: "happy", text: "第一面，就是遊樂場門口那面牆。我來教你怎麼玩。" }
+    [ { w: 1, h: 1.3, bg: "cityGrey", cap: "很久很久以前，有一座城，叫做灰城。" },
+      { w: 0.5, h: 1, bg: "notice", cap: "城裡有一條規定：所有的牆，都必須是灰色。" },
+      { w: 0.5, h: 1, bg: "wallPaint", cap: "誰畫上顏色，第二天就會被刷掉。" } ],
+    [ { w: 1, h: 1.15, bg: "room", cast: [K("sad", 0.62, 0.95, 1.05)], cap: "小葵最喜歡畫畫。可是她畫的向日葵，只能藏在抽屜裡。" },
+      { w: 1, h: 1, bg: "window", cast: [K("sad", 0.3, 1.0, 1.1, true)], say: [{ who: "kid", text: "要是外面的牆，也能開花就好了……", x: 0.68, y: 0.3 }] } ],
+    [ { w: 1, h: 1.25, bg: "arcade", cast: [K("wow", 0.28, 0.98, 0.75)], cap: "有一天，小葵走進一間快要拆掉的老遊樂場。角落裡，有一台蓋著布的彈珠台。" },
+      { w: 0.5, h: 1, bg: "machine", cap: "她投下口袋裡最後一枚硬幣——" },
+      { w: 0.5, h: 1, bg: "machineGlow", cap: "叮！" } ],
+    [ { w: 1, h: 1.25, bg: "machineGlow", cast: [PK("wow", 0.62, 0.72, 1.25), K("wow", 0.2, 1.02, 0.85)], say: [{ who: "pinky", text: "哇！好久好久，沒有人來玩了！", x: 0.62, y: 0.16 }] },
+      { w: 1, h: 1.05, bg: "machineGlow", cast: [PK("happy", 0.25, 0.8, 1.15)], say: [{ who: "pinky", text: "我是噴噴，住在這台機器裡的噴漆精靈。", x: 0.66, y: 0.3 }] } ],
+    [ { w: 1, h: 1.1, bg: "tableMagic", cast: [PK("happy", 0.16, 0.8, 0.8)], say: [{ who: "pinky", text: "這台機器很神奇。你在台子裡打碎一面灰牆——", x: 0.6, y: 0.2 }] },
+      { w: 1, h: 1, bg: "alleyColor", say: [{ who: "pinky", text: "外面真正的那面牆，就會開出顏色！", x: 0.5, y: 0.22, tail: "none" }] },
+      { w: 1, h: 0.95, bg: "machineGlow", cast: [K("determined", 0.3, 1.02, 1)], say: [{ who: "kid", text: "那就從遊樂場門口那面牆開始吧！", x: 0.68, y: 0.3 }] } ]
   ],
-  tutorial: [],
   d1_boss: [
-    { who: "narrator", text: "巷口最後一面牆上，噴著整潔局的標誌。" },
-    { who: "boss", text: "這台機器，竟然還能動。" },
-    { who: "pinky", mood: "wow", text: "是整潔局的灰先生。城裡的灰牆，都是他下令刷的。" },
-    { who: "boss", text: "牆就該乾乾淨淨。顏色只會讓人吵架。" }
+    [ { w: 1, h: 1.2, bg: "alleyNight", cast: [GR("stern", 0.55, 1.0, 1)], cap: "巷口最後一面牆前，站著一個穿灰色大衣的人。" },
+      { w: 0.5, h: 1.15, bg: "alleyNight", cast: [GR("stern", 0.5, 1.08, 1.1)], say: [{ who: "grey", text: "我是整潔局的灰先生。", x: 0.5, y: 0.12 }] },
+      { w: 0.5, h: 1.15, bg: "alleyNight", cast: [GR("stern", 0.5, 1.08, 1.1, true)], say: [{ who: "grey", text: "顏色只會讓人吵架。", x: 0.5, y: 0.12 }] },
+      { w: 1, h: 0.9, bg: "machineGlow", cast: [PK("wow", 0.22, 0.85, 0.95)], say: [{ who: "pinky", text: "他會在牆上補灰磚，要小心！", x: 0.66, y: 0.32 }] } ]
   ],
   d1_clear: [
-    { who: "citizen", text: "欸，巷口那面牆……什麼時候變成這樣的？" },
-    { who: "pinky", mood: "happy", text: "外面真的變了。下一站是地鐵站，那裡的牆最多。" }
+    [ { w: 1, h: 1.3, bg: "alleyColor", cap: "第二天早上，巷口的牆開滿了向日葵。" },
+      { w: 0.5, h: 1, bg: "alleyColor", cast: [{ who: "citizen", x: 0.5, y: 1.05, s: 1.1 }], say: [{ who: "citizen", text: "這是誰畫的？", x: 0.5, y: 0.2 }] },
+      { w: 0.5, h: 1, bg: "machineGlow", cast: [K("happy", 0.3, 1.05, 0.8), PK("happy", 0.72, 0.8, 0.7)], say: [{ who: "pinky", text: "下一站，地鐵站！", x: 0.6, y: 0.2 }] } ]
   ],
   d2_start: [
-    { who: "narrator", text: "隔天早上，通勤的人在地鐵站一面彩色的牆前停下腳步。" },
-    { who: "pinky", mood: "happy", text: "這裡的磚比較厚，深灰色的要多打幾下。" },
-    { who: "pinky", mood: "wow", text: "金色的道具磚打碎可以拿到道具，按畫面上方的按鈕就能用。" }
+    [ { w: 1, h: 1.3, bg: "subway", cap: "地鐵站裡每天有好多人經過，可是大家都低著頭。" },
+      { w: 1, h: 1, bg: "machineGlow", cast: [PK("wow", 0.2, 0.82, 0.95)], say: [{ who: "pinky", text: "這裡的牆比較厚。金色的磚打碎了會掉出道具，記得用喔！", x: 0.64, y: 0.32 }] } ]
   ],
   d2_boss: [
-    { who: "boss", text: "明天，整潔局就會派人把它們刷掉。" },
-    { who: "pinky", mood: "sad", text: "……那我們就畫得比你們刷得快。" }
+    [ { w: 1, h: 1.1, bg: "subway", cast: [GR("stern", 0.3, 1.05, 1.15)], say: [{ who: "grey", text: "明天，我就派人把它們全部刷掉。", x: 0.68, y: 0.25 }] },
+      { w: 1, h: 1, bg: "machineGlow", cast: [K("determined", 0.7, 1.02, 1, true)], say: [{ who: "kid", text: "那我們就畫得比你刷得快！", x: 0.32, y: 0.28 }] } ]
   ],
   d2_clear: [
-    { who: "citizen", text: "有人在彩色牆前面拍照，還有小孩拿粉筆在地上畫畫。" },
-    { who: "pinky", mood: "happy", text: "下一區是屋頂。從那裡看得到整座城。" }
+    [ { w: 1, h: 1.3, bg: "subwayColor", cap: "那天，地鐵站裡的人，第一次抬起頭看牆。" },
+      { w: 1, h: 1, bg: "chalk", cast: [{ who: "boy", x: 0.35, y: 1.0, s: 1 }], cap: "有個小男孩，拿粉筆在地上畫了一顆太陽。" } ]
   ],
   d3_start: [
-    { who: "narrator", text: "屋頂的風很大。遊樂場的燈突然閃了一下。" },
-    { who: "boss", text: "我知道是誰在玩這台機器。" },
-    { who: "narrator", text: "灰先生拔掉了機台背後的一條線。噴噴身上的顏色，一點一點褪掉。" },
-    { who: "pinky", mood: "sad", text: "我的顏色……在流失。不過機台還能動，別停下來。" },
-    { who: "pinky", mood: "sad", text: "從這裡開始，彈道預覽會越來越短。我幫不了你那麼多了。" }
+    [ { w: 1, h: 1.2, bg: "rooftop", cast: [K("happy", 0.3, 1.0, 0.8), PK("happy", 0.55, 0.85, 0.6)], cap: "小葵和噴噴爬上屋頂，看見城裡一塊一塊亮了起來。" },
+      { w: 1, h: 1.05, bg: "arcadeNight", cast: [GR("stern", 0.6, 1.0, 0.9)], cap: "可是那天晚上，灰先生走進了老遊樂場。" } ],
+    [ { w: 0.5, h: 1, bg: "unplug", cap: "他拔掉了機台背後的一條線。" },
+      { w: 0.5, h: 1, bg: "machineDark", cast: [PG("sad", 0.5, 0.8, 0.95)], say: [{ who: "pinky", text: "我的顏色……", x: 0.5, y: 0.2 }] },
+      { w: 1, h: 1.05, bg: "machineDark", cast: [K("determined", 0.3, 1.02, 1), PG("sad", 0.75, 0.8, 0.7)], say: [{ who: "kid", text: "噴噴，別怕。我會繼續打下去。", x: 0.62, y: 0.2 }] },
+      { w: 1, h: 0.65, bg: "black", cap: "從這裡開始，噴噴能幫的忙越來越少了。" } ]
   ],
   d3_boss: [
-    { who: "boss", text: "這台機器是我修好的。我比誰都清楚它。" },
-    { who: "pinky", mood: "wow", text: "……你修過這台機器？" }
+    [ { w: 1, h: 1.1, bg: "rooftop", cast: [GR("stern", 0.3, 1.05, 1.15)], say: [{ who: "grey", text: "這台機器是我修好的。我比誰都清楚它。", x: 0.68, y: 0.25 }] },
+      { w: 1, h: 1, bg: "rooftop", cast: [K("wow", 0.7, 1.02, 1, true)], say: [{ who: "kid", text: "……你修過這台機器？", x: 0.32, y: 0.28 }] } ]
   ],
   d3_clear: [
-    { who: "narrator", text: "灰先生沒再說話，只是看著屋頂下那片開始變彩色的街區。" },
-    { who: "pinky", mood: "sad", text: "我們去河堤看看。我好像想起了一些事。" }
+    [ { w: 1, h: 1.3, bg: "rooftopColor", cast: [GR("back", 0.5, 1.02, 0.9)], cap: "灰先生沒有回答。他只是看著屋頂下那片彩色的街。" },
+      { w: 1, h: 1, bg: "machineDark", cast: [PG("sad", 0.22, 0.82, 0.95)], say: [{ who: "pinky", text: "去河堤吧。我好像想起了一件事。", x: 0.64, y: 0.3 }] } ]
   ],
   d4_start: [
-    { who: "narrator", text: "河堤的橋墩下，有一整排被刷掉一半的舊塗鴉。" },
-    { who: "pinky", mood: "wow", text: "這個簽名……跟機台側面的一模一樣。" },
-    { who: "narrator", text: "很多年前，有個年輕人畫滿了這裡的牆，也親手做了這台彈珠台。" },
-    { who: "narrator", text: "後來，那些牆在一夜之間，全被刷成了灰色。" },
-    { who: "pinky", mood: "sad", text: "原來灰先生不是討厭顏色。他只是不想再看一次自己的畫被刷掉。" }
+    [ { w: 1, h: 1.2, bg: "riverside", cap: "河堤的橋墩下，有一整排被刷掉一半的舊畫。" },
+      { w: 1, h: 1, bg: "signature", cast: [PG("wow", 0.82, 0.85, 0.7)], say: [{ who: "pinky", text: "這個簽名……跟機台側面的一模一樣。", x: 0.42, y: 0.2 }] } ],
+    [ { w: 1, h: 1.2, bg: "memoryWall", cast: [{ who: "greyYoung", mood: "happy", x: 0.65, y: 1.02, s: 1 }], cap: "很久以前，有個年輕人畫滿了這裡的牆，也親手做了一台彈珠台。", sepia: true },
+      { w: 1, h: 1.1, bg: "memoryGrey", cast: [{ who: "greyYoung", mood: "back", x: 0.5, y: 1.02, s: 1 }], cap: "可是一夜之間，他的畫全被刷成了灰色。從那天起，他再也沒有畫過畫。", sepia: true },
+      { w: 1, h: 0.95, bg: "riverside", cast: [K("sad", 0.3, 1.02, 1)], say: [{ who: "kid", text: "原來灰先生不是討厭顏色……他是怕再被刷掉一次。", x: 0.66, y: 0.3 }] } ]
   ],
   d4_boss: [
-    { who: "boss", text: "別碰那些舊東西。它們已經不在了。" },
-    { who: "pinky", mood: "sad", text: "它們還在，只是被蓋住了。就跟機台裡那些磚底下一樣。" }
+    [ { w: 1, h: 1.1, bg: "riverside", cast: [GR("stern", 0.3, 1.05, 1.15)], say: [{ who: "grey", text: "別碰那些舊東西。它們已經不在了。", x: 0.68, y: 0.25 }] },
+      { w: 1, h: 1, bg: "riverside", cast: [K("determined", 0.7, 1.02, 1, true)], say: [{ who: "kid", text: "它們還在，只是被蓋住了。就像磚底下的顏色一樣。", x: 0.34, y: 0.28 }] } ]
   ],
   d4_clear: [
-    { who: "boss", text: "……如果又被刷掉呢？" },
-    { who: "pinky", mood: "happy", text: "那就再畫一次。這一次，不會只有你一個人。" },
-    { who: "narrator", text: "噴噴身上，慢慢回來了一點粉紅色。" }
+    [ { w: 1, h: 1, bg: "riversideColor", cast: [GR("sad", 0.3, 1.05, 1.1)], say: [{ who: "grey", text: "……如果又被刷掉呢？", x: 0.68, y: 0.25 }] },
+      { w: 1, h: 1, bg: "riversideColor", cast: [K("happy", 0.7, 1.02, 1, true)], say: [{ who: "kid", text: "那就再畫一次。這一次，你不是一個人。", x: 0.34, y: 0.26 }] },
+      { w: 1, h: 0.95, bg: "machineGlow", cast: [PK("happy", 0.5, 0.82, 0.95)], cap: "噴噴的臉頰，悄悄回來了一點粉紅色。" } ]
   ],
   d5_start: [
-    { who: "narrator", text: "市中心的大牆，是整座城最大的一面灰牆。" },
-    { who: "boss", text: "最後一面。如果你能把它打開，我就不再擋你。" },
-    { who: "pinky", mood: "happy", text: "他是認真的。我們也認真打吧。" }
+    [ { w: 1, h: 1.3, bg: "bigwall", cap: "城中心的大牆，是灰城最大、最灰的一面牆。" },
+      { w: 0.5, h: 1.15, bg: "bigwall", cast: [GR("stern", 0.5, 1.08, 1.05)], say: [{ who: "grey", text: "最後一面。打得開，我就不再擋你。", x: 0.5, y: 0.13 }] },
+      { w: 0.5, h: 1.15, bg: "machineGlow", cast: [K("determined", 0.5, 1.05, 1.05)], say: [{ who: "kid", text: "一言為定！", x: 0.5, y: 0.13 }] } ]
   ],
   d5_boss: [
-    { who: "boss", text: "讓我看看，你們的顏色有多頑固。" },
-    { who: "pinky", mood: "wow", text: "他補磚的速度變快了，抓準時機！" }
+    [ { w: 1, h: 1.1, bg: "bigwall", cast: [GR("stern", 0.5, 1.1, 1.3)], say: [{ who: "grey", text: "讓我看看，你們的顏色有多頑固。", x: 0.5, y: 0.2 }] } ]
   ],
   ending: [
-    { who: "narrator", text: "最後一塊灰磚碎開的瞬間，市中心的大牆亮了起來。" },
-    { who: "narrator", text: "灰漆底下，是很多年前那幅沒有畫完的壁畫。" },
-    { who: "boss", text: "……我以為它早就不在了。" },
-    { who: "pinky", mood: "happy", text: "一直都在。只是需要有人把灰漆打開。" },
-    { who: "narrator", text: "那年夏天，整潔局在大牆旁邊立了一塊新牌子：「自由創作牆」。" },
-    { who: "narrator", text: "遊樂場沒有被拆掉。那台彈珠台，到現在都還亮著。" },
-    { who: "pinky", mood: "happy", text: "謝謝你投下那枚硬幣。" }
+    [ { w: 1, h: 1.4, bg: "bigwallColor", cap: "最後一塊灰磚碎開的時候，大牆亮了起來。灰漆底下，是一幅沒有畫完的向日葵。" },
+      { w: 1, h: 1, bg: "bigwallColor", cast: [GR("sad", 0.3, 1.05, 1.15)], say: [{ who: "grey", text: "……這是我年輕時畫的。我以為它早就不在了。", x: 0.68, y: 0.26 }] } ],
+    [ { w: 1, h: 1.1, bg: "bigwallColor", cast: [K("happy", 0.28, 1.02, 1), GR("sad", 0.75, 1.05, 1, true)], say: [{ who: "kid", text: "我們一起把它畫完吧。", x: 0.42, y: 0.18 }] },
+      { w: 1, h: 1.3, bg: "cityColor", cap: "從此以後，灰城的牆上開滿了花。大家改叫它「彩城」。" } ],
+    [ { w: 1, h: 1.3, bg: "arcadeLit", cast: [PK("happy", 0.5, 0.78, 1.1)], cap: "那台老彈珠台，到現在都還亮著，等著下一個投下硬幣的孩子。" },
+      { w: 1, h: 0.8, bg: "black", cap: "顏色可以被蓋住，但不會消失。　——完——" } ]
   ]
 };
-/* 每一關開始前要播哪段劇情 */
+/* 每一關開始前／後要播哪段漫畫 */
 SR.storyBefore = function (n) {
   if (n === 1) return ["intro"];
   const d = Math.floor((n - 1) / 10), local = (n - 1) % 10;

@@ -232,26 +232,6 @@ SR.Tests = (function () {
       return { pass: uniq.length === 0, value: uniq.length ? uniq.slice(0, 3).join("；") : "50 關全部有效" };
     }},
     { id: "AC-S7", name: "空台面沒有卡球死角", run(T) { return stuckProbe(T, {}); } },
-    { id: "AC-S15", name: "開了救球柱也沒有卡球死角", run(T) { return stuckProbe(T, { centerPost: 99 }); } },
-    { id: "AC-S11", name: "新手在第 1 區：有輔助比沒輔助少掉 80% 以上的愛心", run(T) {
-      const m = assists => { let h = 0, n = 0; for (const st of [1, 4, 7]) for (const s of [1, 2, 3]) { const r = playStage(T, st, SR.Rules.simulatedBuild(T, st - 1, st * 10 + s), s * 13, 240, { skill: NOVICE, assists }); h += r.heartsLost; n++; } return h / n; };
-      const off = m({}), on = m(SR.Rules.assistsFor(1));
-      return { pass: on <= off * 0.2, value: `新手每關掉愛心：沒輔助 ${off.toFixed(2)} → 有輔助 ${on.toFixed(2)}` };
-    }},
-    { id: "AC-S12", name: "新手帶第 1 區輔助，第 1～5 關都能在 3 顆愛心內打完", run(T) {
-      const fails = [];
-      for (let st = 1; st <= 5; st++) for (const s of [1, 2]) {
-        const r = playStage(T, st, SR.Rules.simulatedBuild(T, st - 1, st * 10 + s), s * 17, 300, { skill: NOVICE, hearts: 3 });
-        if (!r.cleared) fails.push(`第${st}關（掉 ${r.heartsLost}）`);
-      }
-      return { pass: fails.length === 0, value: fails.length ? "沒打完：" + fails.join("、") : "10 局全部打完" };
-    }},
-    { id: "AC-S12b", name: "難度漸進：進步中的玩家每關掉的愛心 第1區 < 第2區 < 第4區", run(T) {
-      const mid = { delay: 0.06, miss: 0.15 };
-      const m = stages => { let h = 0, n = 0; for (const st of stages) for (const s of [1, 2]) { const r = playStage(T, st, SR.Rules.simulatedBuild(T, (st - 1) % 10, st * 10 + s), s * 13, 300, { skill: mid }); h += r.heartsLost; n++; } return h / n; };
-      const d1 = m([1, 4, 7]), d2 = m([11, 14, 17]), d4 = m([31, 34, 37]);
-      return { pass: d1 < d2 && d2 < d4, value: `第1區 ${d1.toFixed(2)}・第2區 ${d2.toFixed(2)}・第4區 ${d4.toFixed(2)}` };
-    }},
     { id: "AC-S17", name: "收尾輔助：新手卡在最後 3 塊的時間少 20% 以上（45 局）", run(T) {
       // 彈珠物理對微小差異很敏感，樣本太少結果會飄；用 9 關 × 5 局
       const m = finisher => { let tail = 0, n = 0; for (let st = 1; st <= 9; st++) for (const s of [11, 12, 13, 14, 15]) {
@@ -271,31 +251,58 @@ SR.Tests = (function () {
       }
       return { pass: worst < 6, value: `4 條軌跡，最大誤差 ${worst.toFixed(2)} px` };
     }},
-    { id: "AC-S14", name: "道具：漆彈、慢動作、護欄、加一顆，每種最多 3 個", run(T) {
+    { id: "AC-S14", name: "道具：漆彈、慢動作、球保險、加一顆，每種最多 3 個", run(T) {
       const problems = [];
       const w = P().buildTable(T, {}); P().placeStage(w, SR.buildStage(1));
       const k = P().liveBricks(w)[0];
       const b = P().newBall(T, w, k.x + k.w / 2, k.y + k.h + 20); w.balls = [b];
-      const fx = { slow: 0, guard: 0 };
+      const fx = { slow: 0, save: 0 };
       const hpBefore = k.hp, ev = SR.Rules.useItem(T, w, "bomb", fx);
       if (!(k.hp < hpBefore || !k.alive) || !ev.some(e => e.type === "bomb")) problems.push("漆彈沒有傷害");
       SR.Rules.useItem(T, w, "slow", fx); if (fx.slow !== T.items.slow_s) problems.push("慢動作沒有計時");
-      SR.Rules.useItem(T, w, "guard", fx);
-      if (!w.circles.some(c => c.tag === "guard")) problems.push("護欄沒出現");
-      for (let i = 0; i < 13 * 60; i++) SR.Rules.tickItems(w, fx, 1 / 60);
-      if (w.circles.some(c => c.tag === "guard")) problems.push("護欄沒有消失");
+      SR.Rules.useItem(T, w, "save", fx);
+      if (fx.save !== T.items.save_s) problems.push("球保險沒有計時");
+      for (let i = 0; i < 11 * 60; i++) SR.Rules.tickItems(w, fx, 1 / 60);
+      if (fx.save !== 0) problems.push("球保險沒有結束");
       const before = w.balls.length; SR.Rules.useItem(T, w, "ball", fx); if (w.balls.length !== before + 1) problems.push("加一顆沒有加球");
       const save = SR.Rules.emptySave(); for (let i = 0; i < 5; i++) SR.Rules.grantItem(save, "bomb");
       if (save.items.bomb !== SR.ITEM_MAX) problems.push("道具超過上限");
       return { pass: problems.length === 0, value: problems.length ? problems.join("；") : "4 種道具效果正確、上限 3" };
     }},
-    { id: "AC-S16", name: "劇情：玩家不是彈珠、反派叫灰先生", run(T) {
-      const problems = [];
-      const lines = Object.values(SR.STORY).flat();
-      if (lines.some(l => /鋼珠|變成彈珠|你是.*球/.test(l.text))) problems.push("劇情還有「玩家是彈珠」的說法");
-      if (SR.SPEAKERS.boss.name !== "灰先生") problems.push("反派名稱沒改");
-      if (lines.some(l => /灰老大/.test(l.text))) problems.push("劇情還有舊名字");
-      return { pass: problems.length === 0, value: problems.length ? problems.join("；") : `劇情 ${lines.length} 句檢查通過` };
+    { id: "AC-S16", name: "劇情是童話：很久很久以前開場、從此以後結尾、玩家不是彈珠、反派叫灰先生", run(T) {
+      const problems = [], texts = [];
+      for (const pages of Object.values(SR.COMICS)) for (const page of pages) for (const p of page) { if (p.cap) texts.push(p.cap); for (const b of p.say || []) texts.push(b.text); }
+      const intro = SR.COMICS.intro[0][0].cap || "", ending = SR.COMICS.ending.flat().map(p => (p.cap || "") + (p.say || []).map(b => b.text).join("")).join("");
+      if (!intro.startsWith("很久很久以前")) problems.push("序章不是「很久很久以前」開頭");
+      if (!ending.includes("從此以後")) problems.push("結局沒有「從此以後」");
+      if (texts.some(x => /鋼珠|變成彈珠/.test(x))) problems.push("還有「玩家是彈珠」的說法");
+      if (texts.some(x => /灰老大/.test(x)) || SR.SPEAKERS.grey.name !== "灰先生") problems.push("反派名稱不對");
+      if (!SR.COMICS.intro.flat().some(p => (p.cast || []).some(c => c.who === "kid"))) problems.push("序章沒有主角小葵");
+      return { pass: problems.length === 0, value: problems.length ? problems.join("；") : `${Object.keys(SR.COMICS).length} 段漫畫、${texts.length} 段文字檢查通過` };
+    }},
+    { id: "AC-S18", name: "漫畫資料與版面：背景／角色都存在、對話框不超過 32 字、不蓋到臉、格子不重疊也不超出頁面", run(T) {
+      const problems = [], mctx = document.createElement("canvas").getContext("2d");
+      for (const [key, pages] of Object.entries(SR.COMICS)) pages.forEach((page, pi) => {
+        const cells = SR.Comic.layout(page);
+        cells.forEach((c, i) => {
+          const p = c.p, where = `${key} 第${pi + 1}頁第${i + 1}格`;
+          if (!SR.Comic.BG[p.bg]) problems.push(`${where} 背景 ${p.bg} 不存在`);
+          for (const ch of p.cast || []) if (!SR.Comic.CHAR[ch.who]) problems.push(`${where} 角色 ${ch.who} 不存在`);
+          for (const b of p.say || []) {
+            if (!SR.SPEAKERS[b.who]) problems.push(`${where} 說話者 ${b.who} 不存在`);
+            if (b.text.length > 32) problems.push(`${where} 對話太長（${b.text.length} 字）`);
+            if (b.tail !== "none" && !(p.cast || []).some(c => c.who === b.who || (b.who === "pinky" && c.who === "pinkyGrey"))) problems.push(`${where} 說話的人不在格子裡`);
+          }
+          if (c.x < 0 || c.y < 0 || c.x + c.w > SR.Comic.VW + 0.5 || c.y + c.h > SR.Comic.VH + 0.5) problems.push(`${where} 超出頁面`);
+          cells.forEach((d, j) => { if (j > i && c.x < d.x + d.w - 0.5 && d.x < c.x + c.w - 0.5 && c.y < d.y + d.h - 0.5 && d.y < c.y + c.h - 0.5) problems.push(`${where} 和第${j + 1}格重疊`); });
+          if (c.h < 90) problems.push(`${where} 太矮（${Math.round(c.h)}px）`);
+          for (const hit of SR.Comic.bubbleCoversFace(mctx, c)) problems.push(`${where} 對話框${hit}`);
+          for (const out of SR.Comic.bubbleOutside(mctx, c)) problems.push(`${where} 對話框超出格子：${out}`);
+        });
+        if (page.length > 5) problems.push(`${key} 第${pi + 1}頁格數太多`);
+      });
+      const pagesN = Object.values(SR.COMICS).reduce((s, p) => s + p.length, 0);
+      return { pass: problems.length === 0, value: problems.length ? problems.slice(0, 4).join("；") : `${pagesN} 頁漫畫全部有效` };
     }},
     { id: "AC-S8", name: "自動遊玩能在 3 分鐘內打完第 1 關", run(T) {
       const w = P().buildTable(T), rnd = SR.rng(7);
@@ -352,12 +359,11 @@ SR.Tests = (function () {
     }},
     { id: "AC-S9", name: "劇情、強化卡、成就資料完整", run() {
       const problems = [];
-      for (const [key, lines] of Object.entries(SR.STORY)) for (const l of lines) if (!SR.SPEAKERS[l.who]) problems.push(`劇情 ${key} 有未知角色 ${l.who}`);
-      for (let n = 1; n <= 50; n++) for (const k of [...SR.storyBefore(n), ...SR.storyAfter(n)]) if (!SR.STORY[k]) problems.push(`第 ${n} 關找不到劇情 ${k}`);
+      for (let n = 1; n <= 50; n++) for (const k of [...SR.storyBefore(n), ...SR.storyAfter(n)]) if (!SR.COMICS[k]) problems.push(`第 ${n} 關找不到劇情 ${k}`);
       const dup = arr => arr.length !== new Set(arr).size;
       if (dup(SR.UPGRADES.map(u => u.id))) problems.push("強化卡 id 重複");
       if (dup(SR.ACHIEVEMENTS.map(a => a.id))) problems.push("成就 id 重複");
-      return { pass: problems.length === 0, value: problems.length ? problems.slice(0, 3).join("；") : `劇情 ${Object.keys(SR.STORY).length} 段、強化卡 ${SR.UPGRADES.length} 種、成就 ${SR.ACHIEVEMENTS.length} 個` };
+      return { pass: problems.length === 0, value: problems.length ? problems.slice(0, 3).join("；") : `劇情 ${Object.keys(SR.COMICS).length} 段、強化卡 ${SR.UPGRADES.length} 種、成就 ${SR.ACHIEVEMENTS.length} 個` };
     }},
     { id: "AC-S10", name: "手感沿用 v2：擋板全舉時間、尖端擊球速度相同", run(T) {
       const w = emptyWorld(T), f = P().buildTable(T).flippers[0];

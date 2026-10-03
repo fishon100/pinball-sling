@@ -187,6 +187,12 @@ canvas#game {
 .dialog.narrator canvas { display: none; }
 .dialog.narrator .text { font-style: italic; color: #f0f0f0; }
 
+/* 漫畫劇情 */
+.comic { position: fixed; inset: 0; z-index: 25; background: #18181d; display: flex; align-items: center; justify-content: center; touch-action: none; cursor: pointer; }
+.comic[hidden] { display: none; }
+.comic canvas { display: block; }
+.comic-skip { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: 12px; appearance: none; border: 2.5px solid var(--ink); background: var(--yellow); color: var(--ink); font-weight: 900; border-radius: 10px; padding: 6px 12px; box-shadow: 3px 3px 0 var(--ink); cursor: pointer; }
+
 /* 成就通知 */
 .toasts { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 0; right: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
 .toast { background: var(--lime); color: var(--ink); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 4px 4px 0 var(--ink); padding: 8px 14px; font-weight: 900; animation: pop .2s ease-out; max-width: 90vw; }
@@ -216,25 +222,20 @@ canvas#game {
 </div>
 
 <section class="screen" id="screen" hidden></section>
-<div class="dialog" id="dialog" hidden>
-  <div class="box" id="dialogBox">
-    <canvas id="portrait" width="192" height="192"></canvas>
-    <div>
-      <div class="name" id="dialogName"></div>
-      <div class="text" id="dialogText"></div>
-      <div class="controls"><span id="dialogHint">點一下繼續</span><button class="skip" id="dialogSkip">跳過劇情</button></div>
-    </div>
-  </div>
+<div class="comic" id="comicLayer" hidden>
+  <canvas id="comicCanvas" width="400" height="740" aria-label="漫畫劇情"></canvas>
+  <button class="comic-skip" id="comicSkip">跳過劇情 ▶▶</button>
 </div>
 <div class="toasts" id="toasts"></div>
 
-<script src="js/data.js?v=3.1.2"></script>
-<script src="js/tuning.js?v=3.1.2"></script>
-<script src="js/physics.js?v=3.1.2"></script>
-<script src="js/rules.js?v=3.1.2"></script>
-<script src="js/art.js?v=3.1.2"></script>
-<script src="js/audio.js?v=3.1.2"></script>
-<script src="js/tests.js?v=3.1.2"></script>
-<script src="js/game.js?v=3.1.2"></script>
+<script src="js/data.js?v=3.2.6"></script>
+<script src="js/tuning.js?v=3.2.6"></script>
+<script src="js/physics.js?v=3.2.6"></script>
+<script src="js/rules.js?v=3.2.6"></script>
+<script src="js/art.js?v=3.2.6"></script>
+<script src="js/comic.js?v=3.2.6"></script>
+<script src="js/audio.js?v=3.2.6"></script>
+<script src="js/tests.js?v=3.2.6"></script>
+<script src="js/game.js?v=3.2.6"></script>
 </body>
 </html>
