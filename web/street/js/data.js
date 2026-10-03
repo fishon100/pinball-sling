@@ -9,27 +9,29 @@ var SR = window.SR || (window.SR = {});
 /* act（起承轉合）只給設計溝通用，不顯示在遊戲畫面上。
    assists：新手輔助，越後面的街區越少（第 3 輪回饋：輔助關掉＝難度提高的因素之一）
      preview＝彈道預覽秒數、timing＝擋板時機提示、ballSave＝額外球保險秒數、finisher＝收尾輔助（只剩幾塊磚時把球往磚的方向吸）
-     數值依「新手／進步中／熟練」三種自動玩家量測（見 Obsidian 10 號規格）。中段反彈柱量測後沒有幫助（還會擋住往上打的球），已拿掉 */
+     數值依「新手／進步中／熟練」三種自動玩家量測（見 Obsidian 10 號規格）。
+   cluster：台面上半部兩側的彈跳柱群（企劃說的「中柱」，參考 3D Space Cadet 的彈跳柱群），每側幾顆（0～3）。
+     新手自動玩家 45 局：沒有柱群每關掉 9.67 顆愛心 → 每側 3 顆時 2.69 顆（見 Obsidian 11 號規格） */
 SR.DISTRICTS = [
   { id: "alley",     name: "巷口",     en: "ALLEY",     act: "起", stages: [1, 10],  tempo: 88, root: 45,
     teaser: "遊樂場門口的那條巷子。第一面被打開的牆就在這裡。",
-    assists: { preview: 1.0, timing: true, ballSave: 3, finisher: true },
+    assists: { preview: 1.0, timing: true, ballSave: 3, finisher: true }, cluster: 3,
     colors: { a: "#ff3ea5", b: "#ffe14d", c: "#3ee0ff", glow: "#ff7ac6" } },
   { id: "subway",    name: "地鐵站",   en: "SUBWAY",    act: "承", stages: [11, 20], tempo: 92, root: 43,
     teaser: "每天上萬人經過的灰色長廊。",
-    assists: { preview: 0.7, timing: true, ballSave: 1.5, finisher: true },
+    assists: { preview: 0.7, timing: true, ballSave: 1.5, finisher: true }, cluster: 3,
     colors: { a: "#3ee0ff", b: "#b25cff", c: "#ffe14d", glow: "#7fe9ff" } },
   { id: "rooftops",  name: "屋頂",     en: "ROOFTOPS",  act: "轉", stages: [21, 30], tempo: 96, root: 41,
     teaser: "從這裡看得到整座城，也看得到整潔局的大樓。",
-    assists: { preview: 0.4, timing: false, ballSave: 0 },
+    assists: { preview: 0.4, timing: false, ballSave: 0 }, cluster: 2,
     colors: { a: "#ff8a1f", b: "#9dff3a", c: "#ff3ea5", glow: "#ffb066" } },
   { id: "riverside", name: "河堤",     en: "RIVERSIDE", act: "轉", stages: [31, 40], tempo: 84, root: 38,
     teaser: "橋墩下藏著被刷掉一半的舊塗鴉。",
-    assists: { preview: 0, timing: false, ballSave: 0 },
+    assists: { preview: 0, timing: false, ballSave: 0 }, cluster: 1,
     colors: { a: "#2f7bff", b: "#34e89e", c: "#ffe14d", glow: "#6fa6ff" } },
   { id: "downtown",  name: "市中心大牆", en: "DOWNTOWN", act: "合", stages: [41, 50], tempo: 100, root: 45,
     teaser: "整座城最大的一面灰牆。",
-    assists: { preview: 0, timing: false, ballSave: 0 },
+    assists: { preview: 0, timing: false, ballSave: 0 }, cluster: 1,
     colors: { a: "#ff3ea5", b: "#3ee0ff", c: "#ffe14d", glow: "#ffffff", rainbow: true } }
 ];
 SR.ASSIST_NAMES = { preview: "彈道預覽", timing: "擋板時機提示", ballSave: "加長球保險", finisher: "收尾輔助" };

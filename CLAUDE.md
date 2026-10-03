@@ -27,9 +27,9 @@
 - 只有網頁版（設計驗證階段），Godot 版仍是 v2 台面；移植要等設計定案
 - 檔案分工：`data.js` 企劃可改的資料（關卡文字圖、劇情、強化卡、成就）／`physics.js` 物理／`rules.js` 規則／`art.js` 美術／`audio.js` 聲音／`game.js` 流程與畫面／`tests.js` 測試
 - 手感讀 `tuning.json`（部署時從 `data/tuning.json` 複製過去），噴漆闖關專用參數在 `tuning.js` 的 `STREET_TUNING`
-- **改了任何 street 的程式都要開 `web/street/test.html` 跑測試，18 項全過才能部署**（本機：`python -m http.server --directory web/street`；約 20 秒）
+- **改了任何 street 的程式都要開 `web/street/test.html` 跑測試，19 項全過才能部署**（本機：`python -m http.server --directory web/street`；約 20 秒）
 - v3.2 規格：Obsidian `11`。劇情是格漫畫：資料在 `data.js` 的 `SR.COMICS`／`SR.SPEAKERS`，播放與畫格繪製在 `comic.js`；AC-S18 檢查對白不遮臉、不出框、畫格不重疊、每句 ≤ 32 字
-- 不可加「擋板中間的救球柱」這類違反彈珠基本架構的東西（企劃第 4 輪回饋）；企劃說的「中柱」＝圓形彈跳柱（pop bumper）
+- 不可加「擋板中間的救球柱」這類違反彈珠基本架構的東西（企劃第 4 輪回饋）；企劃說的「中柱」＝圓形彈跳柱（pop bumper）。v3.3 的彈跳柱群在 `physics.js` 的 `CLUSTER`，每區幾顆在 `data.js` 的 `DISTRICTS[].cluster`；改了要過 AC-S7、AC-S19
 - v3.1 規格：Obsidian `10`。難度用三種自動玩家量（`SR.Tests.NOVICE`、進步中 `{delay:0.06,miss:0.15}`、熟練＝不給 skill）；彈珠物理對微小差異很敏感，平衡判斷至少用 40 局以上
 - 每區的新手輔助在 `data.js` 的 `DISTRICTS[].assists`（彈道預覽、時機提示、球保險、收尾輔助）
 - 改台面幾何後 AC-S7（卡球）與 AC-S9c（最大顆的球）一定要過；改數值後看 AC-S8／AC-S8b（自動遊玩清關時間）

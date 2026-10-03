@@ -286,7 +286,7 @@
     hideScreen();
     G.stage = SR.buildStage(n); G.district = SR.districtOf(n);
     G.assists = R.assistsFor(n);
-    G.world = P.buildTable(T, G.assists); P.placeStage(G.world, G.stage); R.applyBonuses(G.run, G.world);
+    G.world = P.buildTable(T, G.assists, G.district.cluster); P.placeStage(G.world, G.stage); R.applyBonuses(G.run, G.world);
     G.world.balls = [P.newBall(T, G.world)];
     G.run.stage = n; G.ps = R.newPlayState(); G.stageTime = 0; G.heartsLost = 0; G.ballSave = 0;
     G.continued = !!opts.continued; G.itemFx = { slow: 0, save: 0 }; G.lastBreakT = 0; G._finTold = false;
@@ -803,7 +803,7 @@
     const n = again ? 1 + Math.floor(Math.random() * 9) : 1;
     G.district = again ? SR.DISTRICTS[Math.floor(Math.random() * 5)] : G.district || SR.DISTRICTS[0];
     G.stage = null;
-    G.world = P.buildTable(T); P.placeStage(G.world, SR.buildStage(n)); G.world.balls = [P.newBall(T, G.world)];
+    G.world = P.buildTable(T, {}, G.district.cluster); P.placeStage(G.world, SR.buildStage(n)); G.world.balls = [P.newBall(T, G.world)];
     G.trails = new Map(); G.particles = []; G.popups = []; G.cine = null; G.timeScale = 1; G.screen = G.screen === "title" || G.screen === "map" ? G.screen : "title";
     newPaintLayer();
   }

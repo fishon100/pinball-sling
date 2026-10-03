@@ -21,7 +21,11 @@ SR.Physics = (function () {
   function seg(ax, ay, bx, by, kind = "wall", extra = {}) { return { ax, ay, bx, by, kind, ...extra }; }
 
 
-  function buildTable(T, assists = {}) {
+  // 彈跳柱群（企劃的「中柱」）：台面上半部兩側各一組三角形，參考 3D Space Cadet。
+  // 放在磚塊區下方、主射擊線兩側，球打上去會在上半部多彈幾次，不會一直回到擋板（見 data.js 的 cluster）
+  const CLUSTER = [[105, 400], [60, 360], [60, 440]];
+
+  function buildTable(T, assists = {}, cluster = 0) {
     const segments = [];
     const N = 28;
     for (let i = 0; i < N; i++) {
@@ -51,6 +55,9 @@ SR.Physics = (function () {
       { x: 304, y: 560, kind: "bumper", flash: 0 },
       { x: 58, y: 790, r: 4, kind: "post" }, { x: 312, y: 790, r: 4, kind: "post" }
     ];
+    for (const [x, y] of CLUSTER.slice(0, cluster)) {
+      circles.push({ x, y, kind: "bumper", flash: 0 }, { x: 360 - x, y, kind: "bumper", flash: 0 });
+    }
     const flippers = [
       { side: "L", px: 100, py: FLIP_Y, angle: 0, omega: 0, pressed: false },
       { side: "R", px: 270, py: FLIP_Y, angle: 0, omega: 0, pressed: false }
@@ -329,7 +336,7 @@ SR.Physics = (function () {
   // 兩支擋板（含尖端）是否完整在畫面內
   function flippersVisible(camY, T) { return camY + VIEW_H >= FLIP_Y + T.flipper.length * 0.5 + 12; }
 
-  return { W, H, VIEW_H, CAM_MAX, DRAIN_Y, FLIP_Y, GRID, SLING_TRIS, clamp,
+  return { W, H, VIEW_H, CAM_MAX, DRAIN_Y, FLIP_Y, GRID, SLING_TRIS, CLUSTER, clamp,
            buildTable, cellRect, validRect, placeStage, addBrick, liveBricks, neighbors, damageBrick,
            newBall, ballRadius, flipperRest, flipperUp, flipperDims, ballInLane, updateFlipper,
            substep, stepFrame, cameraTarget, updateCamera, flippersVisible, predictPath };

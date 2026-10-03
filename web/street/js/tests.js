@@ -78,7 +78,8 @@ SR.Tests = (function () {
      opts：{ skill（NOVICE＝新手）, assists（預設＝該區設定，null＝全關）, hearts（有給就算愛心，用完算失敗）} */
   function playStage(T, n, run, seed, maxSec = 600, opts = {}) {
     const assists = opts.assists === undefined ? SR.Rules.assistsFor(n) : (opts.assists || {});
-    const st = SR.buildStage(n), w = P().buildTable(T, assists), rnd = SR.rng(seed), ps = SR.Rules.newPlayState();
+    const cluster = opts.cluster ?? SR.districtOf(n).cluster;
+    const st = SR.buildStage(n), w = P().buildTable(T, assists, cluster), rnd = SR.rng(seed), ps = SR.Rules.newPlayState();
     P().placeStage(w, st);
     SR.Rules.applyBonuses(run, w);
     w.balls = [P().newBall(T, w)];
@@ -105,9 +106,9 @@ SR.Tests = (function () {
   }
 
   /* 卡球探測：台面上每 24px 放一顆球（含 ±5 px/s 擾動與大罐滿級的球），速度 < 8 px/s 連續 3 秒算卡住 */
-  function stuckProbe(T, assists) {
+  function stuckProbe(T, assists, cluster = 3) {
       const r = T.ball.radius, stuckAt = [];
-      const base = P().buildTable(T, assists);
+      const base = P().buildTable(T, assists, cluster);
       const overlaps = (x, y) => {
         for (const s of base.segments) {
           const abx = s.bx - s.ax, aby = s.by - s.ay, k = P().clamp(((x - s.ax) * abx + (y - s.ay) * aby) / (abx * abx + aby * aby), 0, 1);
@@ -130,7 +131,7 @@ SR.Tests = (function () {
         if (y > bottom - r - 2) continue;
         if (P().SLING_TRIS.some(t => inTri(x, y, t)) || overlaps(x, y)) continue;
         for (const [vx, bonus] of [[5, 0], [-5, 0], [5, 4.5]]) {     // 最後一種＝大罐滿級的球
-          const w = P().buildTable(T, assists); w.radiusBonus = bonus;
+          const w = P().buildTable(T, assists, cluster); w.radiusBonus = bonus;
           const b = P().newBall(T, w, x, y); b.vx = vx; w.balls = [b]; runs++;
           let still = 0;
           for (let i = 0; i < 600 && w.balls.length; i++) {
@@ -231,7 +232,30 @@ SR.Tests = (function () {
       const uniq = [...new Set(problems)];
       return { pass: uniq.length === 0, value: uniq.length ? uniq.slice(0, 3).join("；") : "50 關全部有效" };
     }},
-    { id: "AC-S7", name: "空台面沒有卡球死角", run(T) { return stuckProbe(T, {}); } },
+    { id: "AC-S7", name: "空台面沒有卡球死角（彈跳柱群每側 3／2／1 顆都測）", run(T) {
+      const rs = [3, 2, 1].map(c => stuckProbe(T, {}, c));
+      return { pass: rs.every(r => r.pass), value: rs.map((r, i) => `${3 - i} 顆：${r.value}`).join("；") };
+    } },
+    { id: "AC-S19", name: "彈跳柱群（中柱）：不碰磚、越後面越少、讓新手每關少掉一半以上的愛心（45 局）", run(T) {
+      const problems = [];
+      const cl = SR.DISTRICTS.map(d => d.cluster);
+      for (let i = 1; i < cl.length; i++) if (cl[i] > cl[i - 1]) problems.push(`第 ${i + 1} 區的柱比前一區多`);
+      for (let n = 1; n <= 50; n++) {
+        const w = P().buildTable(T, {}, SR.districtOf(n).cluster); P().placeStage(w, SR.buildStage(n));
+        const all = w.boss ? [...w.bricks, w.boss] : w.bricks;
+        for (const c of w.circles) for (const k of all) {
+          const dx = c.x - P().clamp(c.x, k.x, k.x + k.w), dy = c.y - P().clamp(c.y, k.y, k.y + k.h);
+          if (Math.hypot(dx, dy) < T.bumper.radius + 2 * T.ball.radius) { problems.push(`第 ${n} 關柱子離磚太近`); break; }
+        }
+      }
+      // 只看台面本身：輔助全關，新手自動玩家，第 1 區 9 關 × 5 局
+      const m = cluster => { let h = 0, n = 0; for (let st = 1; st <= 9; st++) for (let s = 0; s < 5; s++) {
+        const seed = st * 1000 + s * 17 + 3;
+        h += playStage(T, st, SR.Rules.simulatedBuild(T, st - 1, seed), seed, 300, { skill: NOVICE, assists: null, cluster }).heartsLost; n++; } return h / n; };
+      const off = m(0), on = m(SR.DISTRICTS[0].cluster);
+      if (on > off * 0.5) problems.push(`愛心只從 ${off.toFixed(2)} 降到 ${on.toFixed(2)}`);
+      return { pass: problems.length === 0, value: problems.length ? [...new Set(problems)].slice(0, 3).join("；") : `每側 ${cl.join("／")} 顆；新手每關掉愛心 ${off.toFixed(2)} → ${on.toFixed(2)}` };
+    } },
     { id: "AC-S17", name: "收尾輔助：新手卡在最後 3 塊的時間少 20% 以上（45 局）", run(T) {
       // 彈珠物理對微小差異很敏感，樣本太少結果會飄；用 9 關 × 5 局
       const m = finisher => { let tail = 0, n = 0; for (let st = 1; st <= 9; st++) for (const s of [11, 12, 13, 14, 15]) {
