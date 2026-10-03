@@ -785,7 +785,7 @@
     const tu = G.tut, bob = Math.sin(G.t * 6) * 6;
     let hole = null, hand = null, lines = TUT_TEXT[tu.step];
     const pad = !!G.world.paddle;
-    if (tu.step === "press") { hole = pad ? [0, 520, 400, 220] : [200, 520, 200, 220]; hand = [300, 650]; if (pad) lines = ["按住畫面任何地方", "幫發射桿蓄力"]; }
+    if (tu.step === "press") { hole = pad ? [0, 520, 400, 220] : [200, 520, 200, 220]; hand = [300, 650]; if (pad) lines = ["點一下畫面就能發射", "按住可以蓄力，放開時力道更大"]; }
     if (tu.step === "move") {
       const lx = G.landing ? G.landing.x : 185;
       hole = [0, 470, 400, 270]; hand = [lx, 700];
@@ -823,7 +823,7 @@
     const coarse = matchMedia("(pointer: coarse)").matches;
     if (G.screen !== "play") { hint(G.screen === "intro" ? (coarse ? "點一下跳過" : "按任意鍵跳過") : ""); return; }
     const pad = !!G.world.paddle;
-    if (G.world.balls.some(b => P.ballInLane(b) && b.y > 990)) hint(pad ? (coarse ? "按住畫面蓄力，放開發射" : "按住滑鼠或空白鍵蓄力，放開發射") : coarse ? "按住右半邊蓄力，放開發射" : "按住空白鍵蓄力，放開發射");
+    if (G.world.balls.some(b => P.ballInLane(b) && b.y > 990)) hint(pad ? (coarse ? "點一下發射（按住可以蓄力）" : "點一下或空白鍵發射（按住可以蓄力）") : coarse ? "點右半邊發射（按住可以蓄力）" : "空白鍵發射（按住可以蓄力）");
     else hint(pad ? (coarse ? "手指左右滑，移動滑板接球" : "移動滑鼠（或 ←／→）移動滑板接球") : coarse ? "點左半邊／右半邊控制擋板" : "Z／← 左擋板・/／→ 右擋板");
   }
 
@@ -846,7 +846,12 @@
   }
   function setPlunger(down) {
     if (down) { if (G.world.balls.some(b => P.ballInLane(b) && b.y > 990)) G.plunger.holding = true; return; }
-    if (G.plunger.holding) { G.plunger.holding = false; launchIfReady(); G.plunger.charge = 0; }
+    if (G.plunger.holding) {
+      G.plunger.holding = false;
+      // 輕點一下（蓄不到 2 成）＝用剛好的力道直接發射；新手不用先學「按住蓄力」
+      if (G.plunger.charge < 0.2) G.plunger.charge = 0.75;
+      launchIfReady(); G.plunger.charge = 0;
+    }
   }
   const pointers = new Map();
   const toGameX = e => { const rect = canvas.getBoundingClientRect(); return (e.clientX - rect.left) / rect.width * VW; };
