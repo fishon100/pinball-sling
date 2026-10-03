@@ -25,6 +25,9 @@ SR.STREET_TUNING = {
   // 會在兩支擋板之間無限慢滾循環（AC-S8 抓到）。擋板擊球屬於撞擊，手感不變（AC-S10 保護）。
   ball: { rolling_friction: 0.002, impact_threshold: 50 },
   brick: { restitution: 0.85, min_bounce: 180, min_hit_speed: 60, score: 10 },
+  // 救球柱彈回速度；收尾輔助：幾秒沒碎磚後啟動、吸力（新手自動玩家 45 局：卡在最後幾塊的時間 30.2s → 20.5s）
+  assist: { kicker_speed: 620, finisher_delay: 5, finisher_strength: 1200 },
+  items: { bomb_radius: 60, bomb_damage: 2, slow_scale: 0.5, slow_s: 5, guard_s: 12 },
   run: { hearts: 3, max_hearts: 5, bomb_radius: 52, bomb_every: 15 }
 };
 

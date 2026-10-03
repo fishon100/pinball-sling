@@ -27,8 +27,11 @@
 - 只有網頁版（設計驗證階段），Godot 版仍是 v2 台面；移植要等設計定案
 - 檔案分工：`data.js` 企劃可改的資料（關卡文字圖、劇情、強化卡、成就）／`physics.js` 物理／`rules.js` 規則／`art.js` 美術／`audio.js` 聲音／`game.js` 流程與畫面／`tests.js` 測試
 - 手感讀 `tuning.json`（部署時從 `data/tuning.json` 複製過去），噴漆闖關專用參數在 `tuning.js` 的 `STREET_TUNING`
-- **改了任何 street 的程式都要開 `web/street/test.html` 跑測試，13 項全過才能部署**（本機：`python -m http.server --directory web/street`）
+- **改了任何 street 的程式都要開 `web/street/test.html` 跑測試，21 項全過才能部署**（本機：`python -m http.server --directory web/street`；約 20 秒）
+- v3.1 規格：Obsidian `10`。難度用三種自動玩家量（`SR.Tests.NOVICE`、進步中 `{delay:0.06,miss:0.15}`、熟練＝不給 skill）；彈珠物理對微小差異很敏感，平衡判斷至少用 40 局以上
+- 每區的新手輔助在 `data.js` 的 `DISTRICTS[].assists`（彈道預覽、時機提示、救球柱次數、球保險、收尾輔助）
 - 改台面幾何後 AC-S7（卡球）與 AC-S9c（最大顆的球）一定要過；改數值後看 AC-S8／AC-S8b（自動遊玩清關時間）
+- **改了 street 的 JS 要把 `index.html`、`test.html` 裡的 `?v=` 版本號一起加 1**，否則手機會拿到快取的舊檔（新舊檔混用會出錯）
 - 測試用的自動玩家要「按一下就放開」，一直按住會把球卡在接球位置，誤判成遊戲問題
 
 ## 常用指令

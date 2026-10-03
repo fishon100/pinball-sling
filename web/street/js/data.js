@@ -6,18 +6,33 @@
 var SR = window.SR || (window.SR = {});
 
 /* ---------- 街區（5 區 × 10 關）---------- */
+/* act（起承轉合）只給設計溝通用，不顯示在遊戲畫面上。
+   assists：新手輔助，越後面的街區越少（第 3 輪回饋：輔助關掉＝難度提高的因素之一）
+     preview＝彈道預覽秒數、timing＝擋板時機提示、centerPost＝擋板中間救球柱的次數（每關；99＝不限）、ballSave＝額外球保險秒數、finisher＝收尾輔助（只剩幾塊磚時把球往磚的方向吸）
+     數值依「新手／進步中／熟練」三種自動玩家量測（見 Obsidian 10 號規格）。中段反彈柱量測後沒有幫助（還會擋住往上打的球），已拿掉 */
 SR.DISTRICTS = [
   { id: "alley",     name: "巷口",     en: "ALLEY",     act: "起", stages: [1, 10],  tempo: 88, root: 45,
+    teaser: "遊樂場門口的那條巷子。第一面被打開的牆就在這裡。",
+    assists: { preview: 1.0, timing: true, centerPost: 99, ballSave: 3, finisher: true },
     colors: { a: "#ff3ea5", b: "#ffe14d", c: "#3ee0ff", glow: "#ff7ac6" } },
   { id: "subway",    name: "地鐵站",   en: "SUBWAY",    act: "承", stages: [11, 20], tempo: 92, root: 43,
+    teaser: "每天上萬人經過的灰色長廊。",
+    assists: { preview: 0.7, timing: true, centerPost: 8, ballSave: 1.5, finisher: true },
     colors: { a: "#3ee0ff", b: "#b25cff", c: "#ffe14d", glow: "#7fe9ff" } },
   { id: "rooftops",  name: "屋頂",     en: "ROOFTOPS",  act: "轉", stages: [21, 30], tempo: 96, root: 41,
+    teaser: "從這裡看得到整座城，也看得到整潔局的大樓。",
+    assists: { preview: 0.4, timing: false, centerPost: 4, ballSave: 0 },
     colors: { a: "#ff8a1f", b: "#9dff3a", c: "#ff3ea5", glow: "#ffb066" } },
   { id: "riverside", name: "河堤",     en: "RIVERSIDE", act: "轉", stages: [31, 40], tempo: 84, root: 38,
+    teaser: "橋墩下藏著被刷掉一半的舊塗鴉。",
+    assists: { preview: 0, timing: false, centerPost: 0, ballSave: 0 },
     colors: { a: "#2f7bff", b: "#34e89e", c: "#ffe14d", glow: "#6fa6ff" } },
   { id: "downtown",  name: "市中心大牆", en: "DOWNTOWN", act: "合", stages: [41, 50], tempo: 100, root: 45,
+    teaser: "整座城最大的一面灰牆。",
+    assists: { preview: 0, timing: false, centerPost: 0, ballSave: 0 },
     colors: { a: "#ff3ea5", b: "#3ee0ff", c: "#ffe14d", glow: "#ffffff", rainbow: true } }
 ];
+SR.ASSIST_NAMES = { preview: "彈道預覽", timing: "擋板時機提示", centerPost: "救球柱", ballSave: "加長球保險", finisher: "收尾輔助" };
 SR.districtOf = n => SR.DISTRICTS[Math.min(4, Math.floor((n - 1) / 10))];
 
 /* ---------- 關卡文字圖 ----------
@@ -98,9 +113,39 @@ SR.PATTERNS = [
     "3.......3",
     "3.1BBB1.3",
     "3.11111.3",
-    "333...333"] }
+    "333...333"] },
+  // 第 3 輪回饋：「磚塊疊成文字」很受歡迎，多加幾個
+  { name: "GO", rows: [
+    ".........",
+    ".111.111.",
+    ".1...1.1.",
+    ".1.1.1.1.",
+    ".1.1.1.1.",
+    ".111.111."] },
+  { name: "YO", rows: [
+    ".........",
+    "1.1..111.",
+    "1.1..1.1.",
+    ".1...1.1.",
+    ".1...1.1.",
+    ".1...111."] },
+  { name: "OK", rows: [
+    ".........",
+    "111.1..1.",
+    "1.1.1.1..",
+    "1.1.11...",
+    "1.1.1.1..",
+    "111.1..1."] },
+  { name: ":)", rows: [
+    ".........",
+    "..1...1..",
+    "..1...1..",
+    ".........",
+    ".1.....1.",
+    "..1...1..",
+    "...111..."] }
 ];
-SR.BOSS_PATTERN = { name: "灰老大", rows: [
+SR.BOSS_PATTERN = { name: "灰先生", rows: [
   ".........",
   ".........",
   "....X....",
@@ -117,7 +162,7 @@ SR.rng = function (seed) {
 SR.buildStage = function (n) {
   const d = Math.floor((n - 1) / 10), local = (n - 1) % 10, isBoss = local === 9;
   const rnd = SR.rng(n * 7919 + 13);
-  const pat = isBoss ? SR.BOSS_PATTERN : SR.PATTERNS[(local + d * 2) % SR.PATTERNS.length];
+  const pat = isBoss ? SR.BOSS_PATTERN : SR.PATTERNS[(local + d * 3) % SR.PATTERNS.length];
   let rows = pat.rows.slice();
   if (!isBoss && d >= 1 && rnd() < 0.5) rows = rows.map(r => r.split("").reverse().join(""));   // 左右鏡像
   if (!isBoss && d >= 2) { const extra = Math.min(3, d - 1); for (let i = 0; i < extra; i++) rows.push(rows[rows.length - 1 - (i % 2)]); }
@@ -132,9 +177,15 @@ SR.buildStage = function (n) {
     if (d >= 3 && rnd() < hpBonusChance * 0.4) hp++;
     cells.push({ r, c, type: "brick", hp: Math.min(5, hp) });
   }));
+  // 道具磚★：第 2 區起，每關把 1～2 塊 1 血的磚換成道具磚
+  if (d >= 1) {
+    const plain = cells.filter(x => x.type === "brick" && x.hp === 1);
+    const want = Math.min(plain.length, isBoss ? 1 : 1 + (rnd() < 0.5 ? 1 : 0));
+    for (let i = 0; i < want; i++) { const k = plain.splice(Math.floor(rnd() * plain.length), 1)[0]; k.type = "gift"; }
+  }
   const bricks = cells.filter(x => x.type !== "boss").length;
   return {
-    n, district: d, isBoss, name: isBoss ? "首領：灰老大" : pat.name, cells,
+    n, district: d, isBoss, name: isBoss ? "首領：灰先生" : pat.name, cells,
     // 首領數值由自動遊玩平衡：帶 9 張隨機強化卡，中位數約 30／80／110／140／100 秒（見 v3 規格平衡紀錄）
     boss: isBoss ? { hp: 18 + d * 9, speed: 45 + d * 18, regen: 7 - d * 0.5 } : null,
     parTime: Math.round(35 + bricks * 2.2 + (isBoss ? 40 : 0) + d * 6)
@@ -157,11 +208,11 @@ SR.UPGRADES = [
 /* ---------- 成就 ---------- */
 SR.ACHIEVEMENTS = [
   { id: "first",     name: "第一筆",     desc: "通過第 1 關" },
-  { id: "boss1",     name: "巷口英雄",   desc: "打倒巷口的灰老大" },
-  { id: "boss2",     name: "地鐵站英雄", desc: "打倒地鐵站的灰老大" },
-  { id: "boss3",     name: "屋頂英雄",   desc: "打倒屋頂的灰老大" },
-  { id: "boss4",     name: "河堤英雄",   desc: "打倒河堤的灰老大" },
-  { id: "boss5",     name: "城市傳說",   desc: "打完第 50 關，看到結局" },
+  { id: "boss1",     name: "巷口重見天日", desc: "在巷口打倒灰先生" },
+  { id: "boss2",     name: "地鐵站的顏色", desc: "在地鐵站打倒灰先生" },
+  { id: "boss3",     name: "屋頂上的風", desc: "在屋頂打倒灰先生" },
+  { id: "boss4",     name: "河堤的簽名", desc: "在河堤打倒灰先生" },
+  { id: "boss5",     name: "自由創作牆", desc: "打完第 50 關，看到結局" },
   { id: "combo20",   name: "手感來了",   desc: "一次擊球打出 20 連擊" },
   { id: "combo50",   name: "停不下來",   desc: "一次擊球打出 50 連擊" },
   { id: "combo100",  name: "噴漆暴風",   desc: "一次擊球打出 100 連擊" },
@@ -169,106 +220,120 @@ SR.ACHIEVEMENTS = [
   { id: "multi4",    name: "多球狂歡",   desc: "場上同時有 4 顆球" },
   { id: "bricks500", name: "拆牆專家",   desc: "累計打碎 500 塊磚" },
   { id: "stars30",   name: "滿天星",     desc: "累計拿到 30 顆星" },
-  { id: "chain6",    name: "連鎖爆破",   desc: "1 秒內打碎 6 塊磚" }
+  { id: "chain6",    name: "連鎖爆破",   desc: "1 秒內打碎 6 塊磚" },
+  { id: "onecoin",   name: "一枚硬幣",   desc: "不續關打完一整區" }
 ];
+
+/* ---------- 道具（第 2 區起；道具磚★掉落、街區獎勵）---------- */
+SR.ITEMS = [
+  { id: "bomb",  name: "漆彈",   icon: "💣", desc: "每顆球的位置炸開一顆漆彈" },
+  { id: "slow",  name: "慢動作", icon: "⏳", desc: "5 秒內時間變慢一半" },
+  { id: "guard", name: "護欄",   icon: "🛡️", desc: "12 秒內擋板中間出現救球柱" },
+  { id: "ball",  name: "加一顆", icon: "➕", desc: "從上方多放一顆球" }
+];
+SR.ITEM_MAX = 3;
 
 /* ---------- 角色 ---------- */
 SR.SPEAKERS = {
   pinky:    { name: "噴噴",   color: "#ff3ea5" },
-  boss:     { name: "灰老大", color: "#9a9aa3" },
+  boss:     { name: "灰先生", color: "#9a9aa3" },
   narrator: { name: "",       color: "#ffe14d" },
   citizen:  { name: "路人",   color: "#3ee0ff" }
 };
 
-/* ---------- 劇情（起承轉合）---------- */
+/* ---------- 劇情 ----------
+   前提：你（玩家）在快拆的老遊樂場投幣玩一台彈珠台。台面上每面牆都連著城裡一面真的牆；
+   在機台裡打碎灰磚，外面那面牆被蓋住的畫就會回來。噴噴是住在機台裡的噴漆精靈。
+   設計用的段落：起（巷口）承（地鐵站）轉（屋頂、河堤）合（市中心）— 只在文件裡用，不顯示給玩家 */
 SR.STORY = {
   intro: [
-    { who: "narrator", text: "灰城。一夜之間，所有的牆都被刷成了灰色。" },
-    { who: "narrator", text: "巷子深處，一罐被丟掉的噴漆，輕輕晃了一下。" },
-    { who: "pinky", mood: "wow", text: "噗哈！終於有人把我撿起來了！我是噴噴，噴漆罐裡的精靈！" },
-    { who: "pinky", mood: "sad", text: "你看，整座城都被灰幫刷灰了……顏色全被關在那些灰漆磚底下。" },
-    { who: "pinky", mood: "happy", text: "你是顆鋼珠對吧？太好了！只要把灰磚砸碎，顏色就會噴回牆上！" }
+    { who: "narrator", text: "灰城有一條規定：所有的牆，都必須是灰色。" },
+    { who: "narrator", text: "城東那間快要拆掉的老遊樂場裡，有一台蓋著布的彈珠台。" },
+    { who: "narrator", text: "你掀開布。機台側面噴著褪色的字：SPRAY RUN。" },
+    { who: "narrator", text: "投下一枚硬幣，台面一格一格亮了起來。" },
+    { who: "pinky", mood: "wow", text: "……有人投幣了？好久沒人來玩了。" },
+    { who: "pinky", mood: "happy", text: "我是噴噴，住在這台機器裡的噴漆精靈。" },
+    { who: "pinky", mood: "happy", text: "這台機器很特別：台面上的每一面牆，都連著城裡一面真正的牆。" },
+    { who: "pinky", mood: "sad", text: "那些牆原本都有畫，後來被灰漆蓋住了。在這裡把灰磚打碎，外面的畫就會回來。" },
+    { who: "pinky", mood: "happy", text: "第一面，就是遊樂場門口那面牆。我來教你怎麼玩。" }
   ],
-  tutorial: [
-    { who: "pinky", mood: "happy", text: "球在右下角的發射道。按住右半邊蓄力，放開就發射！" },
-    { who: "pinky", mood: "happy", text: "球掉下來時，點左半邊、右半邊控制擋板，把它打回去！" },
-    { who: "pinky", mood: "wow", text: "砸碎所有灰磚就過關。擋板尖端打得最遠，試試看！" }
-  ],
+  tutorial: [],
   d1_boss: [
-    { who: "boss", text: "誰在我的巷子裡亂噴？" },
-    { who: "pinky", mood: "wow", text: "是灰幫的頭頭，灰老大！小心，他會一直補灰磚！" },
-    { who: "boss", text: "灰色多好，不吵、不鬧、不會被刷掉。" }
+    { who: "narrator", text: "巷口最後一面牆上，噴著整潔局的標誌。" },
+    { who: "boss", text: "這台機器，竟然還能動。" },
+    { who: "pinky", mood: "wow", text: "是整潔局的灰先生。城裡的灰牆，都是他下令刷的。" },
+    { who: "boss", text: "牆就該乾乾淨淨。顏色只會讓人吵架。" }
   ],
   d1_clear: [
-    { who: "boss", text: "哼……一條巷子而已。" },
-    { who: "citizen", text: "牆、牆變彩色了！好久沒看到這種顏色了……" },
-    { who: "pinky", mood: "happy", text: "聽到了嗎？大家在笑！下一站，地鐵站！" }
+    { who: "citizen", text: "欸，巷口那面牆……什麼時候變成這樣的？" },
+    { who: "pinky", mood: "happy", text: "外面真的變了。下一站是地鐵站，那裡的牆最多。" }
   ],
   d2_start: [
-    { who: "narrator", text: "顏色順著地鐵線，一站一站擴散出去。" },
-    { who: "pinky", mood: "happy", text: "這裡的磚比較硬，深灰色的要多打幾下喔！" },
-    { who: "pinky", mood: "wow", text: "看到油漆桶磚了嗎？打碎它，旁邊的磚會一起炸開！" }
+    { who: "narrator", text: "隔天早上，通勤的人在地鐵站一面彩色的牆前停下腳步。" },
+    { who: "pinky", mood: "happy", text: "這裡的磚比較厚，深灰色的要多打幾下。" },
+    { who: "pinky", mood: "wow", text: "金色的道具磚打碎可以拿到道具，按畫面上方的按鈕就能用。" }
   ],
   d2_boss: [
-    { who: "boss", text: "你們以為顏色能留多久？明天市政府就會派人來刷掉。" },
-    { who: "pinky", mood: "sad", text: "……他為什麼這麼確定？" }
+    { who: "boss", text: "明天，整潔局就會派人把它們刷掉。" },
+    { who: "pinky", mood: "sad", text: "……那我們就畫得比你們刷得快。" }
   ],
   d2_clear: [
-    { who: "citizen", text: "地鐵站變得好熱鬧！有人在牆邊跳舞！" },
-    { who: "pinky", mood: "happy", text: "我們越來越強了！去屋頂，那裡能看到整座城！" }
+    { who: "citizen", text: "有人在彩色牆前面拍照，還有小孩拿粉筆在地上畫畫。" },
+    { who: "pinky", mood: "happy", text: "下一區是屋頂。從那裡看得到整座城。" }
   ],
   d3_start: [
-    { who: "pinky", mood: "happy", text: "風好大！從這裡看，城裡已經有好幾塊彩色了！" },
-    { who: "boss", text: "夠了。" },
-    { who: "narrator", text: "灰老大一揮手，一道灰色的霧把噴噴整個包住。" },
-    { who: "pinky", mood: "sad", text: "我……我的顏色……被吸走了……" },
-    { who: "boss", text: "沒有顏色的精靈，還能噴什麼？" }
+    { who: "narrator", text: "屋頂的風很大。遊樂場的燈突然閃了一下。" },
+    { who: "boss", text: "我知道是誰在玩這台機器。" },
+    { who: "narrator", text: "灰先生拔掉了機台背後的一條線。噴噴身上的顏色，一點一點褪掉。" },
+    { who: "pinky", mood: "sad", text: "我的顏色……在流失。不過機台還能動，別停下來。" },
+    { who: "pinky", mood: "sad", text: "從這裡開始，彈道預覽會越來越短。我幫不了你那麼多了。" }
   ],
   d3_boss: [
-    { who: "pinky", mood: "sad", text: "（小聲）鋼珠……就算我是灰色的，你還是可以砸碎他的磚……" },
-    { who: "boss", text: "為什麼還不放棄？" }
+    { who: "boss", text: "這台機器是我修好的。我比誰都清楚它。" },
+    { who: "pinky", mood: "wow", text: "……你修過這台機器？" }
   ],
   d3_clear: [
-    { who: "boss", text: "……" },
-    { who: "narrator", text: "灰老大沒有說話，轉身跳下屋頂，往河堤的方向走去。" },
-    { who: "pinky", mood: "sad", text: "我們追上去吧……我總覺得，他不是單純的壞人。" }
+    { who: "narrator", text: "灰先生沒再說話，只是看著屋頂下那片開始變彩色的街區。" },
+    { who: "pinky", mood: "sad", text: "我們去河堤看看。我好像想起了一些事。" }
   ],
   d4_start: [
     { who: "narrator", text: "河堤的橋墩下，有一整排被刷掉一半的舊塗鴉。" },
-    { who: "pinky", mood: "wow", text: "這個簽名……跟灰老大噴漆罐上的一樣！" },
-    { who: "narrator", text: "很多年前，他畫的每一面牆，隔天都被刷成灰色。" },
-    { who: "pinky", mood: "sad", text: "原來他不是討厭顏色……他是怕顏色再被刷掉一次。" }
+    { who: "pinky", mood: "wow", text: "這個簽名……跟機台側面的一模一樣。" },
+    { who: "narrator", text: "很多年前，有個年輕人畫滿了這裡的牆，也親手做了這台彈珠台。" },
+    { who: "narrator", text: "後來，那些牆在一夜之間，全被刷成了灰色。" },
+    { who: "pinky", mood: "sad", text: "原來灰先生不是討厭顏色。他只是不想再看一次自己的畫被刷掉。" }
   ],
   d4_boss: [
-    { who: "boss", text: "別看那些。那些都已經不在了。" },
-    { who: "pinky", mood: "sad", text: "它們還在。只是被蓋住了，就像這些磚底下的顏色。" }
+    { who: "boss", text: "別碰那些舊東西。它們已經不在了。" },
+    { who: "pinky", mood: "sad", text: "它們還在，只是被蓋住了。就跟機台裡那些磚底下一樣。" }
   ],
   d4_clear: [
-    { who: "boss", text: "……如果顏色又被刷掉呢？" },
-    { who: "pinky", mood: "happy", text: "那就再噴一次！一起噴！" },
-    { who: "narrator", text: "噴噴身上，悄悄回來了一點粉紅色。" }
+    { who: "boss", text: "……如果又被刷掉呢？" },
+    { who: "pinky", mood: "happy", text: "那就再畫一次。這一次，不會只有你一個人。" },
+    { who: "narrator", text: "噴噴身上，慢慢回來了一點粉紅色。" }
   ],
   d5_start: [
-    { who: "narrator", text: "市中心的大牆，整座城最大的一面灰牆。" },
-    { who: "boss", text: "這是最後一面。要上色，就先打倒我。" },
-    { who: "pinky", mood: "happy", text: "鋼珠，最後一次了！全力打出去！" }
+    { who: "narrator", text: "市中心的大牆，是整座城最大的一面灰牆。" },
+    { who: "boss", text: "最後一面。如果你能把它打開，我就不再擋你。" },
+    { who: "pinky", mood: "happy", text: "他是認真的。我們也認真打吧。" }
   ],
   d5_boss: [
-    { who: "boss", text: "讓我看看，你們的顏色有多頑固！" },
-    { who: "pinky", mood: "wow", text: "他是認真的！這次的磚補得超快！" }
+    { who: "boss", text: "讓我看看，你們的顏色有多頑固。" },
+    { who: "pinky", mood: "wow", text: "他補磚的速度變快了，抓準時機！" }
   ],
   ending: [
-    { who: "narrator", text: "最後一塊灰磚碎開的瞬間，整面大牆噴出了顏色。" },
-    { who: "boss", text: "……我好久沒有拿起噴漆罐了。" },
-    { who: "pinky", mood: "happy", text: "來嘛！大牆這麼大，一個人噴不完的！" },
-    { who: "narrator", text: "那天晚上，灰老大和噴噴在大牆上噴了一行字：SPREAD COLOR。" },
-    { who: "narrator", text: "隔天，沒有人來刷掉它。" },
-    { who: "pinky", mood: "happy", text: "謝謝你，鋼珠。灰城……不，現在是彩城了！" }
+    { who: "narrator", text: "最後一塊灰磚碎開的瞬間，市中心的大牆亮了起來。" },
+    { who: "narrator", text: "灰漆底下，是很多年前那幅沒有畫完的壁畫。" },
+    { who: "boss", text: "……我以為它早就不在了。" },
+    { who: "pinky", mood: "happy", text: "一直都在。只是需要有人把灰漆打開。" },
+    { who: "narrator", text: "那年夏天，整潔局在大牆旁邊立了一塊新牌子：「自由創作牆」。" },
+    { who: "narrator", text: "遊樂場沒有被拆掉。那台彈珠台，到現在都還亮著。" },
+    { who: "pinky", mood: "happy", text: "謝謝你投下那枚硬幣。" }
   ]
 };
 /* 每一關開始前要播哪段劇情 */
 SR.storyBefore = function (n) {
-  if (n === 1) return ["intro", "tutorial"];
+  if (n === 1) return ["intro"];
   const d = Math.floor((n - 1) / 10), local = (n - 1) % 10;
   const keys = [];
   if (local === 0 && d > 0) keys.push(`d${d + 1}_start`);

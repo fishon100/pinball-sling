@@ -20,7 +20,10 @@ SR.Physics = (function () {
 
   function seg(ax, ay, bx, by, kind = "wall", extra = {}) { return { ax, ay, bx, by, kind, ...extra }; }
 
-  function buildTable(T) {
+  // 新手輔助：擋板中間的救球柱（會把球彈回擋板）
+  const CENTER_POST = { x: 185, y: 1012, r: 7 };
+
+  function buildTable(T, assists = {}) {
     const segments = [];
     const N = 28;
     for (let i = 0; i < N; i++) {
@@ -50,6 +53,11 @@ SR.Physics = (function () {
       { x: 304, y: 560, kind: "bumper", flash: 0 },
       { x: 58, y: 790, r: 4, kind: "post" }, { x: 312, y: 790, r: 4, kind: "post" }
     ];
+    // 救球柱有次數：每救一次球少 1，用完就碎（越後面的街區次數越少＝難度漸進）
+    if (assists.centerPost) {
+      const n = assists.centerPost >= 99 ? Infinity : assists.centerPost;      // 99＝不限次數
+      circles.push({ ...CENTER_POST, kind: "kicker", tag: "center", flash: 0, charges: n, maxCharges: n });
+    }
     const flippers = [
       { side: "L", px: 100, py: FLIP_Y, angle: 0, omega: 0, pressed: false },
       { side: "R", px: 270, py: FLIP_Y, angle: 0, omega: 0, pressed: false }
@@ -167,6 +175,7 @@ SR.Physics = (function () {
   }
 
   function collideCircle(T, b, c, ev) {
+    if (c.kind === "kicker" && c.charges <= 0) return;      // 已經碎掉的救球柱
     const r = c.kind === "bumper" ? T.bumper.radius : c.r;
     const dx = b.x - c.x, dy = b.y - c.y, R = b.r + r, d2 = dx * dx + dy * dy;
     if (d2 >= R * R) return;
@@ -176,6 +185,11 @@ SR.Physics = (function () {
     if (vn >= 0) return;
     let vnNew = -vn * T.ball.restitution_wall;
     if (c.kind === "bumper") { vnNew = Math.max(vnNew, T.bumper.kick_speed); ev.push({ type: "bumper", x: c.x, y: c.y, c, b }); }
+    else if (c.kind === "kicker") {
+      vnNew = Math.max(vnNew, T.assist.kicker_speed);
+      if (!b.dryRun && c.charges !== Infinity && -vn > 120) c.charges--;
+      ev.push({ type: "kicker", x: c.x, y: c.y, c, b, broke: c.charges <= 0 });
+    }
     const tx = -ny, ty = nx, vt = b.vx * tx + b.vy * ty;
     b.vx = nx * vnNew + tx * vt; b.vy = ny * vnNew + ty * vt;
   }
@@ -218,7 +232,7 @@ SR.Physics = (function () {
     if (vn >= 0) { b.x = px; b.y = py; return; }
     let broke = false;
     const last = b.hits[k.id] ?? -1;
-    if (-vn > T.brick.min_hit_speed && world.time - last > 0.05) {
+    if (!world.dry && -vn > T.brick.min_hit_speed && world.time - last > 0.05) {
       b.hits[k.id] = world.time;
       ev.push({ type: "ball_brick", k, b, x: cx, y: cy });
       broke = damageBrick(world, k, world.dmg, ev, "ball");
@@ -251,30 +265,65 @@ SR.Physics = (function () {
       if (boss.x < 26) { boss.x = 26; boss.vx = Math.abs(boss.vx); }
       if (boss.x + boss.w > 336) { boss.x = 336 - boss.w; boss.vx = -Math.abs(boss.vx); }
     }
-    const max = T.ball.max_speed, damp = 1 - T.ball.damping * dt;
-    for (const b of world.balls) {
-      if (b.dead) continue;
-      b.r = ballRadius(T, world);
-      b.vy += T.ball.gravity * dt;
-      b.vx *= damp; b.vy *= damp;
-      b.x += b.vx * dt; b.y += b.vy * dt;
-      for (const s of world.segments) collideSegment(T, b, s, ev);
-      for (const c of world.circles) collideCircle(T, b, c, ev);
-      for (const k of world.bricks) if (k.alive) collideBrick(T, world, b, k, ev);
-      for (const f of world.flippers) collideFlipper(T, world, b, f, ev);
-    }
+    for (const b of world.balls) if (!b.dead) substepBall(world, T, b, dt, ev);
     const live = world.balls.filter(b => !b.dead);
     for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) collideBalls(live[i], live[j], ev);
     for (const b of live) {
-      const sp = Math.hypot(b.vx, b.vy);
+      const sp = Math.hypot(b.vx, b.vy), max = T.ball.max_speed;
       if (sp > max) { b.vx *= max / sp; b.vy *= max / sp; }
       if (b.y > DRAIN_Y) { b.dead = true; ev.push({ type: "drain", b }); }
     }
+  }
+  /* 單顆球一個子步（遊戲與彈道預覽共用） */
+  function substepBall(world, T, b, dt, ev) {
+    const damp = 1 - T.ball.damping * dt;
+    b.r = ballRadius(T, world);
+    b.vy += T.ball.gravity * dt;
+    b.vx *= damp; b.vy *= damp;
+    // 收尾輔助（第 1、2 區）：只剩幾塊磚時，往上飛的球會被輕輕往磚的方向吸（只有水平方向）
+    const m = world.magnet;
+    if (m && b.vy < 0 && b.y < FLIP_Y - 100) { const dx = m.x - b.x; b.vx += Math.sign(dx) * Math.min(1, Math.abs(dx) / 60) * m.strength * dt; }
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    for (const s of world.segments) collideSegment(T, b, s, ev);
+    for (const c of world.circles) collideCircle(T, b, c, ev);
+    for (const k of world.bricks) if (k.alive) collideBrick(T, world, b, k, ev);
+    for (const f of world.flippers) collideFlipper(T, world, b, f, ev);
+    if (world.dry) { const sp = Math.hypot(b.vx, b.vy), max = T.ball.max_speed; if (sp > max) { b.vx *= max / sp; b.vy *= max / sp; } }
+  }
+  /* 護欄道具：臨時救球柱 */
+  function setGuard(world, on) {
+    world.circles = world.circles.filter(c => c.tag !== "guard");
+    if (on && !world.circles.some(c => c.tag === "center" && c.charges > 0)) world.circles.push({ ...CENTER_POST, kind: "kicker", tag: "guard", flash: 0, charges: Infinity });
   }
   function stepFrame(world, T, ev) {
     const n = Math.max(1, Math.round(T.physics.substeps)), dt = 1 / 60 / n;
     for (let i = 0; i < n; i++) substep(world, T, dt, ev);
     world.balls = world.balls.filter(b => !b.dead);
+  }
+
+  /* ---------- 彈道預覽（AC-S13）----------
+     用「試跑」模式往前模擬一顆球：磚塊只反彈不扣血、擋板停在目前角度。回傳每隔幾個子步的位置 */
+  function predictPath(world, T, ball, seconds, every = 4) {
+    const shadow = {
+      segments: world.segments, circles: world.circles, bricks: world.bricks.filter(k => k.alive), boss: null, balls: [],
+      flippers: world.flippers.map(f => ({ ...f, pressed: f.pressed, omega: 0 })),
+      time: 0, dry: true, dmg: 0, radiusBonus: world.radiusBonus, flipperPower: world.flipperPower, nextId: 0, magnet: world.magnet
+    };
+    for (const f of shadow.flippers) f.angle = f.pressed ? flipperUp(T, f) : flipperRest(T, f);
+    const b = { ...ball, hits: {}, pierce: 0, dead: false, dryRun: true };
+    shadow.balls = [b];
+    const n = Math.max(1, Math.round(T.physics.substeps)), dt = 1 / 60 / n, steps = Math.round(seconds * 60 * n);
+    const pts = [];
+    const ev = [];
+    for (let i = 0; i < steps; i++) {
+      for (const f of shadow.flippers) f.omega = 0;
+      substepBall(shadow, T, b, dt, ev);
+      shadow.time += dt;
+      if (b.y > DRAIN_Y) break;
+      if (i % every === 0) pts.push({ x: b.x, y: b.y });
+      ev.length = 0;
+    }
+    return pts;
   }
 
   /* ---------- 鏡頭規則（AC-S5）----------
@@ -300,5 +349,5 @@ SR.Physics = (function () {
   return { W, H, VIEW_H, CAM_MAX, DRAIN_Y, FLIP_Y, GRID, SLING_TRIS, clamp,
            buildTable, cellRect, validRect, placeStage, addBrick, liveBricks, neighbors, damageBrick,
            newBall, ballRadius, flipperRest, flipperUp, flipperDims, ballInLane, updateFlipper,
-           substep, stepFrame, cameraTarget, updateCamera, flippersVisible };
+           substep, stepFrame, cameraTarget, updateCamera, flippersVisible, predictPath, setGuard, CENTER_POST };
 })();

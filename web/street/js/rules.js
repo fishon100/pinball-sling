@@ -21,7 +21,61 @@ SR.Rules = (function () {
     world.flipperPower = 1 + 0.12 * lv(run, "power");   // 不改擋板長度，避免擋板尖端把出口堵住
     world.splash = lv(run, "splash");
   }
-  function ballSaveTime(T, run) { return T.rules.ball_save_s + 3 * lv(run, "safety"); }
+  function assistsFor(n) { return SR.districtOf(n).assists; }
+
+  /* 收尾輔助：剩 ≤ 3 塊一般磚、而且 8 秒沒碎磚 → 設定磁力目標（離球最近的那塊）；否則清掉。回傳是否啟動 */
+  function updateFinisher(T, world, assists, sinceBreak) {
+    world.magnet = null;
+    if (!assists || !assists.finisher || world.boss) return false;
+    const left = world.bricks.filter(k => k.alive && k.type !== "boss");
+    if (!left.length || left.length > 3 || sinceBreak < T.assist.finisher_delay) return false;
+    const b = world.balls.find(x => !x.dead && x.vy < 0) || world.balls[0];
+    if (!b) return false;
+    const k = left.reduce((best, k) => Math.abs(k.x + k.w / 2 - b.x) < Math.abs(best.x + best.w / 2 - b.x) ? k : best);
+    world.magnet = { x: k.x + k.w / 2, y: k.y + k.h / 2, strength: T.assist.finisher_strength, k };
+    return true;
+  }
+
+  /* 過關回 1 顆愛心（最多 max_hearts） */
+  function heartOnClear(T, run) { run.hearts = Math.min(T.run.max_hearts, run.hearts + 1); }
+  /* 投幣續關：愛心用完時，從這一關以 3 顆愛心重來，強化卡保留；分數減半、這關最多 1 星 */
+  function continueRun(T, run) {
+    run.continues = (run.continues || 0) + 1;
+    run.hearts = T.run.hearts;
+    run.score = Math.floor(run.score / 2);
+  }
+  function ballSaveTime(T, run, assists) { return T.rules.ball_save_s + 3 * lv(run, "safety") + ((assists && assists.ballSave) || 0); }
+
+  /* ---------- 道具 ---------- */
+  function grantItem(save, id) {
+    save.items = save.items || {};
+    if ((save.items[id] || 0) >= SR.ITEM_MAX) return false;
+    save.items[id] = (save.items[id] || 0) + 1;
+    return true;
+  }
+  function randomItem(rnd) { return SR.ITEMS[Math.floor(rnd() * SR.ITEMS.length)].id; }
+  /* 使用道具：fx 是計時器 {slow, guard}，回傳產生的事件（漆彈碎磚等） */
+  function useItem(T, world, id, fx) {
+    const out = [];
+    if (id === "bomb") {
+      for (const b of world.balls) {
+        if (b.dead) continue;
+        out.push({ type: "bomb", x: b.x, y: b.y, r: T.items.bomb_radius });
+        for (const k of world.bricks) {
+          if (!k.alive) continue;
+          const cx = P().clamp(b.x, k.x, k.x + k.w), cy = P().clamp(b.y, k.y, k.y + k.h);
+          if (Math.hypot(b.x - cx, b.y - cy) <= T.items.bomb_radius) P().damageBrick(world, k, T.items.bomb_damage, out, "bomb");
+        }
+      }
+    } else if (id === "slow") fx.slow = T.items.slow_s;
+    else if (id === "guard") { fx.guard = T.items.guard_s; P().setGuard(world, true); }
+    else if (id === "ball") { const nb = P().newBall(T, world, 185, 110); nb.vx = (Math.random() - 0.5) * 200; world.balls.push(nb); out.push({ type: "extra_ball", b: nb }); }
+    return out;
+  }
+  function tickItems(world, fx, dt) {
+    if (fx.slow > 0) fx.slow = Math.max(0, fx.slow - dt);
+    if (fx.guard > 0) { fx.guard = Math.max(0, fx.guard - dt); if (fx.guard === 0) P().setGuard(world, false); }
+  }
   function piercePerLaunch(run) { return 2 * lv(run, "pierce"); }
 
   function offerUpgrades(T, run, rnd) {
@@ -108,8 +162,8 @@ SR.Rules = (function () {
     if (world.boss) return !world.boss.alive;
     return P().liveBricks(world).length === 0;
   }
-  function stars(stage, heartsLost, seconds) {
-    if (heartsLost > 0) return 1;
+  function stars(stage, heartsLost, seconds, continued) {
+    if (heartsLost > 0 || continued) return 1;
     return seconds <= stage.parTime ? 3 : 2;
   }
 
@@ -127,13 +181,14 @@ SR.Rules = (function () {
     if (save.stats.bricks >= 500) give("bricks500");
     if (totalStars(save) >= 30) give("stars30");
     if (s.chain >= 6) give("chain6");
+    if (s.oneCoin) give("onecoin");
     return got;
   }
   function totalStars(save) { return Object.values(save.stars).reduce((a, b) => a + b, 0); }
 
   /* 存檔 */
   const KEY = "sprayrun.save.v1";
-  function emptySave() { return { unlocked: 1, stars: {}, achievements: {}, stats: { bricks: 0, runs: 0, clears: 0 }, best: {}, seenStory: {} }; }
+  function emptySave() { return { unlocked: 1, stars: {}, achievements: {}, stats: { bricks: 0, runs: 0, clears: 0 }, best: {}, seenStory: {}, items: {}, tutorialDone: false }; }
   function load() {
     try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) return { ...emptySave(), ...s, stats: { ...emptySave().stats, ...s.stats } }; } catch (e) {}
     return emptySave();
@@ -143,5 +198,6 @@ SR.Rules = (function () {
 
   return { newRun, applyBonuses, ballSaveTime, piercePerLaunch, offerUpgrades, takeUpgrade, lv,
            launch, newPlayState, processEvents, paintBomb, simulatedBuild,
+           assistsFor, grantItem, randomItem, useItem, tickItems, heartOnClear, continueRun, updateFinisher,
            bossTick, isCleared, stars, checkAchievements, totalStars, load, persist, emptySave, districtUnlocked };
 })();

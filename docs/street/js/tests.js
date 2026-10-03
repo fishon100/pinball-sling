@@ -36,19 +36,29 @@ SR.Tests = (function () {
     }
     return best;
   }
-  /* 擬真自動玩家：球在發射道就發射；等球到擋板中段以後才擊球（真人會等球滾到尖端附近） */
-  function bot(w, T, rnd, run) {
+  /* 擬真自動玩家：球在發射道就發射；等球到擋板中段以後才擊球（真人會等球滾到尖端附近）
+     skill：{ delay 反應時間（秒）, miss 每次球來時漏接的機率 }，預設是熟練玩家；NOVICE＝新手 */
+  const NOVICE = { delay: 0.12, miss: 0.3 };
+  function bot(w, T, rnd, run, skill) {
     const lane = w.balls.find(b => P().ballInLane(b) && Math.abs(b.vy) < 5 && b.y > 990);
     if (lane) {
       const charge = 0.6 + 0.4 * rnd();
       if (run) SR.Rules.launch(T, run, lane, charge);
       else lane.vy = -(T.plunger.min_speed + (T.plunger.max_speed - T.plunger.min_speed) * charge);
+      w._launchedAt = w.time;
     }
     let L = false, R = false;
+    const mem = w._botMem || (w._botMem = new Map());
     for (const b of w.balls) {
-      if (b.y < P().FLIP_Y - 80 || b.y > P().FLIP_Y + 30) continue;
-      if (b.x > 125 && b.x < 185 && b.vy > -50) L = true;
-      if (b.x > 185 && b.x < 245 && b.vy > -50) R = true;
+      const inZone = !(b.y < P().FLIP_Y - 80 || b.y > P().FLIP_Y + 30) && b.vy > -50 && b.x > 125 && b.x < 245;
+      if (!inZone) { mem.delete(b.id); continue; }
+      if (skill) {
+        // 新手：球每次進入擋板區，先決定這次會不會漏接，並且晚一點才反應
+        let m = mem.get(b.id);
+        if (!m) { m = { since: w.time, miss: rnd() < skill.miss }; mem.set(b.id, m); }
+        if (m.miss || w.time - m.since < skill.delay) continue;
+      }
+      if (b.x < 185) L = true; else R = true;
     }
     // 像真人一樣「按一下」：最多按住 0.35 秒，然後放開 0.2 秒（一直按著會把球卡在接球位置）
     const hold = w._botHold || (w._botHold = { L: 0, R: 0 });
@@ -64,22 +74,75 @@ SR.Tests = (function () {
     for (const f of w.flippers) f.pressed = f.side === "L" ? L : R;
   }
 
-  /* 用自動玩家打一關（套用完整規則：強化卡、分裂、炸彈、首領補磚）。平衡分析也用這個 */
-  function playStage(T, n, run, seed, maxSec = 600) {
-    const st = SR.buildStage(n), w = P().buildTable(T), rnd = SR.rng(seed), ps = SR.Rules.newPlayState();
+  /* 用自動玩家打一關（套用完整規則：強化卡、分裂、炸彈、首領補磚、該區的輔助、球保險）。平衡分析也用這個
+     opts：{ skill（NOVICE＝新手）, assists（預設＝該區設定，null＝全關）, hearts（有給就算愛心，用完算失敗）} */
+  function playStage(T, n, run, seed, maxSec = 600, opts = {}) {
+    const assists = opts.assists === undefined ? SR.Rules.assistsFor(n) : (opts.assists || {});
+    const st = SR.buildStage(n), w = P().buildTable(T, assists), rnd = SR.rng(seed), ps = SR.Rules.newPlayState();
     P().placeStage(w, st);
     SR.Rules.applyBonuses(run, w);
     w.balls = [P().newBall(T, w)];
-    let t = 0, drains = 0;
+    let t = 0, drains = 0, heartsLost = 0, saved = 0, lastBreak = 0, tail = 0;
+    const saveLen = SR.Rules.ballSaveTime(T, run, assists);
     for (; t < 60 * maxSec; t++) {
-      bot(w, T, rnd, run);
+      bot(w, T, rnd, run, opts.skill);
+      SR.Rules.updateFinisher(T, w, assists, w.time - lastBreak);
       const ev = []; P().stepFrame(w, T, ev);
+      if (ev.some(e => e.type === "brick_break")) lastBreak = w.time;
+      if (!w.boss && P().liveBricks(w).length <= 3) tail++;
       SR.Rules.bossTick(T, w, st, 1 / 60, ev);
       SR.Rules.processEvents(T, run, w, ev, ps);
-      if (!w.balls.length) { drains++; w.balls = [P().newBall(T, w)]; }
+      if (!w.balls.length) {
+        drains++;
+        if (w._launchedAt != null && w.time - w._launchedAt <= saveLen) saved++; else heartsLost++;
+        w._launchedAt = null;
+        w.balls = [P().newBall(T, w)];
+        if (opts.hearts && heartsLost >= opts.hearts) break;
+      }
       if (SR.Rules.isCleared(w)) break;
     }
-    return { cleared: SR.Rules.isCleared(w), seconds: t / 60, drains, boss: w.boss, maxCombo: ps.maxCombo, maxBalls: ps.maxBalls };
+    return { cleared: SR.Rules.isCleared(w), seconds: t / 60, tail: tail / 60, drains, heartsLost, saved, boss: w.boss, maxCombo: ps.maxCombo, maxBalls: ps.maxBalls };
+  }
+
+  /* 卡球探測：台面上每 24px 放一顆球（含 ±5 px/s 擾動與大罐滿級的球），速度 < 8 px/s 連續 3 秒算卡住 */
+  function stuckProbe(T, assists) {
+      const r = T.ball.radius, stuckAt = [];
+      const base = P().buildTable(T, assists);
+      const overlaps = (x, y) => {
+        for (const s of base.segments) {
+          const abx = s.bx - s.ax, aby = s.by - s.ay, k = P().clamp(((x - s.ax) * abx + (y - s.ay) * aby) / (abx * abx + aby * aby), 0, 1);
+          if (Math.hypot(x - s.ax - abx * k, y - s.ay - aby * k) < r) return true;
+        }
+        for (const c of base.circles) if (Math.hypot(x - c.x, y - c.y) < r + (c.kind === "bumper" ? T.bumper.radius : c.r)) return true;
+        return false;
+      };
+      let runs = 0;
+      for (let x = 20 + r; x <= 340 - r; x += 24) for (let y = 60; y <= 930; y += 24) {
+        const arcY = 200 - Math.sqrt(Math.max(0, 180 * 180 - (x - 200) ** 2));
+        if (y < arcY + r + 2) continue;
+        // 台面下緣：導球片 → 彈弓 → 漏斗 → 擋板區
+        let bottom;
+        if (x < 58) bottom = 760 + (x - 20) * 30 / 38;
+        else if (x > 312) bottom = 760 + (340 - x) * 30 / 28;
+        else if (x < 100) bottom = 865 + (x - 58) * 79 / 42;
+        else if (x > 270) bottom = 865 + (312 - x) * 79 / 42;
+        else bottom = 930;
+        if (y > bottom - r - 2) continue;
+        if (P().SLING_TRIS.some(t => inTri(x, y, t)) || overlaps(x, y)) continue;
+        for (const [vx, bonus] of [[5, 0], [-5, 0], [5, 4.5]]) {     // 最後一種＝大罐滿級的球
+          const w = P().buildTable(T, assists); w.radiusBonus = bonus;
+          const b = P().newBall(T, w, x, y); b.vx = vx; w.balls = [b]; runs++;
+          let still = 0;
+          for (let i = 0; i < 600 && w.balls.length; i++) {
+            const ev = []; P().stepFrame(w, T, ev);
+            if (!w.balls.length) break;
+            still = Math.hypot(b.vx, b.vy) < 8 ? still + 1 : 0;
+            if (still >= 180) { stuckAt.push(`(${Math.round(b.x)},${Math.round(b.y)})`); break; }
+          }
+        }
+      }
+      const uniq = [...new Set(stuckAt)];
+      return { pass: stuckAt.length === 0, value: stuckAt.length ? `${runs} 次放球有 ${stuckAt.length} 次卡住：${uniq.slice(0, 4).join(" ")}` : `${runs} 次放球，0 次卡住` };
   }
 
   const TESTS = [
@@ -168,44 +231,71 @@ SR.Tests = (function () {
       const uniq = [...new Set(problems)];
       return { pass: uniq.length === 0, value: uniq.length ? uniq.slice(0, 3).join("；") : "50 關全部有效" };
     }},
-    { id: "AC-S7", name: "空台面沒有卡球死角", run(T) {
-      const r = T.ball.radius, stuckAt = [];
-      const base = P().buildTable(T);
-      const overlaps = (x, y) => {
-        for (const s of base.segments) {
-          const abx = s.bx - s.ax, aby = s.by - s.ay, k = P().clamp(((x - s.ax) * abx + (y - s.ay) * aby) / (abx * abx + aby * aby), 0, 1);
-          if (Math.hypot(x - s.ax - abx * k, y - s.ay - aby * k) < r) return true;
-        }
-        for (const c of base.circles) if (Math.hypot(x - c.x, y - c.y) < r + (c.kind === "bumper" ? T.bumper.radius : c.r)) return true;
-        return false;
-      };
-      let runs = 0;
-      for (let x = 20 + r; x <= 340 - r; x += 24) for (let y = 60; y <= 930; y += 24) {
-        const arcY = 200 - Math.sqrt(Math.max(0, 180 * 180 - (x - 200) ** 2));
-        if (y < arcY + r + 2) continue;
-        // 台面下緣：導球片 → 彈弓 → 漏斗 → 擋板區
-        let bottom;
-        if (x < 58) bottom = 760 + (x - 20) * 30 / 38;
-        else if (x > 312) bottom = 760 + (340 - x) * 30 / 28;
-        else if (x < 100) bottom = 865 + (x - 58) * 79 / 42;
-        else if (x > 270) bottom = 865 + (312 - x) * 79 / 42;
-        else bottom = 930;
-        if (y > bottom - r - 2) continue;
-        if (P().SLING_TRIS.some(t => inTri(x, y, t)) || overlaps(x, y)) continue;
-        for (const [vx, bonus] of [[5, 0], [-5, 0], [5, 4.5]]) {     // 最後一種＝大罐滿級的球
-          const w = P().buildTable(T); w.radiusBonus = bonus;
-          const b = P().newBall(T, w, x, y); b.vx = vx; w.balls = [b]; runs++;
-          let still = 0;
-          for (let i = 0; i < 600 && w.balls.length; i++) {
-            const ev = []; P().stepFrame(w, T, ev);
-            if (!w.balls.length) break;
-            still = Math.hypot(b.vx, b.vy) < 8 ? still + 1 : 0;
-            if (still >= 180) { stuckAt.push(`(${Math.round(b.x)},${Math.round(b.y)})`); break; }
-          }
-        }
+    { id: "AC-S7", name: "空台面沒有卡球死角", run(T) { return stuckProbe(T, {}); } },
+    { id: "AC-S15", name: "開了救球柱也沒有卡球死角", run(T) { return stuckProbe(T, { centerPost: 99 }); } },
+    { id: "AC-S11", name: "新手在第 1 區：有輔助比沒輔助少掉 80% 以上的愛心", run(T) {
+      const m = assists => { let h = 0, n = 0; for (const st of [1, 4, 7]) for (const s of [1, 2, 3]) { const r = playStage(T, st, SR.Rules.simulatedBuild(T, st - 1, st * 10 + s), s * 13, 240, { skill: NOVICE, assists }); h += r.heartsLost; n++; } return h / n; };
+      const off = m({}), on = m(SR.Rules.assistsFor(1));
+      return { pass: on <= off * 0.2, value: `新手每關掉愛心：沒輔助 ${off.toFixed(2)} → 有輔助 ${on.toFixed(2)}` };
+    }},
+    { id: "AC-S12", name: "新手帶第 1 區輔助，第 1～5 關都能在 3 顆愛心內打完", run(T) {
+      const fails = [];
+      for (let st = 1; st <= 5; st++) for (const s of [1, 2]) {
+        const r = playStage(T, st, SR.Rules.simulatedBuild(T, st - 1, st * 10 + s), s * 17, 300, { skill: NOVICE, hearts: 3 });
+        if (!r.cleared) fails.push(`第${st}關（掉 ${r.heartsLost}）`);
       }
-      const uniq = [...new Set(stuckAt)];
-      return { pass: stuckAt.length === 0, value: stuckAt.length ? `${runs} 次放球有 ${stuckAt.length} 次卡住：${uniq.slice(0, 4).join(" ")}` : `${runs} 次放球，0 次卡住` };
+      return { pass: fails.length === 0, value: fails.length ? "沒打完：" + fails.join("、") : "10 局全部打完" };
+    }},
+    { id: "AC-S12b", name: "難度漸進：進步中的玩家每關掉的愛心 第1區 < 第2區 < 第4區", run(T) {
+      const mid = { delay: 0.06, miss: 0.15 };
+      const m = stages => { let h = 0, n = 0; for (const st of stages) for (const s of [1, 2]) { const r = playStage(T, st, SR.Rules.simulatedBuild(T, (st - 1) % 10, st * 10 + s), s * 13, 300, { skill: mid }); h += r.heartsLost; n++; } return h / n; };
+      const d1 = m([1, 4, 7]), d2 = m([11, 14, 17]), d4 = m([31, 34, 37]);
+      return { pass: d1 < d2 && d2 < d4, value: `第1區 ${d1.toFixed(2)}・第2區 ${d2.toFixed(2)}・第4區 ${d4.toFixed(2)}` };
+    }},
+    { id: "AC-S17", name: "收尾輔助：新手卡在最後 3 塊的時間少 20% 以上（45 局）", run(T) {
+      // 彈珠物理對微小差異很敏感，樣本太少結果會飄；用 9 關 × 5 局
+      const m = finisher => { let tail = 0, n = 0; for (let st = 1; st <= 9; st++) for (const s of [11, 12, 13, 14, 15]) {
+        const r = playStage(T, st, SR.Rules.simulatedBuild(T, st - 1, st * 31 + s), st * 31 + s, 600, { skill: NOVICE, assists: { ...SR.Rules.assistsFor(st), finisher } });
+        tail += r.tail; n++; } return tail / n; };
+      const off = m(false), on = m(true);
+      return { pass: on <= off * 0.8, value: `剩 3 塊以下的平均時間：沒輔助 ${off.toFixed(1)}s → 有輔助 ${on.toFixed(1)}s` };
+    }},
+    { id: "AC-S13", name: "彈道預覽和實際軌跡吻合（0.5 秒內誤差 < 6px）", run(T) {
+      let worst = 0;
+      for (const [x, y, vx, vy] of [[100, 800, 400, -600], [250, 700, -300, -900], [60, 500, 500, 200], [180, 900, 100, -1500]]) {
+        const w = P().buildTable(T, {}); P().placeStage(w, SR.buildStage(1));
+        const b = P().newBall(T, w, x, y); b.vx = vx; b.vy = vy; w.balls = [b];
+        const pred = P().predictPath(w, T, b, 0.5, 1);
+        const n = Math.max(1, Math.round(T.physics.substeps)), dt = 1 / 60 / n;
+        for (let i = 0; i < pred.length; i++) { P().substep(w, T, dt, []); if (b.dead) break; worst = Math.max(worst, Math.hypot(b.x - pred[i].x, b.y - pred[i].y)); }
+      }
+      return { pass: worst < 6, value: `4 條軌跡，最大誤差 ${worst.toFixed(2)} px` };
+    }},
+    { id: "AC-S14", name: "道具：漆彈、慢動作、護欄、加一顆，每種最多 3 個", run(T) {
+      const problems = [];
+      const w = P().buildTable(T, {}); P().placeStage(w, SR.buildStage(1));
+      const k = P().liveBricks(w)[0];
+      const b = P().newBall(T, w, k.x + k.w / 2, k.y + k.h + 20); w.balls = [b];
+      const fx = { slow: 0, guard: 0 };
+      const hpBefore = k.hp, ev = SR.Rules.useItem(T, w, "bomb", fx);
+      if (!(k.hp < hpBefore || !k.alive) || !ev.some(e => e.type === "bomb")) problems.push("漆彈沒有傷害");
+      SR.Rules.useItem(T, w, "slow", fx); if (fx.slow !== T.items.slow_s) problems.push("慢動作沒有計時");
+      SR.Rules.useItem(T, w, "guard", fx);
+      if (!w.circles.some(c => c.tag === "guard")) problems.push("護欄沒出現");
+      for (let i = 0; i < 13 * 60; i++) SR.Rules.tickItems(w, fx, 1 / 60);
+      if (w.circles.some(c => c.tag === "guard")) problems.push("護欄沒有消失");
+      const before = w.balls.length; SR.Rules.useItem(T, w, "ball", fx); if (w.balls.length !== before + 1) problems.push("加一顆沒有加球");
+      const save = SR.Rules.emptySave(); for (let i = 0; i < 5; i++) SR.Rules.grantItem(save, "bomb");
+      if (save.items.bomb !== SR.ITEM_MAX) problems.push("道具超過上限");
+      return { pass: problems.length === 0, value: problems.length ? problems.join("；") : "4 種道具效果正確、上限 3" };
+    }},
+    { id: "AC-S16", name: "劇情：玩家不是彈珠、反派叫灰先生", run(T) {
+      const problems = [];
+      const lines = Object.values(SR.STORY).flat();
+      if (lines.some(l => /鋼珠|變成彈珠|你是.*球/.test(l.text))) problems.push("劇情還有「玩家是彈珠」的說法");
+      if (SR.SPEAKERS.boss.name !== "灰先生") problems.push("反派名稱沒改");
+      if (lines.some(l => /灰老大/.test(l.text))) problems.push("劇情還有舊名字");
+      return { pass: problems.length === 0, value: problems.length ? problems.join("；") : `劇情 ${lines.length} 句檢查通過` };
     }},
     { id: "AC-S8", name: "自動遊玩能在 3 分鐘內打完第 1 關", run(T) {
       const w = P().buildTable(T), rnd = SR.rng(7);
@@ -297,5 +387,5 @@ SR.Tests = (function () {
       return { id: t.id, name: t.name, ms: Math.round(performance.now() - t0), ...r };
     });
   }
-  return { run, bot, playStage, TESTS };
+  return { run, bot, playStage, NOVICE, TESTS };
 })();

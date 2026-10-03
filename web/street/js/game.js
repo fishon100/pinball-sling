@@ -20,7 +20,8 @@
     cine: null, timeScale: 1, paused: false, hitstop: 0, shake: 0,
     paint: null, particles: [], popups: [], trails: new Map(),
     plunger: { holding: false, charge: 0 }, ballSave: 0, stageTime: 0, heartsLost: 0,
-    lastBreak: null, comboFx: { n: 0, t: 0 }, attract: false, ending: false, t: 0
+    lastBreak: null, comboFx: { n: 0, t: 0 }, attract: false, ending: false, t: 0,
+    assists: {}, itemFx: { slow: 0, guard: 0 }, continued: false, tut: null, previews: []
   };
 
   /* ---------- 小工具 ---------- */
@@ -52,10 +53,38 @@
   /* ---------- HUD ---------- */
   function updateHud() {
     const st = G.stage, run = G.run;
-    $("stageChip").textContent = st ? `${G.district.act}・${G.district.name} ${Math.floor((st.n - 1) / 10) + 1}-${(st.n - 1) % 10 + 1}${st.isBoss ? " 首領" : ""}` : "噴漆闖關 SPRAY RUN";
+    // 不顯示「起承轉合」（那是設計溝通用的，第 3 輪回饋）
+    $("stageChip").textContent = st ? `${G.district.name} ${Math.floor((st.n - 1) / 10) + 1}-${(st.n - 1) % 10 + 1}${st.isBoss ? " 首領" : ""}` : "噴漆闖關 SPRAY RUN";
     const hearts = run ? run.hearts : 0, max = Math.max(3, hearts);
     $("hearts").innerHTML = run ? Array.from({ length: max }, (_, i) => `<span class="${i < hearts ? "" : "empty"}">♥</span>`).join("") : "";
     $("score").textContent = run ? run.score.toLocaleString() : "";
+    updateItemBar();
+  }
+  /* 道具列：第 2 區起，或身上有道具時才出現 */
+  function updateItemBar() {
+    const bar = $("itembar"), items = save.items || {};
+    const show = G.stage && G.screen !== "title" && G.screen !== "map" && (G.stage.district >= 1 || SR.ITEMS.some(i => items[i.id] > 0));
+    bar.hidden = !show;
+    if (!show) return;
+    const key = SR.ITEMS.map(i => (items[i.id] || 0) + (G.itemFx.slow > 0 && i.id === "slow" ? "a" : "") + (G.itemFx.guard > 0 && i.id === "guard" ? "a" : "")).join(",") + G.screen;
+    if (bar.dataset.key === key) return;
+    bar.dataset.key = key;
+    bar.innerHTML = SR.ITEMS.map(i => {
+      const n = items[i.id] || 0, active = (i.id === "slow" && G.itemFx.slow > 0) || (i.id === "guard" && G.itemFx.guard > 0);
+      return `<button class="item-btn ${active ? "active" : ""}" data-item="${i.id}" ${n && G.screen === "play" ? "" : "disabled"} title="${i.desc}"><span class="ico">${i.icon}</span>${i.name}${n ? `<span class="n">${n}</span>` : ""}</button>`;
+    }).join("");
+    bar.querySelectorAll("[data-item]").forEach(b => b.addEventListener("click", () => useItem(b.dataset.item)));
+  }
+  function useItem(id) {
+    if (G.screen !== "play" || !(save.items[id] > 0)) return;
+    AU.ensure();
+    save.items[id]--; R.persist(save);
+    const extra = R.useItem(T, G.world, id, G.itemFx);
+    const it = SR.ITEMS.find(i => i.id === id);
+    popup(185, G.cam.y + 330, `${it.icon} ${it.name}！`, true, pal().b);
+    AU.play(id === "bomb" ? "bucket" : "card");
+    if (extra.length) handleEvents(extra);
+    updateHud();
   }
   function hint(text) { if ($("hint").textContent !== text) $("hint").textContent = text; }
 
@@ -110,27 +139,35 @@
         const st = save.stars[n] || 0, done = n < save.unlocked, next = n === save.unlocked;
         nodes.push(`<div class="node ${done ? "done" : ""} ${next ? "next" : ""} ${n % 10 === 0 ? "boss" : ""}" title="第 ${n} 關">${done ? `<span class="s">${"★".repeat(st)}</span>` : n % 10 === 0 ? "王" : ""}</div>`);
       }
-      const teaser = { alley: "被刷灰的巷子。噴噴在這裡醒來。", subway: "地鐵站的長廊，顏色會順著軌道擴散。", rooftops: "從屋頂能看到整座城……還有灰老大。",
-                       riverside: "河堤的橋墩下，藏著被刷掉的舊塗鴉。", downtown: "整座城最大的一面灰牆。" }[d.id];
       const best = save.best[i] ? `最佳 ${save.best[i].toLocaleString()} 分` : "";
       return `<article class="district ${unlocked ? "" : "locked"}">
         <div class="bg" style="background:linear-gradient(120deg, ${d.colors.a}, ${d.colors.b} 55%, ${d.colors.c})"></div>
-        <span class="act">${d.act}</span>
+        <span class="act">第 ${i + 1} 區</span>
         <h3>${unlocked ? d.name : "？？？"}<small>${unlocked ? d.en : "LOCKED"} · ${s0}–${s1}</small></h3>
-        <p class="story">${unlocked ? teaser : "打倒上一區的灰老大才會解鎖。"}</p>
+        <p class="story">${unlocked ? d.teaser : "在上一區打倒灰先生才會解鎖。"}</p>
+        ${unlocked ? `<p class="assist-line">${assistText(d.assists) || "沒有輔助：全靠你的手感"}</p>` : ""}
         <div class="nodes">${nodes.join("")}</div>
         ${unlocked ? `<div class="row"><button class="big-btn ${i % 2 ? "alt" : ""}" data-d="${i}">${save.unlocked > s1 ? "再挑戰（刷星）" : save.unlocked > s0 ? "挑戰這一區" : "出發"}</button></div><p class="sub" style="text-align:left;margin-top:6px;font-size:12px">${best}</p>` : `<p class="lockmsg">🔒 尚未解鎖</p>`}
       </article>`;
     }).join("");
     show(`
       <div class="progress"><h2 class="h2">灰城地圖</h2><span>已解放 <b>${cleared}</b>/50・星星 <b>${R.totalStars(save)}</b>/150</span></div>
-      <p class="sub" style="text-align:left">一輪＝一個街區（10 關）。3 顆愛心，每關挑 1 張強化卡，打倒第 10 關的灰老大就解放這一區。</p>
+      <p class="sub" style="text-align:left">一輪＝一個街區（10 關）。3 顆愛心、每過一關回 1 顆；每關挑 1 張強化卡，打倒第 10 關的灰先生就解放這一區。愛心用完可以投幣續關。</p>
       ${cards}
-      <div class="row"><button class="big-btn ghost" id="backTitle">回標題</button><button class="big-btn ghost" id="goAch2">成就</button></div>`);
+      <div class="row"><button class="big-btn ghost" id="backTitle">回標題</button><button class="big-btn ghost" id="goAch2">成就</button><button class="big-btn ghost" id="replayTut">重看教學</button></div>`);
     screen.querySelectorAll("[data-d]").forEach(b => b.addEventListener("click", () => { AU.ensure(); AU.play("card"); startDistrict(+b.dataset.d); }));
     on("backTitle", titleScreen);
     on("goAch2", achievementScreen);
+    on("replayTut", () => { save.tutorialDone = false; R.persist(save); startDistrict(0); });
     updateHud();
+  }
+  function assistText(a) {
+    const parts = [];
+    if (a.preview) parts.push(`彈道預覽 ${a.preview} 秒`);
+    if (a.timing) parts.push("擋板時機提示");
+    if (a.centerPost) parts.push(a.centerPost >= 99 ? "救球柱（不限次數）" : `救球柱 ×${a.centerPost}`);
+    if (a.ballSave) parts.push(`球保險 +${a.ballSave} 秒`);
+    return parts.length ? "輔助：" + parts.join("・") : "";
   }
 
   function achievementScreen() {
@@ -173,7 +210,8 @@
         <dt>最高連擊</dt><dd>${G.ps.maxCombo}</dd>
         <dt>分數</dt><dd>${G.run.score.toLocaleString()}</dd>
       </dl>
-      <p class="sub" style="font-size:12px">${stars < 2 ? "沒掉愛心過關＝2★，再加上在標準時間內＝3★" : stars < 3 ? `${st.parTime} 秒內打完就有 3★` : "完美！"}</p>
+      <p class="sub" style="font-size:12px">${G.continued ? "這一關有續關，最多 1★" : stars < 2 ? "沒掉愛心過關＝2★，再加上在標準時間內＝3★" : stars < 3 ? `${st.parTime} 秒內打完就有 3★` : "完美！"}</p>
+      ${st.n % 10 !== 0 ? `<p class="sub" style="font-size:13px;color:var(--pink)">過關回 1 顆愛心 ♥ ${G.run.hearts}</p>` : ""}
       <button class="big-btn" id="nextBtn">${st.n % 10 === 0 ? "繼續" : "挑強化卡"}</button>`);
     on("nextBtn", () => { hideScreen(); onNext(); });
   }
@@ -181,24 +219,34 @@
   function districtCleared() {
     G.screen = "districtDone";
     const d = G.district, i = SR.DISTRICTS.indexOf(d), next = SR.DISTRICTS[i + 1];
-    save.best[i] = Math.max(save.best[i] || 0, G.run.score); R.persist(save);
+    save.best[i] = Math.max(save.best[i] || 0, G.run.score);
+    // 街區獎勵：2 個隨機道具（下一區開始可以用）
+    const reward = [];
+    for (let k = 0; k < 2; k++) { const id = R.randomItem(Math.random); if (R.grantItem(save, id)) reward.push(SR.ITEMS.find(x => x.id === id)); }
+    R.persist(save);
+    achieve({ oneCoin: !G.run.continues });
     show(`<h2 class="tag-title" style="font-size:46px">${d.en}<br><span class="y">FREE!</span></h2>
-      <p class="sub">${d.name} 解放了！整區的牆都重新上色。</p>
-      <dl class="stat-grid"><dt>本輪分數</dt><dd>${G.run.score.toLocaleString()}</dd><dt>打碎的磚</dt><dd>${G.run.bricks}</dd><dt>剩下的愛心</dt><dd>${G.run.hearts}</dd></dl>
+      <p class="sub">${d.name} 的牆，全都回來了。</p>
+      <dl class="stat-grid"><dt>本輪分數</dt><dd>${G.run.score.toLocaleString()}</dd><dt>打碎的磚</dt><dd>${G.run.bricks}</dd><dt>剩下的愛心</dt><dd>${G.run.hearts}</dd><dt>續關次數</dt><dd>${G.run.continues || 0}</dd></dl>
+      ${reward.length ? `<p class="sub">街區獎勵：${reward.map(r => `${r.icon} ${r.name}`).join("、")}（道具列可以用）</p>` : ""}
       ${next ? `<p class="sub">下一區：<b style="color:${next.colors.a}">${next.name}</b> 已經出現在地圖上</p>` : ""}
       <button class="big-btn" id="toMap">回到城市地圖</button>`);
     on("toMap", mapScreen);
   }
 
+  /* 愛心用完：投幣續關（從這一關重來，保留強化卡；分數減半、這關最多 1 星），或回地圖 */
   function runOver() {
     G.screen = "runover"; AU.play("lose"); AU.setIntensity(0);
     const i = SR.DISTRICTS.indexOf(G.district);
     save.best[i] = Math.max(save.best[i] || 0, G.run.score); R.persist(save);
-    say("噴漆用完了……再一次！", "sad", 3000);
-    show(`<h2 class="tag-title" style="font-size:46px;color:#9a9aa3">GREY<br><span class="y">AGAIN…</span></h2>
-      <p class="sub">愛心用完了，牆又被刷回灰色。</p>
+    say("沒關係，再投一枚硬幣吧。", "sad", 3000);
+    show(`<h2 class="tag-title" style="font-size:46px;color:#9a9aa3">GAME<br><span class="y">OVER?</span></h2>
+      <p class="sub">愛心用完了。機台在等你投下一枚硬幣。</p>
       <dl class="stat-grid"><dt>打到</dt><dd>第 ${G.stage.n} 關</dd><dt>本輪分數</dt><dd>${G.run.score.toLocaleString()}</dd><dt>打碎的磚</dt><dd>${G.run.bricks}</dd><dt>最高連擊</dt><dd>${G.run.maxCombo}</dd></dl>
-      <div class="row"><button class="big-btn" id="retry">再挑戰這一區</button><button class="big-btn ghost" id="toMap2">回地圖</button></div>`);
+      <button class="big-btn" id="cont">🪙 投幣續關（從這一關重來）</button>
+      <p class="sub" style="font-size:12px">保留強化卡、愛心回到 3 顆；分數減半，這一關最多 1★</p>
+      <div class="row"><button class="big-btn ghost" id="retry">整區重來</button><button class="big-btn ghost" id="toMap2">回地圖</button></div>`);
+    on("cont", () => { R.continueRun(T, G.run); AU.play("save"); goStage(G.stage.n, { continued: true }); });
     on("retry", () => startDistrict(i));
     on("toMap2", mapScreen);
   }
@@ -261,26 +309,31 @@
     AU.startMusic(G.district);
     goStage(G.district.stages[0]);
   }
-  function goStage(n) {
+  function goStage(n, opts = {}) {
     hideScreen();
     G.stage = SR.buildStage(n); G.district = SR.districtOf(n);
-    G.world = P.buildTable(T); P.placeStage(G.world, G.stage); R.applyBonuses(G.run, G.world);
+    G.assists = R.assistsFor(n);
+    G.world = P.buildTable(T, G.assists); P.placeStage(G.world, G.stage); R.applyBonuses(G.run, G.world);
     G.world.balls = [P.newBall(T, G.world)];
     G.run.stage = n; G.ps = R.newPlayState(); G.stageTime = 0; G.heartsLost = 0; G.ballSave = 0;
+    G.continued = !!opts.continued; G.itemFx = { slow: 0, guard: 0 }; G.lastBreakT = 0; G._finTold = false;
     G.particles = []; G.popups = []; G.trails = new Map(); G.lastBreak = null; G.plunger = { holding: false, charge: 0 };
     newPaintLayer(); G.cam.y = 0; G.timeScale = 1; G.screen = "story";
+    G.tut = n === 1 && !save.tutorialDone ? { step: "press", t: 0, flips: 0 } : null;
     AU.startMusic(G.district); AU.setIntensity(G.stage.isBoss ? 1 : 0);
     updateHud();
-    const keys = SR.storyBefore(n).filter(k => !save.seenStory[k] || k.endsWith("_boss"));
+    const keys = opts.continued ? [] : SR.storyBefore(n).filter(k => !save.seenStory[k] || k.endsWith("_boss"));
     playStory(keys, startIntro);
   }
   function startIntro() {
     G.screen = "intro";
     G.cine = { type: "intro", t: 0, dur: 2.3 };
     AU.play("spray", 0.3);
-    if (G.stage.n === 1) setTimeout(() => say("按住右半邊蓄力，放開發射！", "happy", 4000), 2300);
-    else if (G.stage.isBoss) setTimeout(() => say("灰老大會補磚，先打他身下的磚！", "wow", 3500), 2400);
-    else say(["上吧！", "這面牆交給你了！", "噴起來！", "顏色就在磚底下！"][G.stage.n % 4], "happy", 1800);
+    if (G.tut) return;                                    // 教學會自己帶
+    const local = (G.stage.n - 1) % 10;
+    if (local === 0 && assistText(G.assists)) setTimeout(() => say(assistText(G.assists).replace("輔助：", "這一區的輔助：") , "happy", 4000), 2300);
+    else if (G.stage.isBoss) setTimeout(() => say("灰先生會補磚，先打掉他身下那排！", "wow", 3500), 2400);
+    else say(["上吧！", "這面牆交給你了！", "畫就在磚底下！", "慢慢來，看準了再打！"][G.stage.n % 4], "happy", 1800);
   }
   function beginPlay() { G.cine = null; G.screen = "play"; G.view.zoom = 1; G.view.tilt = 0; G.view.rz = 0; G.view.scale = 1; }
 
@@ -288,7 +341,7 @@
     const b = G.world.balls.find(x => P.ballInLane(x));
     if (b && b.y > 990 && Math.abs(b.vy) < 30) {
       R.launch(T, G.run, b, G.plunger.charge);
-      G.ballSave = R.ballSaveTime(T, G.run);
+      G.ballSave = R.ballSaveTime(T, G.run, G.assists);
       AU.play("launch"); vibrate(20);
     }
   }
@@ -303,19 +356,22 @@
     AU.play("drain"); vibrate(80); G.shake = 10;
     updateHud();
     if (G.run.hearts <= 0) { G.screen = "over"; setTimeout(runOver, 700); return; }
-    say(["小心！", "還有機會！", "呼……下一顆！"][G.run.hearts % 3], "sad");
+    say(["小心！", "還有機會！", "沒關係，下一顆！"][G.run.hearts % 3], "sad");
     G.world.balls = [P.newBall(T, G.world)];
   }
 
   function onCleared() {
     G.screen = "clearing";
-    const secs = G.stageTime, stars = R.stars(G.stage, G.heartsLost, secs);
+    const secs = G.stageTime, stars = R.stars(G.stage, G.heartsLost, secs, G.continued);
     const n = G.stage.n;
     save.stars[n] = Math.max(save.stars[n] || 0, stars);
     save.unlocked = Math.max(save.unlocked, n + 1);
     save.stats.clears++;
     G.run.starsEarned += stars; G.run.maxCombo = Math.max(G.run.maxCombo, G.ps.maxCombo);
+    if (n % 10 !== 0) R.heartOnClear(T, G.run);          // 過關回 1 顆愛心
+    if (G.tut) { G.tut = null; save.tutorialDone = true; }
     R.persist(save);
+    updateHud();
     // 首領關：剩下的磚跟著碎掉，牆面炸滿顏色
     for (const k of G.world.bricks) if (k.alive) { k.alive = false; burstPaint(k.x + k.w / 2, k.y + k.h / 2, 16); }
     const f = G.lastBreak || { x: 200, y: 200 };
@@ -363,6 +419,12 @@
           burstPaint(cx, cy, k.type === "bucket" ? 30 : 14 + k.maxHp * 3);
           popup(cx, cy - 6, "+" + pts);
           if (k.type === "bucket") { AU.play("bucket"); G.shake = Math.max(G.shake, 9); G.hitstop = 0.06; vibrate(30); }
+          else if (k.type === "gift") {
+            const id = R.randomItem(Math.random), it = SR.ITEMS.find(x => x.id === id);
+            if (R.grantItem(save, id)) { R.persist(save); popup(cx, cy - 26, `得到 ${it.icon} ${it.name}`, true, "#ffe14d"); say(`拿到「${it.name}」！按下面的道具按鈕就能用。`, "happy", 2600); }
+            else popup(cx, cy - 26, `${it.name} 已經滿了`, false, "#ffe14d");
+            AU.play("achievement");
+          }
           else { AU.play("brickBreak", Math.min(8, ps.combo / 4)); G.shake = Math.max(G.shake, 3); }
           break;
         }
@@ -374,7 +436,14 @@
         case "pierce": burstPaint(e.x, e.y, 8); break;
         case "bomb": A.splat(G.paint.getContext("2d"), e.x, e.y, paintColor(), e.r * 0.8); AU.play("bucket"); G.shake = 10; G.hitstop = 0.05; popup(e.x, e.y, "漆彈！", true, pal().a); break;
         case "boss_regen": AU.play("bossRegen"); say("他在補灰磚！", "wow", 1500); break;
-        case "boss_enrage": popup(200, 120, "灰老大暴怒！", true, "#ff5a5a"); AU.setIntensity(2); say("他生氣了！速度變快！", "wow"); break;
+        case "kicker":
+          e.c.flash = 0.15; AU.play("bumper");
+          if (e.c.tag !== "guard" && e.c.charges !== Infinity) {
+            if (e.broke) { popup(185, 975, "救球柱碎了！", true, "#ff5a5a"); say("救球柱用完了，接下來要靠擋板！", "wow"); }
+            else if (!G._kickerTold) { G._kickerTold = true; say("擋板中間的救球柱幫你擋了一下！", "happy"); }
+          } else if (!G._kickerTold) { G._kickerTold = true; say("擋板中間的救球柱幫你擋了一下！", "happy"); }
+          break;
+        case "boss_enrage": popup(200, 120, "灰先生生氣了！", true, "#ff5a5a"); AU.setIntensity(2); say("他生氣了！速度變快！", "wow"); break;
       }
     }
     // 連擊里程碑
@@ -417,7 +486,10 @@
     tickCine(dt);
     const playing = (G.screen === "play" || G.screen === "intro" || G.screen === "clearing") && !G.paused && !dlg;
     if (G.world && (G.attract || playing)) {
-      const sdt = dt * G.timeScale;
+      // 時間倍率：過場（G.timeScale）× 慢動作道具 × 教學的慢動作
+      const slowItem = G.screen === "play" && G.itemFx.slow > 0 ? T.items.slow_scale : 1;
+      const tutSlow = G.screen === "play" && G.tut && G.tut.slow ? 0.12 : 1;
+      const sdt = dt * G.timeScale * slowItem * tutSlow;
       for (const p of G.particles) { p.x += p.vx * sdt; p.y += p.vy * sdt; p.vy += 600 * sdt; p.life -= dt; }
       G.particles = G.particles.filter(p => p.life > 0);
       for (const p of G.popups) p.life -= dt;
@@ -439,7 +511,13 @@
             continue;
           }
           if (G.screen === "play") {
+            if (ev.some(e => e.type === "brick_break")) G.lastBreakT = G.stageTime;
+            const fin = R.updateFinisher(T, G.world, G.assists, G.stageTime - (G.lastBreakT || 0));
+            if (fin && !G._finTold) { G._finTold = true; say("剩下的磚我幫你標出來了，球會往那邊偏！", "happy", 3000); }
             R.bossTick(T, G.world, G.stage, 1 / 60, ev);
+            const hadGuard = G.itemFx.guard > 0;
+            R.tickItems(G.world, G.itemFx, 1 / 60);
+            if (hadGuard && G.itemFx.guard === 0) say("護欄消失了。", "wow", 1400);
             G.stageTime += 1 / 60;
             if (G.ballSave > 0 && G.world.balls.some(b => !P.ballInLane(b))) G.ballSave = Math.max(0, G.ballSave - 1 / 60);
             handleEvents(ev);
@@ -452,9 +530,68 @@
       }
       if (!G.cine) P.updateCamera(G.cam, G.world, dt);
     }
+    if (G.screen === "play" && G.world) { tickTutorial(dt); computePreviews(); }
+    else G.previews = [];
+    if (G.screen === "play") updateItemBar();
     updateHintText();
     render();
   }
+
+  /* ---------- 彈道預覽（輔助，依街區長度不同；第 4 區起關閉）---------- */
+  function computePreviews() {
+    const secs = G.assists.preview || 0;
+    G.previews = [];
+    if (!secs) return;
+    for (const b of G.world.balls) {
+      if (P.ballInLane(b) && b.y > 990) {
+        if (!G.plunger.holding) continue;
+        // 蓄力中：預覽這個力道發射出去會怎麼走
+        const ghost = { ...b, vy: -(T.plunger.min_speed + (T.plunger.max_speed - T.plunger.min_speed) * G.plunger.charge) };
+        G.previews.push(P.predictPath(G.world, T, ghost, Math.max(secs, 0.8), 6));
+      } else G.previews.push(P.predictPath(G.world, T, b, secs, 6));
+    }
+  }
+  /* 擋板時機提示：球進入這一側擋板能打到的範圍 */
+  function inReach(side) {
+    return G.world.balls.some(b => b.vy > -50 && b.y > P.FLIP_Y - 75 && b.y < P.FLIP_Y + 20 && (side === "L" ? b.x > 95 && b.x < 185 : b.x >= 185 && b.x < 275));
+  }
+
+  /* ---------- 互動教學（第 1 關、第一次玩）----------
+     press → release → watch → flip（慢動作、指出左右，等玩家按對，帶 3 次）→ done */
+  function tickTutorial(dt) {
+    const tu = G.tut; if (!tu) return;
+    tu.t += dt;
+    const w = G.world, laneBall = w.balls.find(b => P.ballInLane(b) && b.y > 990);
+    if (tu.step === "press") { if (G.plunger.holding) next("release"); }
+    else if (tu.step === "release") { if (!G.plunger.holding) next(laneBall ? "press" : "watch"); }
+    else if (tu.step === "watch") {
+      if (laneBall) next("press");
+      else if (tu.t > 1.2 && w.balls.some(b => b.vy > 0 && b.y > P.FLIP_Y - 150 && b.x > 100 && b.x < 270)) { next("flip"); tu.slow = true; }
+    } else if (tu.step === "flip") {
+      const b = w.balls.find(x => x.y > P.FLIP_Y - 220);
+      if (!b) { tu.slow = false; next("watch"); return; }
+      tu.side = b.x < 185 ? "L" : "R";
+      if (w.flippers.some(f => f.side === tu.side && f.pressed)) {
+        tu.slow = false; tu.flips++;
+        AU.play("combo", 5 + tu.flips * 5);
+        next(tu.flips >= 3 ? "done" : "watch");
+        if (tu.flips < 3) say(["打到了！就是這樣！", "很好！再一次！"][tu.flips - 1], "happy", 1400);
+      }
+      if (laneBall) { tu.slow = false; next("press"); }
+    } else if (tu.step === "done" && tu.t > 3.2) {
+      G.tut = null; save.tutorialDone = true; R.persist(save);
+    }
+    function next(s) {
+      tu.step = s; tu.t = 0;
+      if (s === "done") say("很好！接下來靠你自己了。打碎所有灰磚就過關！", "happy", 3200);
+    }
+  }
+  const TUT_TEXT = {
+    press: ["按住右下角", "幫發射桿蓄力"],
+    release: ["看右邊的力道條", "滿了就放開手指！"],
+    watch: ["球打碎灰磚，", "外面那面牆的畫就會回來"],
+    done: ["很好！", "打碎所有灰磚就過關"]
+  };
 
   /* ---------- 過場鏡頭 ---------- */
   function tickCine(dt) {
@@ -505,9 +642,26 @@
     g.drawImage(G.paint, 0, 0);
     A.table(g, w, p, G.t);
     for (const k of w.bricks) A.brick(g, k, p, G.t);
+    if (w.magnet && G.screen === "play") {
+      // 收尾輔助：剩下的磚發光＋目標框
+      for (const k of w.bricks) if (k.alive && k.type !== "boss") { g.strokeStyle = A.rgba(p.c, 0.5 + 0.4 * Math.sin(G.t * 8)); g.lineWidth = 4; g.strokeRect(k.x - 4, k.y - 4, k.w + 8, k.h + 8); }
+      const k = w.magnet.k; g.save(); g.strokeStyle = "#ffffff"; g.lineWidth = 2; g.setLineDash([6, 5]); g.lineDashOffset = -G.t * 40;
+      g.beginPath(); g.arc(k.x + k.w / 2, k.y + k.h / 2, 30 + Math.sin(G.t * 6) * 4, 0, Math.PI * 2); g.stroke(); g.restore();
+    }
     if (w.boss) A.boss(g, w.boss, G.t, w.boss.flash > 0);
+    // 彈道預覽：白色虛點，越遠越淡（參考 LINE Bubble 的瞄準線）
+    for (const path of G.previews) {
+      for (let i = 1; i < path.length; i += 2) {
+        const a = 1 - i / path.length;
+        g.globalAlpha = 0.25 + 0.65 * a;
+        g.beginPath(); g.arc(path[i].x, path[i].y, 3.2, 0, Math.PI * 2);
+        g.fillStyle = "#ffffff"; g.fill(); g.lineWidth = 1.5; g.strokeStyle = A.INK; g.stroke();
+      }
+      g.globalAlpha = 1;
+    }
     const dims = P.flipperDims(T, w);
-    for (const f of w.flippers) A.flipper(g, f, dims, p);
+    const tutSide = G.tut && G.tut.step === "flip" ? G.tut.side : null;
+    for (const f of w.flippers) A.flipper(g, f, dims, p, (G.assists.timing && G.screen === "play" && inReach(f.side)) || tutSide === f.side);
     // 發射桿
     const c = G.plunger.charge, py = 1022 + c * 26;
     g.fillStyle = p.b; g.fillRect(343, py, 34, 7); g.strokeStyle = A.INK; g.lineWidth = 2.5; g.strokeRect(343, py, 34, 7);
@@ -530,7 +684,7 @@
       g.fillStyle = A.INK; g.fillRect(48, 12, 304, 18);
       g.fillStyle = w.boss.enraged ? "#ff5a5a" : "#b8b8bf"; g.fillRect(51, 15, 298 * frac, 12);
       g.fillStyle = "#fff"; g.font = `900 11px ${A.FONT_CJK}`; g.textAlign = "left"; g.textBaseline = "middle";
-      g.fillText(`灰老大 ${w.boss.hp}/${w.boss.maxHp}`, 56, 21);
+      g.fillText(`灰先生 ${w.boss.hp}/${w.boss.maxHp}`, 56, 21);
     }
     if (!G.attract && G.screen === "play") {
       if (G.comboFx.t > 0 && G.comboFx.n >= 3) {
@@ -548,6 +702,9 @@
       const left = P.liveBricks(w).filter(k => k.type !== "boss").length;
       if (!w.boss) { g.fillStyle = "rgba(17,17,20,0.7)"; g.fillRect(8, 8, 74, 22); g.fillStyle = "#fff"; g.font = `900 12px ${A.FONT_CJK}`; g.textAlign = "left"; g.fillText(`灰磚 ${left}`, 14, 20); }
     }
+    if (G.screen === "play" && G.itemFx.slow > 0) { g.fillStyle = "rgba(62,224,255,0.10)"; g.fillRect(0, 0, VW, VH); A.tag(g, `⏳ ${G.itemFx.slow.toFixed(1)}`, 60, VH - 40, 16, ["#3ee0ff"], { drips: false, rot: 0 }); }
+    if (G.screen === "play" && G.itemFx.guard > 0) A.tag(g, `🛡️ ${Math.ceil(G.itemFx.guard)}`, 340, VH - 40, 16, ["#9dff3a"], { drips: false, rot: 0 });
+    if (G.tut && G.screen === "play") drawTutorial(g);
     if (G.cine && G.cine.type === "intro") {
       const k = G.cine.t;
       const slam = k < 0.35 ? 1 + (0.35 - k) * 3 : 1;
@@ -560,6 +717,39 @@
       const k = ease((G.cine.t - 0.9) / 0.4);
       A.tag(g, "WALL", 200, 300, 60 * (2 - k), [p.a, p.b]);
       A.tag(g, "CLEARED!", 200, 372, 50 * (2 - k), [p.c, p.a]);
+    }
+  }
+
+  /* 教學畫面：變暗＋只亮要操作的區域＋手指＋提示框 */
+  function drawTutorial(g) {
+    const tu = G.tut, bob = Math.sin(G.t * 6) * 6;
+    let hole = null, hand = null, lines = TUT_TEXT[tu.step];
+    if (tu.step === "press") { hole = [200, 520, 200, 220]; hand = [300, 650]; }
+    if (tu.step === "flip") {
+      hole = tu.side === "L" ? [0, 520, 200, 220] : [200, 520, 200, 220]; hand = [tu.side === "L" ? 100 : 300, 650];
+      lines = ["就是現在！", tu.side === "L" ? "點左半邊" : "點右半邊"];
+    }
+    if (tu.step === "watch" && tu.t > 3) lines = null;
+    if (hole) {
+      g.save(); g.fillStyle = "rgba(8,8,12,0.62)";
+      g.beginPath(); g.rect(0, 0, VW, VH); g.rect(hole[0] + hole[2], hole[1], -hole[2], hole[3]); g.fill("evenodd");
+      g.strokeStyle = "#ffe14d"; g.lineWidth = 4; g.setLineDash([10, 8]); g.lineDashOffset = -G.t * 30;
+      g.strokeRect(hole[0] + 4, hole[1] + 4, hole[2] - 8, hole[3] - 8); g.restore();
+    }
+    if (hand) {
+      g.save(); g.font = "44px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText("👆", hand[0], hand[1] + bob); g.restore();
+    }
+    if (lines) {
+      const x = 28, y = 64, w = VW - 56, h = 78;
+      g.save();
+      g.fillStyle = A.INK; A.roundRect(g, x + 5, y + 5, w, h, 16); g.fill();
+      g.fillStyle = "#ffffff"; A.roundRect(g, x, y, w, h, 16); g.fill();
+      g.strokeStyle = A.INK; g.lineWidth = 3.5; g.stroke();
+      g.fillStyle = A.INK; g.textAlign = "center"; g.textBaseline = "middle";
+      g.font = `900 20px ${A.FONT_CJK}`; g.fillText(lines[0], VW / 2, y + 26);
+      g.font = `700 17px ${A.FONT_CJK}`; g.fillStyle = "#c2187a"; g.fillText(lines[1], VW / 2, y + 54);
+      g.restore();
     }
   }
 

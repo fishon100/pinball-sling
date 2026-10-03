@@ -97,7 +97,25 @@ SR.Art = (function () {
     }
     for (const c of world.circles) {
       if (c.kind === "post") { g.beginPath(); g.arc(c.x, c.y, c.r + 1, 0, Math.PI * 2); g.fillStyle = INK; g.fill(); continue; }
+      if (c.kind === "kicker") { kicker(g, c, pal, t); continue; }
       sprayCan(g, c.x, c.y, SR.T.bumper.radius, pal, c.flash > 0, t);
+    }
+  }
+  // 救球柱：擋板中間的橡膠柱。次數有限時，每用掉一次多一道裂痕；用完剩一截斷柱
+  function kicker(g, c, pal, t) {
+    const broken = c.charges <= 0, guard = c.tag === "guard";
+    if (broken) { g.beginPath(); g.arc(c.x, c.y + 3, c.r * 0.6, 0, Math.PI * 2); g.fillStyle = "#4a4a55"; g.fill(); g.strokeStyle = INK; g.lineWidth = 2; g.stroke(); return; }
+    const color = guard ? "#9dff3a" : pal.a;
+    if (c.flash > 0 || guard) { g.fillStyle = rgba(color, 0.35 + 0.15 * Math.sin(t * 8)); g.beginPath(); g.arc(c.x, c.y, c.r * 2.4, 0, Math.PI * 2); g.fill(); }
+    g.beginPath(); g.arc(c.x, c.y, c.r + 1.5, 0, Math.PI * 2); g.fillStyle = c.flash > 0 ? "#fff" : color; g.fill(); strokeInk(g, 3);
+    g.beginPath(); g.arc(c.x - 2, c.y - 2, 2, 0, Math.PI * 2); g.fillStyle = "rgba(255,255,255,0.8)"; g.fill();
+    if (c.maxCharges && c.maxCharges < 99) {
+      const used = c.maxCharges - c.charges;
+      g.strokeStyle = INK; g.lineWidth = 1.3; g.beginPath();
+      for (let i = 0; i < used; i++) { const a = i * 2.1; g.moveTo(c.x, c.y); g.lineTo(c.x + Math.cos(a) * (c.r + 1), c.y + Math.sin(a) * (c.r + 1)); }
+      g.stroke();
+      g.fillStyle = "#fff"; g.font = "900 10px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.strokeStyle = INK; g.lineWidth = 3; g.strokeText("×" + c.charges, c.x, c.y + 18); g.fillText("×" + c.charges, c.x, c.y + 18);
     }
   }
   // 彈跳柱＝從上往下看的噴漆罐
@@ -118,7 +136,7 @@ SR.Art = (function () {
     if (!k.alive) return;
     if (k.type === "boss") return;
     const depth = 5;
-    const base = k.type === "bucket" ? pal.a : HP_COLORS[Math.min(4, k.hp - 1)];
+    const base = k.type === "bucket" ? pal.a : k.type === "gift" ? "#ffd23f" : HP_COLORS[Math.min(4, k.hp - 1)];
     // 側面（立體感）
     g.fillStyle = shade(base, -0.35);
     g.beginPath(); g.moveTo(k.x + k.w, k.y); g.lineTo(k.x + k.w + depth, k.y + depth); g.lineTo(k.x + k.w + depth, k.y + k.h + depth);
@@ -130,7 +148,13 @@ SR.Art = (function () {
     g.strokeStyle = INK; g.lineWidth = 2.5; g.strokeRect(k.x, k.y, k.w, k.h);
     // 高光
     g.fillStyle = "rgba(255,255,255,0.25)"; g.fillRect(k.x + 3, k.y + 3, k.w - 6, 3);
-    if (k.type === "bucket") {
+    if (k.type === "gift") {
+      // 道具磚：金色＋星星
+      const cx = k.x + k.w / 2, cy = k.y + k.h / 2, r = 6 + Math.sin(t * 5) * 0.8;
+      g.beginPath();
+      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+      g.closePath(); g.fillStyle = "#fff"; g.fill(); g.strokeStyle = INK; g.lineWidth = 1.6; g.stroke();
+    } else if (k.type === "bucket") {
       // 油漆桶圖示
       const cx = k.x + k.w / 2, cy = k.y + k.h / 2 + 1;
       g.fillStyle = pal.b; g.fillRect(cx - 6, cy - 5, 12, 10); g.strokeStyle = INK; g.lineWidth = 1.6; g.strokeRect(cx - 6, cy - 5, 12, 10);
@@ -151,7 +175,7 @@ SR.Art = (function () {
     if (k.fresh) { g.strokeStyle = rgba("#ffffff", 0.6); g.lineWidth = 1; g.strokeRect(k.x - 2, k.y - 2, k.w + 4, k.h + 4); }
   }
 
-  /* ---------- 首領：灰老大 ---------- */
+  /* ---------- 首領：灰先生 ---------- */
   function boss(g, k, t, hurt) {
     if (!k || !k.alive) return;
     const { x, y, w, h } = k, cx = x + w / 2;
@@ -248,7 +272,7 @@ SR.Art = (function () {
   }
 
   /* ---------- 擋板（麥克筆風格）---------- */
-  function flipper(g, f, dims, pal) {
+  function flipper(g, f, dims, pal, highlight) {
     const { L, rb, rt } = dims, dx = Math.cos(f.angle), dy = Math.sin(f.angle), nx = -dy, ny = dx;
     const tx = f.px + dx * L, ty = f.py + dy * L;
     const path = () => {
@@ -260,6 +284,7 @@ SR.Art = (function () {
       g.closePath();
     };
     g.save(); g.translate(3, 5); path(); g.fillStyle = "rgba(0,0,0,0.35)"; g.fill(); g.restore();
+    if (highlight) { path(); g.strokeStyle = rgba(pal.c, 0.85); g.lineWidth = 12; g.stroke(); }    // 擋板時機提示：可以打了
     path(); g.fillStyle = pal.b; g.fill(); g.strokeStyle = INK; g.lineWidth = 4; g.stroke();
     g.beginPath(); g.arc(f.px, f.py, 4, 0, Math.PI * 2); g.fillStyle = INK; g.fill();
   }
