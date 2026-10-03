@@ -550,6 +550,9 @@
     else G.previews = [];
     if (G.screen === "play") updateItemBar();
     updateHintText();
+    // 滑板模式遊玩中把滑鼠游標藏起來（滑板就是游標）
+    const cur = G.screen === "play" && G.world && G.world.paddle ? "none" : "";
+    if (canvas.style.cursor !== cur) canvas.style.cursor = cur;
     render();
   }
 
@@ -835,8 +838,9 @@
   }
   const pointers = new Map();
   const toGameX = e => { const rect = canvas.getBoundingClientRect(); return (e.clientX - rect.left) / rect.width * VW; };
-  // 滑板：滑鼠移動（不用按）或手指拖曳，滑板就跟著走
-  canvas.addEventListener("pointermove", e => { if (G.world && G.world.paddle && G.screen === "play" && !G.paused) G.world.paddle.target = toGameX(e); });
+  // 滑板：滑鼠移動（不用按）或手指拖曳，滑板就跟著走。
+  // 聽整個視窗：電腦上滑鼠移出窄窄的遊戲畫面時，滑板還是跟著（停在最左／最右）
+  addEventListener("pointermove", e => { if (G.world && G.world.paddle && G.screen === "play" && !G.paused && (e.pointerType === "mouse" || e.target === canvas)) G.world.paddle.target = toGameX(e); });
   canvas.addEventListener("pointerdown", e => {
     e.preventDefault(); AU.ensure();
     if (G.screen === "intro" && G.cine) { G.cine.t = Math.max(G.cine.t, G.cine.dur - 0.25); return; }
