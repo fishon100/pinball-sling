@@ -34,29 +34,36 @@ SR.Physics = (function () {
       const a0 = Math.PI + (i / N) * Math.PI, a1 = Math.PI + ((i + 1) / N) * Math.PI;
       segments.push(seg(200 + 180 * Math.cos(a0), 200 + top + 180 * Math.sin(a0), 200 + 180 * Math.cos(a1), 200 + top + 180 * Math.sin(a1), "arc"));
     }
-    // 外側邊界是一條連續的線：牆 → 導球片 → 彈弓外側 → 漏斗 → 擋板轉軸。
-    // 不留任何外側通道，球不會掉進彈弓和牆之間的窄縫卡住（AC-S7）
-    segments.push(seg(20, 200 + top, 20, 760));      // 左牆
-    segments.push(seg(20, 760, 58, 790));            // 左導球片（到彈弓頂端）
-    segments.push(seg(58, 865, 100, 944));           // 左漏斗（彈弓底部 → 左擋板）
+    const paddle = control === "paddle";
     segments.push(seg(380, 200 + top, 380, H));      // 右外牆
     segments.push(seg(340, 560, 340, H));            // 發射道內牆（道寬 40，放得下最大的球）
-    segments.push(seg(340, 760, 312, 790));          // 右導球片
-    segments.push(seg(312, 865, 270, 944));          // 右漏斗
     segments.push(seg(340, 1022, 380, 1022, "plunger"));
     const gx = -35, gy = -40, gl = Math.hypot(gx, gy);
     segments.push(seg(340, 560, 380, 525, "gate", { oneSide: true, nx: gx / gl, ny: gy / gl }));
-    for (const [A, B, C] of SLING_TRIS) {
-      segments.push(seg(A[0], A[1], B[0], B[1]));
-      segments.push(seg(B[0], B[1], C[0], C[1]));
-      segments.push(seg(A[0], A[1], C[0], C[1], "sling", { flash: 0 }));
+    const circles = [];
+    if (paddle) {
+      // 滑板模式（第 6 輪）：底部整片打開，滑板可以在整個台面寬度（左牆 x=20 到發射道內牆 x=340）移動；
+      // 拿掉彈弓與漏斗（那是給兩支擋板用的），左牆直直到底
+      segments.push(seg(20, 200 + top, 20, H));
+    } else {
+      // 擋板模式：外側邊界是一條連續的線：牆 → 導球片 → 彈弓外側 → 漏斗 → 擋板轉軸。
+      // 不留任何外側通道，球不會掉進彈弓和牆之間的窄縫卡住（AC-S7）
+      segments.push(seg(20, 200 + top, 20, 760));      // 左牆
+      segments.push(seg(20, 760, 58, 790));            // 左導球片（到彈弓頂端）
+      segments.push(seg(58, 865, 100, 944));           // 左漏斗（彈弓底部 → 左擋板）
+      segments.push(seg(340, 760, 312, 790));          // 右導球片
+      segments.push(seg(312, 865, 270, 944));          // 右漏斗
+      for (const [A, B, C] of SLING_TRIS) {
+        segments.push(seg(A[0], A[1], B[0], B[1]));
+        segments.push(seg(B[0], B[1], C[0], C[1]));
+        segments.push(seg(A[0], A[1], C[0], C[1], "sling", { flash: 0 }));
+      }
+      circles.push({ x: 58, y: 790, r: 4, kind: "post" }, { x: 312, y: 790, r: 4, kind: "post" });
     }
     for (const r of L.rails || []) segments.push(seg(r[0], r[1], r[2], r[3], r[4] || "rail", { flash: 0 }));
     // 彈跳柱放兩側：不擋住往上打的主線（放中間時球常被彈回下方，打不到磚；見 v3 規格的平衡紀錄）
-    const circles = [{ x: 58, y: 790, r: 4, kind: "post" }, { x: 312, y: 790, r: 4, kind: "post" }];
     for (const [x, y] of L.bumpers || []) circles.push({ x, y, kind: "bumper", flash: 0 });
     if (L.fish) circles.push({ x: (L.fish.x0 + L.fish.x1) / 2, y: L.fish.y, r: 20, kind: "fish", vx: L.fish.speed, x0: L.fish.x0, x1: L.fish.x1, flash: 0 });
-    const paddle = control === "paddle";
     const flippers = paddle ? [] : [
       { side: "L", px: 100, py: FLIP_Y, angle: 0, omega: 0, pressed: false },
       { side: "R", px: 270, py: FLIP_Y, angle: 0, omega: 0, pressed: false }
@@ -64,16 +71,20 @@ SR.Physics = (function () {
     for (const f of flippers) f.angle = flipperRest(T, f);
     return { segments, circles, flippers, bricks: [], grid: new Map(), boss: null, balls: [], time: 0,
              dmg: 1, flipperBonus: 0, radiusBonus: 0, nextId: 1, top, layout: L, control,
-             paddle: paddle ? { x: 185, y: PADDLE_Y, target: 185, vx: 0, kick: 0 } : null };
+             paddle: paddle ? { x: 180, y: PADDLE_Y, target: 180, vx: 0, kick: 0, size: L.paddle || "M", wide: 0 } : null };
   }
 
   /* ---------- 滑板（第 5 輪回饋：兩支擋板要兩手配合、反應跟不上；滑鼠更來不及點）----------
      一根手指（或滑鼠）左右移動就好，不用抓時機。打在滑板哪裡決定球往哪飛（打磚塊的玩法）：
      中間＝直直往上、越靠邊角度越斜；滑板移動中擊球會帶一點側向速度 */
-  function paddleDims(T, world) { return { hw: T.paddle.half_width + (world.flipperBonus || 0) * 0.5, r: T.paddle.radius }; }
-  function paddleRange(T, world) { const { hw } = paddleDims(T, world); return [92 + hw, 278 - hw]; }
+  // 三種尺寸（第 6 輪）：S 小、M 中（一般關卡）、L 大（道具「寬板」作用中）。半寬見 tuning.js 的 paddle.half_widths
+  function paddleSize(world) { const p = world.paddle; return p && p.wide > 0 ? "L" : (p && p.size) || "M"; }
+  function paddleDims(T, world) { return { hw: T.paddle.half_widths[paddleSize(world)], r: T.paddle.radius }; }
+  // 滑板可以移動到整個台面寬度：左牆 x=20 到發射道內牆 x=340
+  function paddleRange(T, world) { const { hw } = paddleDims(T, world); return [20 + hw, 340 - hw]; }
   function movePaddle(T, world, dt) {
     const p = world.paddle; if (!p) return;
+    if (p.wide > 0) p.wide = Math.max(0, p.wide - dt);
     const [lo, hi] = paddleRange(T, world), goal = clamp(p.target, lo, hi), step = T.paddle.max_speed * dt;
     const prev = p.x;
     p.x = Math.abs(goal - p.x) <= step ? goal : p.x + Math.sign(goal - p.x) * step;
@@ -399,7 +410,7 @@ SR.Physics = (function () {
 
   return { W, H, VIEW_H, CAM_MAX, DRAIN_Y, FLIP_Y, PADDLE_Y, GRID, SLING_TRIS, DEFAULT_LAYOUT, clamp,
            buildTable, cellRect, validRect, placeStage, addBrick, liveBricks, neighbors, damageBrick,
-           paddleDims, paddleRange, movePaddle, landingPoint,
+           paddleSize, paddleDims, paddleRange, movePaddle, landingPoint,
            newBall, ballRadius, flipperRest, flipperUp, flipperDims, ballInLane, updateFlipper,
            substep, stepFrame, cameraTarget, updateCamera, flippersVisible, predictPath };
 })();

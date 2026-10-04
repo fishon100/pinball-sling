@@ -112,8 +112,8 @@ SR.Art = (function () {
     }
     const gate = world.segments.find(s => s.kind === "gate");
     if (gate) { path([gate]); g.strokeStyle = "#ddd"; g.lineWidth = 2; g.stroke(); }
-    // 彈弓本體
-    for (const tri of SR.Physics.SLING_TRIS) {
+    // 彈弓本體（只有經典擋板模式才有彈弓；滑板模式底部是整片打開的）
+    if (world.segments.some(s => s.kind === "sling")) for (const tri of SR.Physics.SLING_TRIS) {
       g.beginPath(); g.moveTo(...tri[0]); g.lineTo(...tri[1]); g.lineTo(...tri[2]); g.closePath();
       g.fillStyle = rgba(pal.b, 0.35); g.fill();
     }
@@ -297,6 +297,39 @@ SR.Art = (function () {
     g.beginPath(); g.arc(f.px, f.py, 4, 0, Math.PI * 2); g.fillStyle = INK; g.fill();
   }
 
+  /* ---------- 發射桿（第 6 輪：參考真實彈珠台的黃色拉柄＋彈簧）----------
+     c＝拉了多少（0～1）；托盤（球放的地方）、彈簧、黃色拉柄一起往下；hint＝閃「往下拉」提示；nudge＝拉太少的抖動 */
+  const PULL_PX = 22;
+  function plunger(g, c, pal, t, hint, nudge) {
+    const x0 = 343, w = 34, cx = x0 + w / 2, pull = c * PULL_PX, shake = nudge ? Math.sin(t * 60) * 3 * nudge : 0;
+    const plateY = 1022 + pull, housingY = 1036, knobY = 1046 + pull;
+    g.save(); g.translate(shake, 0);
+    // 機殼（固定）
+    g.fillStyle = "#2a2a33"; g.fillRect(x0, housingY - 3, w, 6); g.strokeStyle = INK; g.lineWidth = 2; g.strokeRect(x0, housingY - 3, w, 6);
+    // 拉桿
+    g.fillStyle = "#b8b8bf"; g.fillRect(cx - 3, plateY + 6, 6, knobY - plateY - 6); g.strokeStyle = INK; g.lineWidth = 1.5; g.strokeRect(cx - 3, plateY + 6, 6, knobY - plateY - 6);
+    // 彈簧（機殼到拉柄之間，拉越多越長、越鬆）
+    g.strokeStyle = "#e6e6ec"; g.lineWidth = 2.2; g.beginPath();
+    const s0 = housingY + 3, s1 = knobY - 7, coils = 5;
+    for (let i = 0; i <= coils * 2; i++) { const yy = s0 + (s1 - s0) * i / (coils * 2), xx = cx + (i % 2 ? 9 : -9); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); }
+    g.stroke();
+    // 托盤（球放的地方）
+    g.fillStyle = pal.b; g.fillRect(x0, plateY, w, 7); g.strokeStyle = INK; g.lineWidth = 2.5; g.strokeRect(x0, plateY, w, 7);
+    // 黃色拉柄（像照片裡的蘑菇頭）
+    g.fillStyle = "#ffd23f"; g.beginPath(); g.ellipse(cx, knobY, 15, 7, 0, 0, Math.PI * 2); g.fill(); g.strokeStyle = INK; g.lineWidth = 2.5; g.stroke();
+    g.fillStyle = "#e0a800"; g.beginPath(); g.ellipse(cx, knobY + 6, 8, 6, 0, 0, Math.PI); g.fill(); g.stroke();
+    g.fillStyle = "rgba(255,255,255,0.6)"; g.beginPath(); g.ellipse(cx - 5, knobY - 2, 5, 2, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+    // 提示：往下的箭頭一直往下滑
+    if (hint) {
+      const k = (t * 1.6) % 1;
+      g.save(); g.globalAlpha = 1 - k; g.fillStyle = "#ffe14d"; g.strokeStyle = INK; g.lineWidth = 2;
+      const ay = 958 + k * 22;
+      g.beginPath(); g.moveTo(cx - 10, ay); g.lineTo(cx + 10, ay); g.lineTo(cx, ay + 12); g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    }
+  }
+
   /* ---------- 滑板（新操作：一根手指左右移動）---------- */
   function paddle(g, p, dims, pal, t, highlight) {
     const { hw, r } = dims, x = p.x, y = p.y, k = p.kick / 0.12;   // 擊球瞬間壓扁＋發光
@@ -391,5 +424,5 @@ SR.Art = (function () {
     g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
   }
 
-  return { INK, FONT_TAG, FONT_BLOCK, FONT_CJK, shade, rgba, off, wall, splat, table, sprayCan, brick, boss, pinky, bossPortrait, ball, flipper, paddle, fish, tag, roundRect };
+  return { INK, FONT_TAG, FONT_BLOCK, FONT_CJK, shade, rgba, off, wall, splat, table, sprayCan, brick, boss, pinky, bossPortrait, ball, flipper, paddle, plunger, PULL_PX, fish, tag, roundRect };
 })();

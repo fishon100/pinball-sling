@@ -69,12 +69,18 @@ SR.Rules = (function () {
       }
     } else if (id === "slow") fx.slow = T.items.slow_s;
     else if (id === "save") fx.save = T.items.save_s;          // 球保險：這段時間內掉球會把球還回發射道（真實彈珠台的 ball save）
+    else if (id === "wide") {
+      if (world.paddle) world.paddle.wide = T.items.wide_s;
+      else { fx.wide = T.items.wide_s; world.flipperBonus = (world.flipperBonus || 0) + 14; }
+    }
     else if (id === "ball") { const nb = P().newBall(T, world, 185, 110); nb.vx = (Math.random() - 0.5) * 200; world.balls.push(nb); out.push({ type: "extra_ball", b: nb }); }
     return out;
   }
   function tickItems(world, fx, dt) {
     if (fx.slow > 0) fx.slow = Math.max(0, fx.slow - dt);
     if (fx.save > 0) fx.save = Math.max(0, fx.save - dt);
+    // 擋板模式的寬板：時間到把擋板長度還原
+    if (fx.wide > 0) { fx.wide = Math.max(0, fx.wide - dt); if (fx.wide === 0) world.flipperBonus = Math.max(0, (world.flipperBonus || 0) - 14); }
   }
   function piercePerLaunch(run) { return 2 * lv(run, "pierce"); }
 

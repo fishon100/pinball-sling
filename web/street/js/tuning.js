@@ -29,8 +29,9 @@ SR.STREET_TUNING = {
   // v3.4 滑板可以瞄準，擬人新手本來就只卡 7.7s，延遲 5→3 秒後 6.7s）
   assist: { finisher_delay: 3, finisher_strength: 1200 },
   // 滑板（第 5 輪：一根手指／滑鼠就能玩的新操作）：半寬、圓角、出球速度、最斜角度、跟手速度上限、移動時帶給球的側向速度比例
-  paddle: { half_width: 40, radius: 8, speed: 1550, max_angle_deg: 55, max_speed: 2600, carry: 0.15 },
-  items: { bomb_radius: 60, bomb_damage: 2, slow_scale: 0.5, slow_s: 5, save_s: 10 },
+  // 第 6 輪：三種尺寸（半寬）S 小／M 中（一般關卡）／L 大（道具「寬板」）；滑板可在整個台面寬度移動
+  paddle: { half_widths: { S: 40, M: 56, L: 76 }, radius: 8, speed: 1550, max_angle_deg: 55, max_speed: 2600, carry: 0.15 },
+  items: { bomb_radius: 60, bomb_damage: 2, slow_scale: 0.5, slow_s: 5, save_s: 10, wide_s: 12 },
   run: { hearts: 3, max_hearts: 5, bomb_radius: 52, bomb_every: 15 }
 };
 

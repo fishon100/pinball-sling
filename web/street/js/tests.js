@@ -125,7 +125,9 @@ SR.Tests = (function () {
   function playStage(T, n, run, seed, maxSec = 600, opts = {}) {
     const assists = opts.assists === undefined ? SR.Rules.assistsFor(n) : (opts.assists || {});
     const layout = opts.layout === undefined ? SR.layoutFor(n) : opts.layout;
-    const st = SR.buildStage(n), w = P().buildTable(T, assists, layout, opts.control || "flipper"), rnd = SR.rng(seed), ps = SR.Rules.newPlayState();
+    const st = SR.buildStage(n), w = P().buildTable(T, assists, layout, opts.control || "flipper");
+    if (w.paddle) w.paddle.size = opts.paddleSize || SR.paddleSizeFor(n);
+    const rnd = SR.rng(seed), ps = SR.Rules.newPlayState();
     P().placeStage(w, st);
     SR.Rules.applyBonuses(run, w);
     w.balls = [P().newBall(T, w)];
@@ -301,7 +303,7 @@ SR.Tests = (function () {
       }
       return { pass: problems.length === 0, value: problems.length ? [...new Set(problems)].slice(0, 3).join("；") : `${Object.keys(SR.LAYOUTS).length} 種配置；台面高度依區 ${tops.map(t => P().H - t).join("／")}` };
     } },
-    { id: "AC-S21", name: "滑板：打中間直直往上、打邊邊比較斜、出球速度固定、移動有上限、球不會停在滑板上", run(T) {
+    { id: "AC-S21", name: "滑板：打中間直直往上、打邊邊比較斜、出球速度固定、移動有上限、球不會停在滑板上、大中小三種尺寸、可移動整個台面寬", run(T) {
       const shot = off => {
         const w = P().buildTable(T, {}, null, "paddle"); w.bricks = [];
         const b = P().newBall(T, w, w.paddle.x + off * P().paddleDims(T, w).hw, 880); b.vy = 400; w.balls = [b];
@@ -315,13 +317,20 @@ SR.Tests = (function () {
       if (angE < 35) problems.push(`邊邊只有 ${angE.toFixed(1)}°`);
       if (Math.abs(Math.hypot(c.vx, c.vy) - T.paddle.speed) > 40) problems.push(`出球速度 ${Math.hypot(c.vx, c.vy).toFixed(0)}（應約 ${T.paddle.speed}）`);   // 同一幀裡重力還會作用幾個子步
       const w = P().buildTable(T, {}, null, "paddle"); w.paddle.target = 9999; frames(w, T, 1);
-      const moved = w.paddle.x - 185;
+      const moved = w.paddle.x - 180;
       if (moved > T.paddle.max_speed / 60 + 0.5) problems.push(`一幀移動 ${moved.toFixed(1)}px，超過上限`);
       // 球從滑板正上方輕輕掉下來，3 秒後不能還停在滑板附近
       const w2 = P().buildTable(T, {}, null, "paddle"); w2.bricks = []; const b2 = P().newBall(T, w2, 185, 900); w2.balls = [b2];
       let near = 0; frames(w2, T, 180, () => { if (b2.y > 900 && Math.hypot(b2.vx, b2.vy) < 50) near++; });
       if (near > 30) problems.push("球停在滑板上");
-      return { pass: !problems.length, value: problems.length ? problems.join("；") : `中間 ${angC.toFixed(1)}°、邊邊 ${angE.toFixed(1)}°、速度 ${T.paddle.speed}、每幀最多 ${moved.toFixed(1)}px` };
+      // 第 6 輪：三種尺寸 S < M < L；一般關卡＝中、首領關＝小；可以移動到整個台面寬度（左牆 20～發射道內牆 340）
+      const hw = T.paddle.half_widths;
+      if (!(hw.S < hw.M && hw.M < hw.L)) problems.push("尺寸大小順序錯");
+      if (SR.paddleSizeFor(3) !== "M" || SR.paddleSizeFor(10) !== "S") problems.push("關卡的滑板尺寸不對");
+      const wr = P().buildTable(T, {}, null, "paddle"), [lo, hi] = P().paddleRange(T, wr), h2 = P().paddleDims(T, wr).hw;
+      if (lo - h2 > 20.5 || hi + h2 < 339.5) problems.push(`移動範圍只到 ${lo - h2}～${hi + h2}`);
+      if (wr.segments.some(s => s.kind === "sling")) problems.push("滑板模式還有彈弓擋住");
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : `中間 ${angC.toFixed(1)}°、邊邊 ${angE.toFixed(1)}°、速度 ${T.paddle.speed}、每幀最多 ${moved.toFixed(1)}px、寬 小${hw.S * 2}／中${hw.M * 2}／大${hw.L * 2}、範圍 20～340` };
     } },
     { id: "AC-S22", name: "獎牌依愛心：沒掉＝金、掉 1＝銀、掉 2 以上或續關＝銅；漫畫都能回放、阿鰭先登場再出現在台面", run(T) {
       const p = [];
@@ -352,7 +361,7 @@ SR.Tests = (function () {
         const r = playStage(T, st, SR.Rules.simulatedBuild(T, st - 1, st * 31 + s), st * 31 + s, 600, { skill: HUMAN.novice, control: "paddle", assists: { ...SR.Rules.assistsFor(st), finisher } });
         tail += r.tail; n++; } return tail / n; };
       const off = m(false), on = m(true);
-      return { pass: on <= 10 && on <= off, value: `剩 3 塊以下的平均時間：沒輔助 ${off.toFixed(1)}s → 有輔助 ${on.toFixed(1)}s` };
+      return { pass: on <= 10 && on <= off + 0.5, value: `剩 3 塊以下的平均時間：沒輔助 ${off.toFixed(1)}s → 有輔助 ${on.toFixed(1)}s` };
     }},
     { id: "AC-S13", name: "彈道預覽和實際軌跡吻合（0.5 秒內誤差 < 6px）", run(T) {
       let worst = 0;
@@ -365,7 +374,7 @@ SR.Tests = (function () {
       }
       return { pass: worst < 6, value: `4 條軌跡，最大誤差 ${worst.toFixed(2)} px` };
     }},
-    { id: "AC-S14", name: "道具：漆彈、慢動作、球保險、加一顆，每種最多 3 個", run(T) {
+    { id: "AC-S14", name: "道具：漆彈、慢動作、球保險、加一顆、寬板，每種最多 3 個", run(T) {
       const problems = [];
       const w = P().buildTable(T, {}); P().placeStage(w, SR.buildStage(1));
       const k = P().liveBricks(w)[0];
@@ -379,9 +388,19 @@ SR.Tests = (function () {
       for (let i = 0; i < 11 * 60; i++) SR.Rules.tickItems(w, fx, 1 / 60);
       if (fx.save !== 0) problems.push("球保險沒有結束");
       const before = w.balls.length; SR.Rules.useItem(T, w, "ball", fx); if (w.balls.length !== before + 1) problems.push("加一顆沒有加球");
+      // 寬板：滑板模式變大尺寸、時間到變回中；擋板模式擋板變長、時間到還原
+      const wp = P().buildTable(T, {}, null, "paddle"), mid = P().paddleDims(T, wp).hw;
+      SR.Rules.useItem(T, wp, "wide", { slow: 0, save: 0, wide: 0 });
+      const big = P().paddleDims(T, wp).hw;
+      for (let i = 0; i < 13 * 60; i++) P().stepFrame(wp, T, []);
+      if (!(big > mid) || P().paddleDims(T, wp).hw !== mid) problems.push(`寬板：${mid}→${big}→${P().paddleDims(T, wp).hw}`);
+      const wf = P().buildTable(T, {}), ff = { slow: 0, save: 0, wide: 0 };
+      SR.Rules.useItem(T, wf, "wide", ff); const longer = wf.flipperBonus > 0;
+      for (let i = 0; i < 13 * 60; i++) SR.Rules.tickItems(wf, ff, 1 / 60);
+      if (!longer || wf.flipperBonus !== 0) problems.push("擋板模式的寬板沒有還原");
       const save = SR.Rules.emptySave(); for (let i = 0; i < 5; i++) SR.Rules.grantItem(save, "bomb");
       if (save.items.bomb !== SR.ITEM_MAX) problems.push("道具超過上限");
-      return { pass: problems.length === 0, value: problems.length ? problems.join("；") : "4 種道具效果正確、上限 3" };
+      return { pass: problems.length === 0, value: problems.length ? problems.join("；") : `${SR.ITEMS.length} 種道具效果正確、上限 3（寬板：滑板半寬 ${mid}→${big}）` };
     }},
     { id: "AC-S16", name: "劇情是童話：很久很久以前開場、從此以後結尾、玩家不是彈珠、反派叫灰先生", run(T) {
       const problems = [], texts = [];

@@ -21,7 +21,7 @@
     paint: null, particles: [], popups: [], trails: new Map(),
     plunger: { holding: false, charge: 0 }, ballSave: 0, stageTime: 0, heartsLost: 0,
     lastBreak: null, comboFx: { n: 0, t: 0 }, attract: false, ending: false, t: 0,
-    assists: {}, itemFx: { slow: 0, save: 0 }, continued: false, tut: null, previews: []
+    assists: {}, itemFx: { slow: 0, save: 0, wide: 0 }, continued: false, tut: null, previews: []
   };
 
   /* ---------- 小工具 ---------- */
@@ -68,15 +68,16 @@
     const show = G.stage && G.screen !== "title" && G.screen !== "map" && (G.stage.district >= 1 || SR.ITEMS.some(i => items[i.id] > 0));
     bar.hidden = !show;
     if (!show) return;
-    const key = SR.ITEMS.map(i => (items[i.id] || 0) + (G.itemFx.slow > 0 && i.id === "slow" ? "a" : "") + (G.itemFx.save > 0 && i.id === "save" ? "a" : "")).join(",") + G.screen;
+    const key = SR.ITEMS.map(i => (items[i.id] || 0) + (G.itemFx.slow > 0 && i.id === "slow" ? "a" : "") + (G.itemFx.save > 0 && i.id === "save" ? "a" : "") + (itemWide() && i.id === "wide" ? "a" : "")).join(",") + G.screen;
     if (bar.dataset.key === key) return;
     bar.dataset.key = key;
     bar.innerHTML = SR.ITEMS.map(i => {
-      const n = items[i.id] || 0, active = (i.id === "slow" && G.itemFx.slow > 0) || (i.id === "save" && G.itemFx.save > 0);
+      const n = items[i.id] || 0, active = (i.id === "slow" && G.itemFx.slow > 0) || (i.id === "save" && G.itemFx.save > 0) || (i.id === "wide" && itemWide());
       return `<button class="item-btn ${active ? "active" : ""}" data-item="${i.id}" ${n && G.screen === "play" ? "" : "disabled"} title="${i.desc}"><span class="ico">${i.icon}</span>${i.name}${n ? `<span class="n">${n}</span>` : ""}</button>`;
     }).join("");
     bar.querySelectorAll("[data-item]").forEach(b => b.addEventListener("click", () => useItem(b.dataset.item)));
   }
+  function itemWide() { return !!G.world && ((G.world.paddle && G.world.paddle.wide > 0) || G.itemFx.wide > 0); }
   function useItem(id) {
     if (G.screen !== "play" || !(save.items[id] > 0)) return;
     AU.ensure();
@@ -121,11 +122,13 @@
       <div class="row">
         <button class="big-btn ghost" id="goAch">成就 ${Object.keys(save.achievements).length}/${SR.ACHIEVEMENTS.length}</button>
         <button class="big-btn ghost" id="goSound">${AU.musicOn ? "音樂：開" : "音樂：關"}</button>
+        <button class="big-btn ghost" id="goOpening">重看開場</button>
       </div>
       <button class="big-btn ghost" id="goControl">操作：${control() === "paddle" ? "🛹 滑板（一根手指／滑鼠）" : "🎰 經典擋板"}</button>
       <p class="sub" style="font-size:12px">${control() === "paddle" ? "手指左右滑或移動滑鼠＝滑板・球在發射道時按住畫面蓄力" : "左半邊／右半邊＝擋板・球在發射道時按住右半邊蓄力・電腦：Z、/、空白鍵"}</p>`);
     on("goMap", () => { AU.startMusic(SR.DISTRICTS[0]); mapScreen(); });
     on("goControl", () => controlScreen(titleScreen));
+    on("goOpening", openingScreen);
     on("goAch", achievementScreen);
     on("goSound", () => { AU.setMusic(!AU.musicOn); titleScreen(); });
     updateHud();
@@ -324,10 +327,12 @@
     hideScreen();
     G.stage = SR.buildStage(n); G.district = SR.districtOf(n);
     G.assists = R.assistsFor(n);
-    G.world = P.buildTable(T, G.assists, SR.layoutFor(n), control()); P.placeStage(G.world, G.stage); R.applyBonuses(G.run, G.world);
+    G.world = P.buildTable(T, G.assists, SR.layoutFor(n), control());
+    if (G.world.paddle) G.world.paddle.size = SR.paddleSizeFor(n);
+    P.placeStage(G.world, G.stage); R.applyBonuses(G.run, G.world);
     G.world.balls = [P.newBall(T, G.world)];
     G.run.stage = n; G.ps = R.newPlayState(); G.stageTime = 0; G.heartsLost = 0; G.ballSave = 0;
-    G.continued = !!opts.continued; G.itemFx = { slow: 0, save: 0 }; G.lastBreakT = 0; G._finTold = false; G.fishHits = 0; G.landing = null;
+    G.continued = !!opts.continued; G.itemFx = { slow: 0, save: 0, wide: 0 }; G.lastBreakT = 0; G._finTold = false; G.fishHits = 0; G.landing = null;
     G.particles = []; G.popups = []; G.trails = new Map(); G.lastBreak = null; G.plunger = { holding: false, charge: 0 };
     newPaintLayer(); G.cam.y = Math.min(G.world.top, P.CAM_MAX); G.timeScale = 1; G.screen = "story";
     G.tut = n === 1 && !save.tutorialDone ? { step: "press", t: 0, flips: 0 } : null;
@@ -510,9 +515,12 @@
     // 特效衰減（真實時間）
     G.shake *= Math.exp(-12 * dt);
     if (G.comboFx.t > 0) G.comboFx.t -= dt;
-    if (G.plunger.holding) G.plunger.charge = Math.min(1, G.plunger.charge + dt / T.plunger.charge_time);
+    // 鍵盤（沒有拖曳）：按住空白鍵會慢慢往後拉；拖曳時由手指位置決定（pullPlunger）
+    if (G.plunger.holding && !G.plunger.drag) G.plunger.charge = Math.min(1, G.plunger.charge + dt / T.plunger.charge_time);
+    if (G.plunger.nudge > 0) G.plunger.nudge = Math.max(0, G.plunger.nudge - dt * 1.5);
 
     tickCine(dt);
+    if (G.screen === "opening") tickOpening(dt);
     const playing = (G.screen === "play" || G.screen === "intro" || G.screen === "clearing") && !G.paused && !dlg;
     if (G.world && (G.attract || playing)) {
       // 時間倍率：過場（G.timeScale）× 慢動作道具 × 教學的慢動作
@@ -634,8 +642,8 @@
     }
   }
   const TUT_TEXT = {
-    press: ["按住右下角", "幫發射桿蓄力"],
-    release: ["看右邊的力道條", "滿了就放開手指！"],
+    press: ["按住右下角，往下拉", "像真的彈珠台拉柄一樣"],
+    release: ["拉越多，力道越大", "拉到底就放開手指！"],
     watch: ["球打碎灰磚，", "外面那面牆的畫就會回來"],
     done: ["很好！", "打碎所有灰磚就過關"]
   };
@@ -679,6 +687,7 @@
     const g = ctx, w = G.world;
     g.setTransform(canvas.width / VW, 0, 0, canvas.height / VH, 0, 0);
     g.fillStyle = "#18181d"; g.fillRect(0, 0, VW, VH);
+    if (G.screen === "opening") { drawOpening(g); return; }
     if (!w) return;
     const v = G.view, p = pal();
     g.save();
@@ -721,10 +730,11 @@
       }
       A.paddle(g, w.paddle, P.paddleDims(T, w), p, G.t, G.tut && G.tut.step === "move");
     }
-    // 發射桿
-    const c = G.plunger.charge, py = 1022 + c * 26;
-    g.fillStyle = p.b; g.fillRect(343, py, 34, 7); g.strokeStyle = A.INK; g.lineWidth = 2.5; g.strokeRect(343, py, 34, 7);
-    for (const b of w.balls) A.ball(g, b, p, G.trails.get(b.id) || []);
+    // 發射桿（拉柄＋彈簧）：球在發射道等發射時，閃一個「往下拉」的提示
+    const c = G.plunger.charge, waiting = G.screen === "play" && w.balls.some(b => P.ballInLane(b) && b.y > 990);
+    A.plunger(g, c, p, G.t, waiting && !G.plunger.holding, G.plunger.nudge || 0);
+    // 拉發射桿時，球跟著托盤一起往下
+    for (const b of w.balls) A.ball(g, G.plunger.holding && P.ballInLane(b) && b.y > 990 ? { ...b, y: b.y + c * A.PULL_PX } : b, p, G.trails.get(b.id) || []);
     for (const q of G.particles) { g.globalAlpha = Math.max(0, q.life / q.max); g.fillStyle = q.color; g.beginPath(); g.arc(q.x, q.y, q.r, 0, Math.PI * 2); g.fill(); }
     g.globalAlpha = 1;
     for (const q of G.popups) {
@@ -780,12 +790,102 @@
     }
   }
 
+  /* ---------- 開場動畫（第 6 輪：初次進入遊戲時播放）----------
+     「投幣開始」：點一下＝投下硬幣（同時讓瀏覽器允許播放聲音）→ 灰城 → 老彈珠台亮起 → 噴漆炸開 → SPRAY RUN 招牌 → 噴噴跳出來
+     大約 7 秒，播放中點一下可以跳過 */
+  const OP_DUR = 7;
+  function openingScreen() {
+    hideScreen(); G.screen = "opening"; G.attract = false;
+    G.op = { phase: "coin", t: 0, paint: A.off(VW, VH), splats: 0 };
+    updateHud();
+  }
+  function openingTap() {
+    const op = G.op; if (!op) return;
+    AU.ensure();
+    if (op.phase === "coin") { op.phase = "play"; op.t = 0; AU.play("launch"); vibrate(30); return; }
+    if (op.t > 0.8) finishOpening();
+  }
+  function finishOpening() {
+    save.seenOpening = true; R.persist(save);
+    G.op = null; titleScreen();
+  }
+  function tickOpening(dt) {
+    const op = G.op; if (!op) return;
+    op.t += dt;
+    if (op.phase !== "play") return;
+    const t = op.t;
+    if (t > 1.2 && !op.lit) { op.lit = true; AU.play("bumper"); }
+    // 2.6～4.2 秒：噴漆一團一團炸開
+    const want = t < 2.6 ? 0 : Math.min(28, Math.floor((t - 2.6) * 18));
+    while (op.splats < want) {
+      op.splats++;
+      const cols = ["#ff3ea5", "#ffe14d", "#3ee0ff", "#9dff3a", "#b25cff", "#ff8a1f"];
+      A.splat(op.paint.getContext("2d"), 20 + Math.random() * 360, 60 + Math.random() * 620, cols[op.splats % cols.length], 22 + Math.random() * 34);
+      if (op.splats % 4 === 1) { AU.play("brickBreak", op.splats / 4); vibrate(12); }
+    }
+    if (t > 4.3 && !op.slam) { op.slam = true; AU.play("clear"); vibrate([40, 30, 80]); }
+    if (t > 5.2 && !op.pop) { op.pop = true; AU.play("combo", 10); }
+    if (t >= OP_DUR) finishOpening();
+  }
+  function drawOpening(g) {
+    const op = G.op; if (!op) return;
+    const t = op.phase === "play" ? op.t : 0, k = x => P.clamp(x, 0, 1);
+    // 灰城的天際線（純灰，沒有一點顏色）
+    g.fillStyle = "#2a2a30"; g.fillRect(0, 0, VW, VH);
+    const rnd = SR.rng(77);
+    for (let i = 0; i < 9; i++) {
+      const bw = 34 + rnd() * 40, bh = 180 + rnd() * 260, bx = i * 46 - 10, v = 70 + Math.floor(rnd() * 40);
+      g.fillStyle = `rgb(${v},${v},${v + 4})`; g.fillRect(bx, VH - 140 - bh, bw, bh);
+      g.fillStyle = "rgba(255,255,255,0.08)"; for (let wy = VH - 130 - bh; wy < VH - 150; wy += 22) g.fillRect(bx + 6, wy, bw - 12, 8);
+    }
+    g.fillStyle = "#1c1c22"; g.fillRect(0, VH - 140, VW, 140);
+    if (op.phase === "coin") {
+      // 投幣開始
+      const blink = Math.sin(op.t * 5) > -0.2;
+      g.fillStyle = "rgba(10,10,14,0.55)"; g.fillRect(0, 0, VW, VH);
+      A.tag(g, "SPRAY RUN", VW / 2, 250, 44, ["#9a9aa3", "#6c6c75"], { drips: false, rot: -0.04 });
+      if (blink) A.tag(g, "INSERT COIN", VW / 2, 430, 30, ["#ffe14d", "#ff8a1f"], { drips: false, rot: 0 });
+      A.tag(g, "點一下 投下硬幣", VW / 2, 480, 18, ["#ffffff"], { cjk: true, drips: false, rot: 0 });
+      // 硬幣
+      const cy = 560 + Math.sin(op.t * 3) * 6;
+      g.beginPath(); g.arc(VW / 2, cy, 24, 0, Math.PI * 2); g.fillStyle = "#ffd23f"; g.fill(); g.strokeStyle = A.INK; g.lineWidth = 4; g.stroke();
+      g.fillStyle = A.INK; g.font = `900 22px ${A.FONT_BLOCK}`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("¢", VW / 2, cy + 1);
+      return;
+    }
+    // 旁白
+    if (t < 2.6) { g.save(); g.globalAlpha = k(t * 2) * k((2.6 - t) * 3); A.tag(g, "很久很久以前，有一座灰城……", VW / 2, 110, 19, ["#ffffff"], { cjk: true, drips: false, rot: 0 }); g.restore(); }
+    // 老彈珠台：1.0 秒起亮起來（閃爍）
+    const lit = t > 1.2 ? (t < 1.6 ? (Math.floor(t * 20) % 2) : 1) : 0;
+    const mx = VW / 2, my = 470 - (t > 4.3 ? 0 : 0);
+    g.fillStyle = lit ? "rgba(255,62,165,0.25)" : "rgba(0,0,0,0)"; g.beginPath(); g.arc(mx, my, 190, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#3a2a4a"; A.roundRect(g, mx - 90, my - 150, 180, 230, 14); g.fill(); g.strokeStyle = A.INK; g.lineWidth = 5; g.stroke();
+    g.fillStyle = lit ? "#1a1030" : "#202024"; A.roundRect(g, mx - 70, my - 130, 140, 100, 8); g.fill(); g.stroke();
+    if (lit) for (let i = 0; i < 7; i++) { g.fillStyle = ["#ff3ea5", "#ffe14d", "#3ee0ff", "#9dff3a"][i % 4]; g.beginPath(); g.arc(mx - 60 + i * 20, my - 4, 4 + Math.sin(t * 8 + i) * 1.5, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = "#2a1f38"; g.fillRect(mx - 100, my + 80, 200, 40); g.strokeRect(mx - 100, my + 80, 200, 40);
+    // 噴漆層
+    g.drawImage(op.paint, 0, 0);
+    // 招牌：4.3 秒砸下來
+    if (t > 4.3) {
+      const s = 1 + Math.max(0, 4.6 - t) * 4;
+      A.tag(g, "SPRAY", VW / 2, 120, 66 * s, ["#ff3ea5", "#ffe14d"]);
+      A.tag(g, "RUN", VW / 2, 190, 60 * s, ["#3ee0ff", "#9dff3a"], { rot: 0.05 });
+    }
+    // 噴噴從機台跳出來
+    if (t > 5.2) {
+      const j = k((t - 5.2) / 0.5), hop = Math.sin(j * Math.PI) * 60;
+      A.pinky(g, mx, my - 30 - j * 40 - hop * 0.3, 1.5, "happy", G.t, false);
+      if (t > 5.9) A.tag(g, "把灰城砸回彩色！", VW / 2, 640, 22, ["#ffffff"], { cjk: true, drips: false, rot: -0.02 });
+    }
+    // 跳過提示
+    g.fillStyle = "rgba(255,255,255,0.55)"; g.font = `700 12px ${A.FONT_CJK}`; g.textAlign = "right"; g.textBaseline = "alphabetic"; g.fillText("點一下跳過 ▶▶", VW - 12, VH - 12);
+  }
+
   /* 教學畫面：變暗＋只亮要操作的區域＋手指＋提示框 */
   function drawTutorial(g) {
     const tu = G.tut, bob = Math.sin(G.t * 6) * 6;
     let hole = null, hand = null, lines = TUT_TEXT[tu.step];
     const pad = !!G.world.paddle;
-    if (tu.step === "press") { hole = pad ? [0, 520, 400, 220] : [200, 520, 200, 220]; hand = [300, 650]; if (pad) lines = ["點一下畫面就能發射", "按住可以蓄力，放開時力道更大"]; }
+    if (tu.step === "press") { hole = pad ? [0, 520, 400, 220] : [200, 520, 200, 220]; hand = [300, 650]; if (pad) lines = ["按住畫面，往下拉", "像真的彈珠台拉柄一樣"]; }
     if (tu.step === "move") {
       const lx = G.landing ? G.landing.x : 185;
       hole = [0, 470, 400, 270]; hand = [lx, 700];
@@ -823,7 +923,7 @@
     const coarse = matchMedia("(pointer: coarse)").matches;
     if (G.screen !== "play") { hint(G.screen === "intro" ? (coarse ? "點一下跳過" : "按任意鍵跳過") : ""); return; }
     const pad = !!G.world.paddle;
-    if (G.world.balls.some(b => P.ballInLane(b) && b.y > 990)) hint(pad ? (coarse ? "點一下發射（按住可以蓄力）" : "點一下或空白鍵發射（按住可以蓄力）") : coarse ? "點右半邊發射（按住可以蓄力）" : "空白鍵發射（按住可以蓄力）");
+    if (G.world.balls.some(b => P.ballInLane(b) && b.y > 990)) hint(G.plunger.holding ? "拉越多力道越大，放開發射！" : coarse ? (pad ? "按住畫面往下拉，放開發射" : "按住右半邊往下拉，放開發射") : "按住滑鼠往下拖（或按住空白鍵），放開發射");
     else hint(pad ? (coarse ? "手指左右滑，移動滑板接球" : "移動滑鼠（或 ←／→）移動滑板接球") : coarse ? "點左半邊／右半邊控制擋板" : "Z／← 左擋板・/／→ 右擋板");
   }
 
@@ -844,37 +944,59 @@
     if (down && !fs[0].pressed) AU.play("flipper");
     fs.forEach(f => f.pressed = down);
   }
-  function setPlunger(down) {
-    if (down) { if (G.world.balls.some(b => P.ballInLane(b) && b.y > 990)) G.plunger.holding = true; return; }
-    if (G.plunger.holding) {
-      G.plunger.holding = false;
-      // 輕點一下（蓄不到 2 成）＝用剛好的力道直接發射；新手不用先學「按住蓄力」
-      if (G.plunger.charge < 0.2) G.plunger.charge = 0.75;
-      launchIfReady(); G.plunger.charge = 0;
+  /* 發射桿（第 6 輪：改成「按住往後拉」，像真的彈珠台拉柄）
+     手指／滑鼠：按住後往下拉，拉越多力道越大，放開發射；鍵盤：按住空白鍵會慢慢往後拉
+     拉不到一點點就放開＝不發射，提示「往下拉再放開」 */
+  const PULL_FULL = 0.16;                       // 拉滿＝往下拉畫面高度的 16%
+  function setPlunger(down, drag) {
+    if (down) {
+      if (!G.world.balls.some(b => P.ballInLane(b) && b.y > 990)) return;
+      G.plunger.holding = true; G.plunger.charge = 0;
+      G.plunger.drag = drag || null;            // { id, y }：拖曳的手指與起點
+      return;
     }
+    if (!G.plunger.holding) return;
+    G.plunger.holding = false; G.plunger.drag = null;
+    if (G.plunger.charge < 0.08) {
+      G.plunger.charge = 0; G.plunger.nudge = 1;
+      say(matchMedia("(pointer: coarse)").matches ? "按住往下拉，再放開！" : "按住往下拖（或按住空白鍵），再放開！", "wow", 1800);
+      return;
+    }
+    launchIfReady(); G.plunger.charge = 0;
+  }
+  function pullPlunger(e) {
+    const d = G.plunger.drag; if (!G.plunger.holding || !d || d.id !== e.pointerId) return;
+    const rect = canvas.getBoundingClientRect(), c = P.clamp((e.clientY - d.y) / (rect.height * PULL_FULL), 0, 1);
+    if (Math.floor(c * 5) > Math.floor(G.plunger.charge * 5)) vibrate(6);   // 拉的時候每 2 成一下「喀」
+    G.plunger.charge = c;
   }
   const pointers = new Map();
   const toGameX = e => { const rect = canvas.getBoundingClientRect(); return (e.clientX - rect.left) / rect.width * VW; };
   // 滑板：滑鼠移動（不用按）或手指拖曳，滑板就跟著走。
   // 聽整個視窗：電腦上滑鼠移出窄窄的遊戲畫面時，滑板還是跟著（停在最左／最右）
-  addEventListener("pointermove", e => { if (G.world && G.world.paddle && G.screen === "play" && !G.paused && (e.pointerType === "mouse" || e.target === canvas)) G.world.paddle.target = toGameX(e); });
+  addEventListener("pointermove", e => {
+    if (!G.world || G.screen !== "play" || G.paused) return;
+    pullPlunger(e);
+    if (G.world.paddle && (e.pointerType === "mouse" || e.target === canvas)) G.world.paddle.target = toGameX(e);
+  });
   canvas.addEventListener("pointerdown", e => {
     e.preventDefault(); AU.ensure();
+    if (G.screen === "opening") { openingTap(); return; }
     if (G.screen === "intro" && G.cine) { G.cine.t = Math.max(G.cine.t, G.cine.dur - 0.25); return; }
     if (G.screen !== "play") return;
-    canvas.setPointerCapture(e.pointerId);
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}     // 有些瀏覽器／觸控筆會拒絕，不影響操作
     if (G.world.paddle) {
       // 滑板模式：按哪裡都可以；球在發射道時按住＝蓄力
       G.world.paddle.target = toGameX(e);
       const plunge = G.world.balls.some(b => P.ballInLane(b) && b.y > 990);
       pointers.set(e.pointerId, { side: "P", plunge });
-      if (plunge) setPlunger(true);
+      if (plunge) setPlunger(true, { id: e.pointerId, y: e.clientY });
       return;
     }
     const rect = canvas.getBoundingClientRect(), side = (e.clientX - rect.left) < rect.width / 2 ? "L" : "R";
     const plunge = side === "R" && G.world.balls.some(b => P.ballInLane(b) && b.y > 990);
     pointers.set(e.pointerId, { side, plunge });
-    if (plunge) setPlunger(true); else setFlipper(side, true);
+    if (plunge) setPlunger(true, { id: e.pointerId, y: e.clientY }); else setFlipper(side, true);
   });
   function pointerEnd(e) {
     const p = pointers.get(e.pointerId); if (!p) return;
@@ -895,6 +1017,7 @@
   addEventListener("keydown", e => {
     AU.ensure();
     if (dlg) { if (e.code === "Space" || e.code === "Enter") { advanceDialog(); e.preventDefault(); } if (e.code === "Escape") closeDialog(); return; }
+    if (G.screen === "opening") { openingTap(); e.preventDefault(); return; }
     if (G.screen === "intro" && G.cine) { G.cine.t = Math.max(G.cine.t, G.cine.dur - 0.25); return; }
     if (e.code === "Escape" || e.code === "KeyP") { togglePause(); return; }
     if (G.screen !== "play" || G.paused) return;
@@ -938,7 +1061,8 @@
 
   /* ---------- 啟動 ---------- */
   fit();
-  titleScreen();
+  // 第一次進入遊戲：先播開場動畫（第 6 輪）；之後直接到標題（標題可以「重看開場」）
+  if (!save.seenOpening) openingScreen(); else titleScreen();
   // 標題畫面上的大隻噴噴
   (function titlePinky() {
     const c = $("titlePinky");
@@ -949,6 +1073,6 @@
     const res = SR.Tests.run(T); window.SR_TEST_RESULTS = res;
     console.log(res.map(r => `${r.pass ? "PASS" : "FAIL"} ${r.id} ${r.value}`).join("\n"));
   }
-  window.SR_GAME = { G, save, goStage, startDistrict, mapScreen, titleScreen, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper };
+  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper };
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 })();

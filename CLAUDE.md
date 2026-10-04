@@ -23,7 +23,9 @@
 - 改了規格要同步更新 Obsidian 的對應文件
 
 ## v3 噴漆闖關（`web/street/`，網頁版，部署在 `/street/`）
-- 規格：Obsidian `彈珠專案/08 遊戲規格 v3-噴漆闖關`；素材提示詞：`09`
+- **完整設計以 Obsidian `彈珠專案/設計文件/` 為準**（`00 主軸文件` ＋每個功能一份分冊＋`18 名詞與命名總表`；副本在 `specs/設計文件/`）。改功能要同步改那份分冊；新增功能要新增分冊並加進主軸索引與命名總表（企劃第 6 輪）
+- 舊的版本規格：Obsidian `08`（v3）、`10`、`11`、`12`；素材提示詞：`09`
+- v3.5：滑板三種尺寸（`tuning.js` paddle.half_widths S/M/L；一般關卡 M、首領關 S、道具「寬板」L，`SR.paddleSizeFor`），可移動整個台面寬（x 20～340），滑板模式沒有彈弓與漏斗；發射桿是「按住往下拉」（`setPlunger／pullPlunger`，拉不到 8% 不發射）；第一次進遊戲播開場動畫（`save.seenOpening`）
 - 只有網頁版（設計驗證階段），Godot 版仍是 v2 台面；移植要等設計定案
 - 檔案分工：`data.js` 企劃可改的資料（關卡文字圖、劇情、強化卡、成就）／`physics.js` 物理／`rules.js` 規則／`art.js` 美術／`audio.js` 聲音／`game.js` 流程與畫面／`tests.js` 測試
 - 手感讀 `tuning.json`（部署時從 `data/tuning.json` 複製過去），噴漆闖關專用參數在 `tuning.js` 的 `STREET_TUNING`

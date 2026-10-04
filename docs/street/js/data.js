@@ -69,6 +69,8 @@ SR.DISTRICT_LAYOUTS = [
   ["d_high", "d_tri", "d_classic", "d_fish", "d_tri"]
 ];
 // 首領關（每區第 10 關）不要用阿鰭的配置：阿鰭會擋住打首領的路線（AC-S8b 抓到第 50 關 7 分鐘打不完）
+/* 滑板尺寸（第 6 輪）：一般關卡＝中；首領關＝小（挑戰）；大＝道具「寬板」作用中（見 physics.js 的 paddleSize） */
+SR.paddleSizeFor = n => n % 10 === 0 ? "S" : "M";
 SR.layoutFor = function (n) {
   const d = Math.min(4, Math.floor((n - 1) / 10)), list = SR.DISTRICT_LAYOUTS[d];
   return SR.LAYOUTS[list[(n - 1) % 10 % list.length]];
@@ -275,7 +277,8 @@ SR.ITEMS = [
   { id: "bomb",  name: "漆彈",   icon: "💣", desc: "每顆球的位置炸開一顆漆彈" },
   { id: "slow",  name: "慢動作", icon: "⏳", desc: "5 秒內時間變慢一半" },
   { id: "save",  name: "球保險", icon: "🛟", desc: "10 秒內掉球，球會回到發射道" },
-  { id: "ball",  name: "加一顆", icon: "➕", desc: "從上方多放一顆球" }
+  { id: "ball",  name: "加一顆", icon: "➕", desc: "從上方多放一顆球" },
+  { id: "wide",  name: "寬板",   icon: "🛹", desc: "12 秒內滑板變成大尺寸（經典擋板模式：擋板變長）" }
 ];
 SR.ITEM_MAX = 3;
 
