@@ -19,49 +19,89 @@ SR.Art = (function () {
   function rgba(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
   function off(w, h) { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; }
 
-  /* ---------- 灰牆背景（每區快取一張）---------- */
-  const wallCache = new Map();
-  function wall(district, W, H) {
-    const key = district.id;
-    if (wallCache.has(key)) return wallCache.get(key);
-    const c = off(W, H), g = c.getContext("2d"), rnd = SR.rng(district.stages[0] * 101);
-    g.fillStyle = "#3a3a40"; g.fillRect(0, 0, W, H);
-    // 磚牆紋理
-    for (let y = 0, row = 0; y < H; y += 22, row++) {
-      for (let x = (row % 2) * -24; x < W; x += 48) {
-        const v = 52 + Math.floor(rnd() * 14);
-        g.fillStyle = `rgb(${v},${v},${v + 4})`;
-        g.fillRect(x + 1, y + 1, 46, 20);
-      }
-    }
-    // 噴霧顆粒
-    for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(255,255,255,${rnd() * 0.05})`; g.fillRect(rnd() * W, rnd() * H, 1.5, 1.5); }
-    // 被刷灰的舊塗鴉（若隱若現）
-    g.save(); g.globalAlpha = 0.13; g.strokeStyle = "#9a9aa3"; g.lineWidth = 3; g.lineCap = "round";
-    for (let i = 0; i < 14; i++) {
-      const x = rnd() * W, y = rnd() * H;
-      g.beginPath(); g.moveTo(x, y);
-      for (let k = 0; k < 6; k++) g.quadraticCurveTo(x + (rnd() - 0.5) * 120, y + (rnd() - 0.5) * 60, x + (rnd() - 0.5) * 140, y + (rnd() - 0.5) * 80);
-      g.stroke();
-    }
+  /* ---------- 霓虹字、塗鴉小圖（背景用）---------- */
+  function neonText(g, text, x, y, size, color, rot = 0, alpha = 0.85) {
+    g.save(); g.translate(x, y); g.rotate(rot); g.globalAlpha = alpha;
+    g.font = `${size}px ${FONT_TAG}`; g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
+    g.shadowColor = color; g.shadowBlur = size * 0.45;
+    g.strokeStyle = color; g.lineWidth = Math.max(2, size * 0.07); g.strokeText(text, 0, 0);
+    g.shadowBlur = 0; g.strokeStyle = "rgba(255,255,255,0.85)"; g.lineWidth = Math.max(1, size * 0.025); g.strokeText(text, 0, 0);
     g.restore();
-    // 第 5 輪「美術大膽一點」：街區色的霓虹打光＋巨大的半透明噴漆字，牆不再只是灰
-    const p = district.colors;
-    for (const [cx, cy, col] of [[0, H * 0.25, p.a], [W, H * 0.55, p.c], [W * 0.3, H * 0.9, p.b]]) {
-      const lg = g.createRadialGradient(cx, cy, 10, cx, cy, W * 0.9);
-      lg.addColorStop(0, rgba(col, 0.22)); lg.addColorStop(1, rgba(col, 0));
+  }
+  // 金色手刷大字（設計圖中央的 HIT!）：粗黑描邊＋金色漸層＋滴漆
+  function goldTag(g, text, x, y, size, rot = -0.05, alpha = 0.9) {
+    g.save(); g.translate(x, y); g.rotate(rot); g.globalAlpha = alpha;
+    g.font = `${size}px ${FONT_TAG}`; g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
+    const w = g.measureText(text).width, rnd = SR.rng(text.length * 31 + size);
+    g.fillStyle = "#e0a800";
+    for (let i = 0; i < 5; i++) { const dx = (rnd() - 0.5) * w * 0.8, len = size * (0.2 + rnd() * 0.4); g.fillRect(dx - 2, size * 0.25, 4, len); }
+    g.strokeStyle = "#1a0b10"; g.lineWidth = size * 0.12; g.strokeText(text, 0, 0);
+    const gr = g.createLinearGradient(0, -size / 2, 0, size / 2); gr.addColorStop(0, "#fff2a8"); gr.addColorStop(0.45, "#ffcf3f"); gr.addColorStop(1, "#d98a00");
+    g.shadowColor = "#ffb21f"; g.shadowBlur = size * 0.25; g.fillStyle = gr; g.fillText(text, 0, 0);
+    g.restore();
+  }
+  function neonDoodle(g, kind, x, y, s, color, alpha = 0.7) {
+    g.save(); g.translate(x, y); g.scale(s, s); g.globalAlpha = alpha;
+    g.strokeStyle = color; g.lineWidth = 2.2 / s; g.lineJoin = "round"; g.lineCap = "round"; g.shadowColor = color; g.shadowBlur = 10;
+    g.beginPath();
+    if (kind === "crown") { g.moveTo(-12, 6); g.lineTo(-12, -4); g.lineTo(-6, 2); g.lineTo(0, -8); g.lineTo(6, 2); g.lineTo(12, -4); g.lineTo(12, 6); g.closePath(); }
+    else if (kind === "star") { for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 5 : 12; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); }
+    else if (kind === "heart") { g.moveTo(0, 10); g.bezierCurveTo(-16, -2, -8, -14, 0, -5); g.bezierCurveTo(8, -14, 16, -2, 0, 10); }
+    else if (kind === "bunny") { g.ellipse(0, 4, 11, 9, 0, 0, Math.PI * 2); g.moveTo(-5, -4); g.ellipse(-5, -12, 3, 8, -0.2, 0, Math.PI * 2); g.moveTo(8, -4); g.ellipse(5, -12, 3, 8, 0.2, 0, Math.PI * 2);
+      g.moveTo(-6, 1); g.lineTo(-2, 5); g.moveTo(-2, 1); g.lineTo(-6, 5); g.moveTo(2, 1); g.lineTo(6, 5); g.moveTo(6, 1); g.lineTo(2, 5); }
+    else if (kind === "arrow") { g.moveTo(-10, 0); g.lineTo(10, 0); g.moveTo(4, -6); g.lineTo(10, 0); g.lineTo(4, 6); }
+    g.stroke(); g.restore();
+  }
+
+  /* ---------- 背景：霓虹夜店舞台（企劃 2026-10-05 的新彈珠台美術設計；每區＋台面高度快取一張）----------
+     暗紫底＋六角暗紋、台面頂端的聚光燈與人群剪影、霓虹字（RUSH!／BOOM!／HIT!）、皇冠星星愛心兔子塗鴉 */
+  const wallCache = new Map();
+  function wall(district, W, H, top = 0) {
+    const key = district.id + ":" + top;
+    if (wallCache.has(key)) return wallCache.get(key);
+    const c = off(W, H), g = c.getContext("2d"), rnd = SR.rng(district.stages[0] * 101 + top), p = district.colors;
+    const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#1c0b38"); bg.addColorStop(0.6, "#160a2c"); bg.addColorStop(1, "#0d0719");
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    // 六角暗紋
+    g.strokeStyle = "rgba(160,120,255,0.07)"; g.lineWidth = 1;
+    const hs = 22;
+    for (let row = 0, y = 0; y < H + hs; row++, y += hs * 1.5) for (let x = (row % 2) * hs * 0.866; x < W + hs; x += hs * 1.732) {
+      g.beginPath(); for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3; g.lineTo(x + Math.cos(a) * hs, y + Math.sin(a) * hs); } g.closePath(); g.stroke();
+    }
+    // 街區色打光
+    for (const [cx, cy, col] of [[0, top + (H - top) * 0.3, p.a], [W, top + (H - top) * 0.6, p.c], [W * 0.5, top + 60, "#b25cff"]]) {
+      const lg = g.createRadialGradient(cx, cy, 10, cx, cy, W * 0.8);
+      lg.addColorStop(0, rgba(col, 0.25)); lg.addColorStop(1, rgba(col, 0));
       g.fillStyle = lg; g.fillRect(0, 0, W, H);
     }
-    g.save(); g.globalAlpha = 0.09; g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
-    const words = ["SPRAY", "RUN", district.en, "COLOR"];
+    // 聚光燈（從台面頂端往下打）
+    const y0 = top + 20;
     for (let i = 0; i < 6; i++) {
-      g.save(); g.translate(W * (0.2 + rnd() * 0.6), H * (0.08 + i * 0.16)); g.rotate((rnd() - 0.5) * 0.5);
-      g.font = `${70 + rnd() * 40}px ${FONT_TAG}`;
-      g.lineWidth = 10; g.strokeStyle = "#000"; g.strokeText(words[i % words.length], 0, 0);
-      g.fillStyle = [p.a, p.b, p.c][i % 3]; g.fillText(words[i % words.length], 0, 0);
-      g.restore();
+      const x = W * (0.12 + 0.15 * i), col = [p.a, p.c, "#b25cff"][i % 3], spread = 90 + rnd() * 60, len = 260 + rnd() * 120;
+      const lg = g.createLinearGradient(0, y0, 0, y0 + len); lg.addColorStop(0, rgba(col, 0.32)); lg.addColorStop(1, rgba(col, 0));
+      g.fillStyle = lg; g.beginPath(); g.moveTo(x - 5, y0); g.lineTo(x + 5, y0); g.lineTo(x + spread * (rnd() - 0.2), y0 + len); g.lineTo(x - spread * (rnd() + 0.2), y0 + len); g.closePath(); g.fill();
     }
-    g.restore();
+    // 人群剪影（舞台下的觀眾）
+    g.fillStyle = "rgba(8,4,20,0.75)";
+    for (let x = 0; x < W; x += 13 + rnd() * 8) {
+      const hy = y0 + 70 + rnd() * 14;
+      g.beginPath(); g.arc(x, hy, 6 + rnd() * 2, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(x, hy + 20, 11, 14, 0, 0, Math.PI * 2); g.fill();
+      if (rnd() < 0.3) { g.fillRect(x + 3, hy - 22, 3, 18); }   // 舉手
+    }
+    // 霓虹字與塗鴉（放在磚塊區以外、彈跳柱附近較空的地方）
+    const fh = H - top;
+    neonText(g, "RUSH!", W * 0.5, top + 52, 30, p.a, -0.05, 0.75);
+    neonText(g, "BOOM!", W * 0.42, top + fh * 0.5, 30, "#ffcf3f", -0.08, 0.55);
+    neonText(g, "RUSH!", W * 0.5, top + fh * 0.5 + 28, 16, "#ffcf3f", -0.08, 0.5);
+    goldTag(g, "HIT!", W * 0.44, top + fh * 0.7, 78, -0.06, 0.55);
+    neonDoodle(g, "crown", W * 0.42, top + fh * 0.5 - 30, 1, "#ffcf3f", 0.6);
+    neonDoodle(g, "crown", W * 0.44, top + fh * 0.7 - 62, 1.3, "#ffcf3f", 0.55);
+    neonDoodle(g, "star", 48, top + fh * 0.62, 1, "#b25cff", 0.6);
+    neonDoodle(g, "heart", 300, top + fh * 0.78, 1.1, p.a, 0.55);
+    neonDoodle(g, "bunny", 52, top + fh * 0.82, 1.1, p.a, 0.55);
+    neonDoodle(g, "arrow", 300, top + fh * 0.62, 1, "#9dff3a", 0.55);
+    neonDoodle(g, "star", 300, top + fh * 0.4, 0.8, p.c, 0.5);
     wallCache.set(key, c);
     return c;
   }
@@ -96,26 +136,44 @@ SR.Art = (function () {
   function strokeInk(g, w) { g.strokeStyle = INK; g.lineWidth = w; g.stroke(); }
   function table(g, world, pal, t) {
     g.lineCap = "round"; g.lineJoin = "round";
-    // 發射道底色
-    g.fillStyle = "rgba(0,0,0,0.35)"; g.fillRect(340, 525, 40, 560);
-    // 兩次描繪：先把所有黑邊畫完，再統一上色（逐段畫的話，下一段的黑邊會蓋掉上一段的顏色，變成虛線）
+    // 發射道＝玻璃管（設計圖右側的透明管）
+    g.fillStyle = "rgba(150,180,255,0.08)"; g.fillRect(341, 525, 38, 560);
+    g.strokeStyle = "rgba(255,255,255,0.22)"; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(347, 570); g.lineTo(347, 1018); g.moveTo(373, 540); g.lineTo(373, 1018); g.stroke();
+    // 滑板模式：鉻金屬滑軌橫跨整個台面（設計圖 SHOOT! 底下那條）
+    if (world.paddle) {
+      const ry = world.paddle.y + 13, mg = g.createLinearGradient(0, ry - 4, 0, ry + 4);
+      mg.addColorStop(0, "#e8ecf4"); mg.addColorStop(0.5, "#8a92a6"); mg.addColorStop(1, "#3b4052");
+      g.fillStyle = mg; g.fillRect(20, ry - 4, 320, 8); g.strokeStyle = "#120a24"; g.lineWidth = 2; g.strokeRect(20, ry - 4, 320, 8);
+      for (const bx of [24, 336]) {   // 兩端的黃黑警示條＋螺絲
+        g.save(); g.beginPath(); g.rect(bx - 4, ry - 9, 8, 18); g.clip();
+        g.fillStyle = "#ffcf3f"; g.fillRect(bx - 4, ry - 9, 8, 18); g.strokeStyle = "#111"; g.lineWidth = 3;
+        for (let k = -20; k < 20; k += 6) { g.beginPath(); g.moveTo(bx - 6, ry + k); g.lineTo(bx + 6, ry + k + 8); g.stroke(); }
+        g.restore(); g.strokeStyle = "#120a24"; g.lineWidth = 2; g.strokeRect(bx - 4, ry - 9, 8, 18);
+      }
+    }
+    // 軌道：先畫深色金屬底，再畫霓虹燈管（頂部圓弧＝金＋粉雙色，側牆＝街區色）
     const walls = world.segments.filter(s => s.kind !== "plunger" && s.kind !== "gate");
     const path = list => { g.beginPath(); for (const s of list) { g.moveTo(s.ax, s.ay); g.lineTo(s.bx, s.by); } };
-    // 霓虹外光：先畫一層粗的半透明色，再畫黑邊、上色（大膽、像霓虹燈管）
-    path(walls.filter(s => s.kind === "arc" || s.kind === "wall")); g.strokeStyle = rgba(pal.glow, 0.28); g.lineWidth = 20; g.stroke();
-    path(walls); strokeInk(g, 12);
-    path(walls.filter(s => s.kind === "arc")); g.strokeStyle = pal.b; g.lineWidth = 6; g.stroke();
-    path(walls.filter(s => s.kind === "wall" || s.kind === "rail")); g.strokeStyle = pal.c; g.lineWidth = 6; g.stroke();
+    path(walls); g.strokeStyle = "#0e0820"; g.lineWidth = 15; g.stroke();
+    path(walls); g.strokeStyle = "#3a3152"; g.lineWidth = 10; g.stroke();
+    const tube = (list, color, w) => { path(list); g.save(); g.shadowColor = color; g.shadowBlur = 12; g.strokeStyle = color; g.lineWidth = w; g.stroke(); g.restore(); };
+    const arc = walls.filter(s => s.kind === "arc");
+    tube(arc, "#ffb21f", 6); path(arc); g.strokeStyle = pal.a; g.lineWidth = 2; g.stroke();
+    tube(walls.filter(s => s.kind === "wall" || s.kind === "rail"), pal.c, 4);
+    path(walls.filter(s => s.kind === "wall" || s.kind === "rail")); g.strokeStyle = "rgba(255,255,255,0.7)"; g.lineWidth = 1.2; g.stroke();
     for (const s of walls.filter(s => s.kind === "sling" || s.kind === "rubber")) {
-      path([s]); g.strokeStyle = s.flash > 0 ? "#fff" : pal.a; g.lineWidth = s.kind === "rubber" ? 8 : 7; g.stroke();
+      tube([s], s.flash > 0 ? "#ffffff" : pal.a, s.kind === "rubber" ? 7 : 6);
       if (s.kind === "rubber") { g.strokeStyle = rgba("#ffffff", 0.6); g.lineWidth = 2; g.setLineDash([6, 8]); g.lineDashOffset = -t * 30; path([s]); g.stroke(); g.setLineDash([]); }
     }
     const gate = world.segments.find(s => s.kind === "gate");
-    if (gate) { path([gate]); g.strokeStyle = "#ddd"; g.lineWidth = 2; g.stroke(); }
-    // 彈弓本體（只有經典擋板模式才有彈弓；滑板模式底部是整片打開的）
+    if (gate) { path([gate]); g.strokeStyle = "rgba(255,255,255,0.6)"; g.lineWidth = 2; g.stroke(); }
+    // 彈弓本體（只有經典擋板模式才有）：粉紅霓虹三角＋星星
     if (world.segments.some(s => s.kind === "sling")) for (const tri of SR.Physics.SLING_TRIS) {
       g.beginPath(); g.moveTo(...tri[0]); g.lineTo(...tri[1]); g.lineTo(...tri[2]); g.closePath();
-      g.fillStyle = rgba(pal.b, 0.35); g.fill();
+      g.fillStyle = rgba(pal.a, 0.32); g.fill();
+      const cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3, cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3;
+      neonDoodle(g, "star", cx, cy, 0.5, "#ffffff", 0.8);
     }
     for (const c of world.circles) {
       if (c.kind === "post") { g.beginPath(); g.arc(c.x, c.y, c.r + 1, 0, Math.PI * 2); g.fillStyle = INK; g.fill(); continue; }
@@ -123,39 +181,46 @@ SR.Art = (function () {
       sprayCan(g, c.x, c.y, SR.T.bumper.radius, pal, c.flash > 0, t);
     }
   }
-  // 彈跳柱＝從上往下看的噴漆罐
+  // 彈跳柱（設計圖：深色金屬底座＋青色霓虹環＋深色中心）
   function sprayCan(g, x, y, r, pal, lit, t) {
-    // 平常就有一圈霓虹光（大膽一點），被打到時更亮
-    g.fillStyle = rgba(pal.glow, lit ? 0.55 : 0.16 + 0.06 * Math.sin(t * 4 + x)); g.beginPath(); g.arc(x, y, r * (lit ? 2.1 : 1.55), 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.arc(x + 3, y + 4, r, 0, Math.PI * 2); g.fillStyle = "rgba(0,0,0,0.35)"; g.fill();
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = lit ? "#fff" : pal.c; g.fill(); strokeInk(g, 4);
-    g.beginPath(); g.arc(x, y, r * 0.62, 0, Math.PI * 2); g.fillStyle = lit ? pal.c : shade(pal.c, -0.25); g.fill(); strokeInk(g, 3);
-    g.beginPath(); g.arc(x, y, r * 0.24, 0, Math.PI * 2); g.fillStyle = INK; g.fill();
-    // 霓虹閃爍點
-    const blink = 0.5 + 0.5 * Math.sin(t * 6 + x);
-    g.fillStyle = rgba("#ffffff", 0.4 + blink * 0.5); g.beginPath(); g.arc(x - r * 0.35, y - r * 0.35, 2.5, 0, Math.PI * 2); g.fill();
+    const ring = lit ? "#e6fdff" : "#3ee0ff";
+    const halo = g.createRadialGradient(x, y, r * 0.6, x, y, r * (lit ? 2.2 : 1.7));
+    halo.addColorStop(0, rgba("#3ee0ff", lit ? 0.6 : 0.25 + 0.07 * Math.sin(t * 4 + x))); halo.addColorStop(1, rgba("#3ee0ff", 0));
+    g.fillStyle = halo; g.beginPath(); g.arc(x, y, r * (lit ? 2.2 : 1.7), 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(x + 2, y + 4, r + 3, 0, Math.PI * 2); g.fillStyle = "rgba(0,0,0,0.5)"; g.fill();
+    const base = g.createLinearGradient(x, y - r, x, y + r); base.addColorStop(0, "#3d2f63"); base.addColorStop(1, "#150d2a");
+    g.beginPath(); g.arc(x, y, r + 3, 0, Math.PI * 2); g.fillStyle = base; g.fill(); g.strokeStyle = "#0a0614"; g.lineWidth = 2.5; g.stroke();
+    g.save(); g.shadowColor = "#3ee0ff"; g.shadowBlur = lit ? 18 : 10;
+    g.beginPath(); g.arc(x, y, r * 0.66, 0, Math.PI * 2); g.strokeStyle = ring; g.lineWidth = r * 0.34; g.stroke(); g.restore();
+    g.beginPath(); g.arc(x, y, r * 0.66, 0, Math.PI * 2); g.strokeStyle = "rgba(255,255,255,0.55)"; g.lineWidth = 1.5; g.stroke();
+    g.beginPath(); g.arc(x, y, r * 0.42, 0, Math.PI * 2); g.fillStyle = "#0d0819"; g.fill();
+    g.beginPath(); g.arc(x, y, r * 0.16, 0, Math.PI * 2); g.fillStyle = lit ? "#3ee0ff" : "#1f6f86"; g.fill();
+    g.fillStyle = "rgba(255,255,255,0.5)"; g.beginPath(); g.ellipse(x - r * 0.45, y - r * 0.55, r * 0.22, r * 0.1, -0.6, 0, Math.PI * 2); g.fill();
   }
 
-  /* ---------- 磚塊（2.5D 擠出）---------- */
-  const HP_COLORS = ["#b8b8bf", "#9a9aa3", "#7d7d86", "#62626b", "#4b4b53"];
+  /* ---------- 磚塊（設計圖：銀色金屬板、四角鉚釘、斜角高光；血越多顏色越深）---------- */
+  const HP_COLORS = ["#eef1f7", "#c9ced9", "#a3aab8", "#808897", "#5f6676"];
   function brick(g, k, pal, t) {
     if (!k.alive) return;
     if (k.type === "boss") return;
-    const depth = 6;
     const base = k.type === "bucket" ? pal.a : k.type === "gift" ? "#ffd23f" : HP_COLORS[Math.min(4, k.hp - 1)];
-    // 貼紙風的彩色錯位影（大膽一點：灰磚也帶街區色）
-    g.fillStyle = rgba(pal.a, 0.75); g.fillRect(k.x - 2, k.y + 3, k.w, k.h);
-    // 側面（立體感）
-    g.fillStyle = shade(base, -0.35);
-    g.beginPath(); g.moveTo(k.x + k.w, k.y); g.lineTo(k.x + k.w + depth, k.y + depth); g.lineTo(k.x + k.w + depth, k.y + k.h + depth);
-    g.lineTo(k.x + depth, k.y + k.h + depth); g.lineTo(k.x, k.y + k.h); g.lineTo(k.x + k.w, k.y + k.h); g.closePath(); g.fill();
-    g.strokeStyle = INK; g.lineWidth = 2.5; g.stroke();
-    // 正面
-    g.fillStyle = k.flash > 0 ? "#ffffff" : base;
-    g.fillRect(k.x, k.y, k.w, k.h);
-    g.strokeStyle = INK; g.lineWidth = 3.5; g.strokeRect(k.x, k.y, k.w, k.h);
-    // 高光
-    g.fillStyle = "rgba(255,255,255,0.25)"; g.fillRect(k.x + 3, k.y + 3, k.w - 6, 3);
+    // 影子
+    g.fillStyle = "rgba(0,0,0,0.5)"; g.fillRect(k.x + 2, k.y + 4, k.w, k.h);
+    // 金屬面（上亮下暗）
+    const mg = g.createLinearGradient(0, k.y, 0, k.y + k.h);
+    mg.addColorStop(0, k.flash > 0 ? "#ffffff" : shade(base, 0.08)); mg.addColorStop(1, k.flash > 0 ? "#ffffff" : shade(base, -0.2));
+    g.fillStyle = mg; g.fillRect(k.x, k.y, k.w, k.h);
+    g.strokeStyle = "#140c26"; g.lineWidth = 2; g.strokeRect(k.x, k.y, k.w, k.h);
+    // 斜角：左上亮邊、右下暗邊
+    g.strokeStyle = "rgba(255,255,255,0.75)"; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(k.x + 2, k.y + k.h - 2); g.lineTo(k.x + 2, k.y + 2); g.lineTo(k.x + k.w - 2, k.y + 2); g.stroke();
+    g.strokeStyle = "rgba(0,0,0,0.35)";
+    g.beginPath(); g.moveTo(k.x + k.w - 2, k.y + 3); g.lineTo(k.x + k.w - 2, k.y + k.h - 2); g.lineTo(k.x + 3, k.y + k.h - 2); g.stroke();
+    // 四角鉚釘
+    for (const [rx, ry] of [[k.x + 4, k.y + 4], [k.x + k.w - 4, k.y + 4], [k.x + 4, k.y + k.h - 4], [k.x + k.w - 4, k.y + k.h - 4]]) {
+      g.beginPath(); g.arc(rx, ry, 1.6, 0, Math.PI * 2); g.fillStyle = shade(base, -0.4); g.fill();
+      g.beginPath(); g.arc(rx - 0.5, ry - 0.5, 0.6, 0, Math.PI * 2); g.fillStyle = "rgba(255,255,255,0.8)"; g.fill();
+    }
     if (k.type === "gift") {
       // 道具磚：金色＋星星
       const cx = k.x + k.w / 2, cy = k.y + k.h / 2, r = 6 + Math.sin(t * 5) * 0.8;
@@ -169,9 +234,7 @@ SR.Art = (function () {
       g.beginPath(); g.arc(cx, cy - 5, 6, Math.PI, 0); g.stroke();
       g.fillStyle = pal.c; g.fillRect(cx - 6, cy - 5, 12, 3);
     } else {
-      // 血量點
-      for (let i = 0; i < k.hp && i < 5; i++) { g.fillStyle = INK; g.fillRect(k.x + k.w - 6 - i * 5, k.y + k.h - 6, 3, 3); }
-      // 裂痕
+      // 裂痕（血量由金屬板的深淺表示）
       if (k.hp < k.maxHp) {
         g.strokeStyle = INK; g.lineWidth = 1.4; g.beginPath();
         const cx = k.x + k.w * 0.4;
@@ -330,20 +393,27 @@ SR.Art = (function () {
     }
   }
 
-  /* ---------- 滑板（新操作：一根手指左右移動）---------- */
+  /* ---------- 滑板（設計圖：粉紅膠囊＋兩端黃色箭頭＋中間 SHOOT!）---------- */
   function paddle(g, p, dims, pal, t, highlight) {
-    const { hw, r } = dims, x = p.x, y = p.y, k = p.kick / 0.12;   // 擊球瞬間壓扁＋發光
-    g.save(); g.translate(x, y); g.scale(1 + k * 0.08, 1 - k * 0.25);
-    if (highlight || k > 0) { g.fillStyle = rgba(pal.glow, 0.35 + k * 0.4); roundRect(g, -hw - 10, -r - 10, hw * 2 + 20, r * 2 + 20, r + 10); g.fill(); }
-    g.fillStyle = "rgba(0,0,0,0.4)"; roundRect(g, -hw + 4, -r + 6, hw * 2, r * 2, r); g.fill();
-    // 輪子（從板子兩端露出來）
-    for (const wx of [-hw + 12, hw - 12]) for (const wy of [-r - 2, r + 2]) { g.beginPath(); g.arc(wx, wy, 4, 0, Math.PI * 2); g.fillStyle = pal.c; g.fill(); g.strokeStyle = INK; g.lineWidth = 2; g.stroke(); }
-    roundRect(g, -hw, -r, hw * 2, r * 2, r); g.fillStyle = pal.b; g.fill(); g.strokeStyle = INK; g.lineWidth = 4; g.stroke();
-    // 板面噴漆圖案：粉紅閃電條紋
-    g.save(); roundRect(g, -hw, -r, hw * 2, r * 2, r); g.clip();
-    g.fillStyle = pal.a; g.beginPath(); g.moveTo(-hw * 0.6, -r); g.lineTo(-hw * 0.1, -r); g.lineTo(-hw * 0.3, 0); g.lineTo(hw * 0.25, 0); g.lineTo(hw * 0.05, r); g.lineTo(-hw * 0.6, r); g.lineTo(-hw * 0.35, 0); g.closePath(); g.fill();
-    g.fillStyle = "rgba(255,255,255,0.45)"; g.fillRect(-hw + 6, -r + 2, hw * 2 - 12, 3);
-    g.restore();
+    const { hw } = dims, r = dims.r + 3, x = p.x, y = p.y, k = p.kick / 0.12;   // 畫得比碰撞範圍厚一點；擊球瞬間壓扁＋發光
+    g.save(); g.translate(x, y); g.scale(1 + k * 0.08, 1 - k * 0.22);
+    if (highlight || k > 0) { g.save(); g.shadowColor = "#ff3ea5"; g.shadowBlur = 20 + k * 20; g.fillStyle = rgba("#ff3ea5", 0.35 + k * 0.4); roundRect(g, -hw - 6, -r - 6, hw * 2 + 12, r * 2 + 12, r + 6); g.fill(); g.restore(); }
+    g.fillStyle = "rgba(0,0,0,0.5)"; roundRect(g, -hw + 3, -r + 5, hw * 2, r * 2, r); g.fill();
+    // 外框（深色）＋粉紅本體
+    roundRect(g, -hw, -r, hw * 2, r * 2, r); g.fillStyle = "#2a0a24"; g.fill();
+    const pg = g.createLinearGradient(0, -r, 0, r); pg.addColorStop(0, "#ff8ccc"); pg.addColorStop(0.5, "#ff3ea5"); pg.addColorStop(1, "#c4157a");
+    roundRect(g, -hw + 3, -r + 3, hw * 2 - 6, r * 2 - 6, r - 3); g.fillStyle = pg; g.fill();
+    g.fillStyle = "rgba(255,255,255,0.5)"; roundRect(g, -hw + 8, -r + 4, hw * 2 - 16, 3, 1.5); g.fill();
+    // 兩端黃色箭頭（往外指）
+    g.fillStyle = "#ffd23f"; g.strokeStyle = "#2a0a24"; g.lineWidth = 1.2;
+    for (const s of [-1, 1]) for (let i = 0; i < 2; i++) {
+      const ax = s * (hw - 9 - i * 6);
+      g.beginPath(); g.moveTo(ax - s * 3, -r + 4); g.lineTo(ax + s * 2, 0); g.lineTo(ax - s * 3, r - 4); g.lineTo(ax - s * 6, r - 4); g.lineTo(ax - s * 1, 0); g.lineTo(ax - s * 6, -r + 4); g.closePath(); g.fill(); g.stroke();
+    }
+    // 中間 SHOOT!
+    const fs = Math.min(11, (hw * 2 - 34) / 4.6);
+    g.font = `${fs}px ${FONT_BLOCK}`; g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
+    g.strokeStyle = "#2a0a24"; g.lineWidth = 3; g.strokeText("SHOOT!", 0, 1); g.fillStyle = "#ffe14d"; g.fillText("SHOOT!", 0, 1);
     g.restore();
   }
 

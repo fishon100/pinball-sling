@@ -694,7 +694,7 @@
     if (G.shake > 0.2) g.translate((Math.random() - 0.5) * G.shake * 2, (Math.random() - 0.5) * G.shake * 2);
     g.translate(v.fx, v.fy); g.scale(v.zoom, v.zoom); g.translate(-v.fx, -v.fy);
     g.translate(0, -G.cam.y);
-    g.drawImage(A.wall(G.district, VW, P.H), 0, 0);
+    g.drawImage(A.wall(G.district, VW, P.H, w.top || 0), 0, 0);
     g.drawImage(G.paint, 0, 0);
     A.table(g, w, p, G.t);
     for (const k of w.bricks) A.brick(g, k, p, G.t);
