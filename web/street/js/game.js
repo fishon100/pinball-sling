@@ -141,7 +141,7 @@
         <span class="act">第 ${i + 1} 區</span>
         <h3>${unlocked ? d.name : "？？？"}<small>${unlocked ? d.en : "LOCKED"} · ${s0}–${s1}</small></h3>
         <p class="story">${unlocked ? d.teaser : "在上一區打倒灰先生才會解鎖。"}</p>
-        ${unlocked ? `<p class="assist-line">${assistText(d.assists) || "沒有輔助：全靠你的手感"}</p>` : ""}
+        ${unlocked ? `<p class="assist-line">${assistText(R.assistsFor(s0)) || "沒有輔助：全靠你的手感"}</p>` : ""}
         <div class="nodes">${nodes.join("")}</div>
         ${unlocked ? `<div class="row"><button class="big-btn ${i % 2 ? "alt" : ""}" data-n="${nextN}">${save.unlocked > s1 ? "從頭再打一次" : save.unlocked > s0 ? `繼續：第 ${nextN} 關` : "出發"}</button></div><p class="sub" style="text-align:left;margin-top:6px;font-size:12px">點上面的格子可以直接選關・${best}</p>` : `<p class="lockmsg">🔒 尚未解鎖</p>`}
       </article>`;

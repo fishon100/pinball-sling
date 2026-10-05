@@ -45,6 +45,9 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 - 「套用調參」＝企劃從遊戲內手感調整面板（`web/street/js/tune.js`，暫停 → 🎚 手感調整）複製的「參數：原 → 新」清單。寫進 `tuning.js` 的 `STREET_TUNING`（**不要改 `data/tuning.json`**，那是 Godot v2 共用、會動到 AC1–AC13），更新 `數值總表`，跑 22 項測試＋擬人玩家難度，數字有變就更新 F15
 - Spectra（`spxa`，在 `D:\tools\node`）：Windows PowerShell 5.1 用管線餵 `spxa new artifact … --stdin` 會在檔頭加 BOM，Spectra 就讀不到第一個標題（例如 `## Purpose`）。做法：先用 Write 工具把內容寫成檔案，再用 `cmd /c "D:\tools\node\spxa.cmd new artifact … --stdin < 檔案"` 餵進去（`$OutputEncoding` 改了也沒用，npm 的 spxa.ps1 還是會加）
 - 遊戲流程測試：`web/street/test.html` 會在看不見的框架開 `index.html?test=1`（另一份存檔 `sprayrun.save.test`、不套用手感面板），測試寫在 `tests.js` 的 `GAME_TESTS`。注意 `SR_GAME.closeDialog()` 和 `SR.Comic.finish()` 都等於「按跳過」；要模擬看完漫畫得一直 `SR.Comic.tap()`。本機測試若用同一個 `?v=` 版號重跑，框架可能吃到舊快取，要先 `fetch(…, {cache:'reload'})`
+- **關卡由企劃的表決定**（v3.7.2 起）：Google Drive「我的雲端硬碟／噴漆闖關 關卡設定」資料夾（id `1nJBuCBLXMDiD-4f6PbYUT3KGsMf7HM5j`）裡的「關卡設定表」（id `1P3l9hWg8_ru_7mXKKm7rJ1yXSIx8U8yvyEFIMCUfe-Q`）與「台面配置表」（id `1waOIL6TOKerPAV93iw58mCoIBahRC96TAa2ilEIdY2w`）是正本；遊戲讀 `web/street/js/levels.js`（`SR.LEVELS`，自動產生，不要手改）。**不要用改公式的方式調關卡**（`SR.generateStage`、`SR.DEFAULTS` 只是第一版與報告參考）
+- 「同步關卡表」＝ ① 用 Google Drive `download_file_content`（`exportMimeType: text/csv`）下載兩份表 ② 把回傳的 base64 原樣存成 `tools/levels/in/stages.b64`、`layouts.b64`（不進 git）③ `node tools/levels/sync.js` 檢查並列出「改了哪幾關、哪幾欄」→ 給企劃看、等確認 ④ `node tools/levels/sync.js --write`（寫出 levels.js 並在 Node 跑會擋的測試）⑤ 開 `web/street/test.html` 確認（漫畫版面與遊戲流程測試只在瀏覽器跑；難度報告以瀏覽器的數字為準，Node 的浮點數略有差異）⑥ 升 `?v=` 部署。檢查有問題（回傳碼 2）就把「第幾關・哪一欄・問題」原文告訴企劃，不要自己改表
+- 測試分「會擋」與「報告」（`report: true`）：設計值與難度（AC-S17、S20、S29、S30、S34、S36、S39、S40）只報告；企劃改表後報告出現 ⚠ 不算失敗。磚塊圖案編輯器在 `web/street/editor.html`（線上 `/street/editor.html`）
 - 知識庫／媒體庫要列出產出工具與管理工具（例：美術 ChatGPT／GPT Image 產出 → Figma 管理）
 - 完成後在 `彈珠專案/04 紀錄/開發日誌.md` 最上面記一筆，再把有改的文件複製到 `specs/` 對應位置
 

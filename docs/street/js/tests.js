@@ -285,12 +285,8 @@ SR.Tests = (function () {
       const bad = ids.filter((id, i) => !rs[i].pass);
       return { pass: !bad.length, value: bad.length ? bad.map(id => `${id}：${rs[ids.indexOf(id)].value}`).join("；") : `${ids.length} 種配置、${rs.reduce((s, r) => s + +r.value.split(" ")[0], 0)} 次放球，0 次卡住` };
     } },
-    { id: "AC-S19", name: "台面配置：柱子不碰磚、第 1 區最矮、越後面越高、每關跟上一關不同", run(T) {
+    { id: "AC-S19", name: "台面配置：中柱、阿鰭、加速帶都不貼磚；首領關沒有阿鰭", run(T) {
       const problems = [];
-      const tops = SR.DISTRICT_LAYOUTS.map(list => Math.min(...list.map(id => SR.LAYOUTS[id].top)));
-      for (let i = 1; i < tops.length; i++) if (tops[i] > tops[i - 1]) problems.push(`第 ${i + 1} 區比前一區矮`);
-      if (SR.LAYOUTS[SR.DISTRICT_LAYOUTS[0][0]].top < P().CAM_MAX) problems.push("第 1 區還需要捲動鏡頭");
-      for (let n = 2; n <= 50; n++) if ((n - 1) % 10 && SR.layoutFor(n) === SR.layoutFor(n - 1)) problems.push(`第 ${n} 關跟上一關台面一樣`);
       for (let n = 10; n <= 50; n += 10) if (SR.layoutFor(n).fish) problems.push(`第 ${n} 關首領關有阿鰭`);
       for (let n = 1; n <= 50; n++) {
         const w = P().buildTable(T, {}, SR.layoutFor(n)); P().placeStage(w, SR.buildStage(n));
@@ -301,8 +297,14 @@ SR.Tests = (function () {
           const dx = c.x - P().clamp(c.x, k.x, k.x + k.w), dy = c.y - P().clamp(c.y, k.y, k.y + k.h);
           if (Math.hypot(dx, dy) < T.bumper.radius + 2 * T.ball.radius) { problems.push(`第 ${n} 關（${SR.layoutFor(n).id}）柱子離磚太近`); break; }
         }
+        // 加速帶：矩形離磚、離中柱都要 ≥ 46
+        const gap = (a, b) => Math.hypot(Math.max(0, a.x - (b.x + b.w), b.x - (a.x + a.w)), Math.max(0, a.y - (b.y + b.h), b.y - (a.y + a.h)));
+        for (const p of w.boosts || []) {
+          if (all.some(k => gap(p, k) < 46)) problems.push(`第 ${n} 關（${SR.layoutFor(n).id}）加速帶離磚太近`);
+          if (w.circles.some(c => c.kind === "bumper" && gap(p, { x: c.x, y: c.y, w: 0, h: 0 }) < 46)) problems.push(`第 ${n} 關（${SR.layoutFor(n).id}）加速帶離中柱太近`);
+        }
       }
-      return { pass: problems.length === 0, value: problems.length ? [...new Set(problems)].slice(0, 3).join("；") : `${Object.keys(SR.LAYOUTS).length} 種配置；台面高度依區 ${tops.map(t => P().H - t).join("／")}` };
+      return { pass: problems.length === 0, value: problems.length ? [...new Set(problems)].slice(0, 3).join("；") : "50 關的中柱、阿鰭、加速帶都離磚 46 px 以上；首領關沒有阿鰭" };
     } },
     { id: "AC-S21", name: "滑板：打中間直直往上、打邊邊比較斜、出球速度固定、移動有上限、球不會停在滑板上、大中小三種尺寸、可移動整個台面寬", run(T) {
       const shot = off => {
@@ -327,7 +329,6 @@ SR.Tests = (function () {
       // 第 6 輪：三種尺寸 S < M < L；一般關卡＝中、首領關＝小；可以移動到整個台面寬度（左牆 20～發射道內牆 340）
       const hw = T.paddle.half_widths;
       if (!(hw.S < hw.M && hw.M < hw.L)) problems.push("尺寸大小順序錯");
-      if (SR.paddleSizeFor(3) !== "M" || SR.paddleSizeFor(10) !== "S") problems.push("關卡的滑板尺寸不對");
       const wr = P().buildTable(T, {}, null, "paddle"), [lo, hi] = P().paddleRange(T, wr), h2 = P().paddleDims(T, wr).hw;
       if (lo - h2 > 20.5 || hi + h2 < 339.5) problems.push(`移動範圍只到 ${lo - h2}～${hi + h2}`);
       if (wr.segments.some(s => s.kind === "sling")) problems.push("滑板模式還有彈弓擋住");
@@ -347,7 +348,7 @@ SR.Tests = (function () {
       if (!SR.SPEAKERS.fish || !SR.Comic.CHAR.fish) p.push("漫畫沒有阿鰭");
       return { pass: !p.length, value: p.length ? p.join("；") : `獎牌規則正確・${Object.keys(SR.COMICS).length} 段漫畫都能回放・阿鰭第 ${firstFish} 關登場前先播漫畫` };
     } },
-    { id: "AC-S20", name: "第 1 區難度（擬人新手、滑板、含輔助）：平均每關掉愛心 ≤ 1、一半以上的關卡完美（9 關 × 5 局）", run(T) {
+    { id: "AC-S20", report: true, name: "【報告】第 1 區難度（擬人新手、滑板、含輔助）：平均每關掉愛心 ≤ 1、一半以上的關卡完美（9 關 × 5 局）", run(T) {
       let h = 0, perfect = 0, n = 0, sec = 0;
       for (let st = 1; st <= 9; st++) for (let s = 0; s < 5; s++) {
         const seed = st * 1000 + s * 17 + 3;
@@ -356,7 +357,7 @@ SR.Tests = (function () {
       }
       return { pass: h / n <= 1 && perfect / n >= 0.5, value: `每關掉 ${(h / n).toFixed(2)} 顆、完美 ${perfect}/${n} 關、平均 ${(sec / n).toFixed(0)} 秒` };
     } },
-    { id: "AC-S17", name: "收尾不拖：擬人新手卡在最後 3 塊平均 ≤ 10 秒，收尾輔助不會變慢（45 局）", run(T) {
+    { id: "AC-S17", report: true, name: "【報告】收尾不拖：擬人新手卡在最後 3 塊平均 ≤ 10 秒，收尾輔助不會變慢（45 局）", run(T) {
       // 彈珠物理對微小差異很敏感，樣本太少結果會飄；用 9 關 × 5 局
       const m = finisher => { let tail = 0, n = 0; for (let st = 1; st <= 9; st++) for (const s of [11, 12, 13, 14, 15]) {
         const r = playStage(T, st, SR.Rules.simulatedBuild(T, st - 1, st * 31 + s), st * 31 + s, 600, { skill: HUMAN.novice, control: "paddle", assists: { ...SR.Rules.assistsFor(st), finisher } });
@@ -412,7 +413,7 @@ SR.Tests = (function () {
       if (!SR.COMICS.intro.flat().some(p => (p.cast || []).some(c => c.who === "kid"))) problems.push("序章沒有主角小葵");
       return { pass: problems.length === 0, value: problems.length ? problems.join("；") : `${Object.keys(SR.COMICS).length} 段漫畫、${texts.length} 段文字檢查通過` };
     }},
-    { id: "AC-S18", name: "漫畫資料與版面：背景／角色都存在、對話框不超過 32 字、不蓋到臉、格子不重疊也不超出頁面", run(T) {
+    { id: "AC-S18", browser: true, name: "漫畫資料與版面：背景／角色都存在、對話框不超過 32 字、不蓋到臉、格子不重疊也不超出頁面", run(T) {
       const problems = [], mctx = document.createElement("canvas").getContext("2d");
       for (const [key, pages] of Object.entries(SR.COMICS)) pages.forEach((page, pi) => {
         const cells = SR.Comic.layout(page);
@@ -532,17 +533,17 @@ SR.Tests = (function () {
       }
       return { pass: !problems.length, value: problems.length ? [...new Set(problems)].slice(0, 4).join("；") : "50 關 top 都是 320；第 5／15／25／35／45 關各玩 20 秒，鏡頭都沒動" };
     }}
-  , { id: "AC-S28", name: "加速帶：往上經過加速 ×1.35（最少 1000、最多 2000）、往下不加速、0.5 秒內不重複；第 3 區 1 條、第 4、5 區 2 條、首領關與第 1、2 區沒有", run(T) {
+  , { id: "AC-S28", name: "加速帶：往上經過加速 ×1.35（最少 1000、最多 2000）、往下不加速、0.5 秒內不重複；首領關沒有加速帶", run(T) {
       const problems = [];
-      const count = n => { const w = P().buildTable(T, {}, SR.layoutFor(n), "paddle"); P().placeStage(w, SR.buildStage(n)); return (w.boosts || []).length; };
-      const counts = [25, 35, 45, 30, 15, 5].map(count);
-      if (counts.join() !== "1,2,2,0,0,0") problems.push(`條數（第 25／35／45／30／15／5 關）${counts.join("／")}`);
-      // 速度：拿掉重力與其他東西，只看加速帶
+      // 首領關：台面配置有加速帶也不放（v3.7.2 起台面由企劃的表決定，這裡自己造一個有加速帶的台面）
+      const padLayout = { id: "test_pad", name: "測試", top: 320, bumpers: [], boost: [[152, 763]] };
+      const pads = n => { const w = P().buildTable(T, {}, padLayout, "paddle"); P().placeStage(w, SR.buildStage(n)); return (w.boosts || []).length; };
+      if (pads(10) !== 0 || pads(11) !== 1) problems.push(`首領關 ${pads(10)} 條、一般關 ${pads(11)} 條（應 0／1）`);
       // 只看加速帶：拿掉重力、空氣阻力、牆、柱子、磚、滑板；速度在加速那一幀量
       const trial = (vy, again) => withGravity(T, 0, () => {
         const oldDamp = T.ball.damping; T.ball.damping = 0;
         try {
-          const w = P().buildTable(T, {}, SR.layoutFor(35), "paddle"); P().placeStage(w, SR.buildStage(35));
+          const w = P().buildTable(T, {}, padLayout, "paddle");
           w.bricks = []; w.circles = []; w.segments = []; w.paddle = null;
           const pad = (w.boosts || [])[0]; if (!pad) return null;
           const cx = pad.x + pad.w / 2, b = P().newBall(T, w, cx, vy < 0 ? pad.y + pad.h + 6 : pad.y - 6); b.vx = 0; b.vy = vy; w.balls = [b];
@@ -554,16 +555,26 @@ SR.Tests = (function () {
         } finally { T.ball.damping = oldDamp; }
       });
       for (const [vin, want] of [[-500, 1000], [-800, 1080], [-1700, 2000]]) {
-        const r = trial(vin); if (!r) { problems.push("第 35 關沒有加速帶"); break; }
+        const r = trial(vin); if (!r) { problems.push("測試台面沒有加速帶"); break; }
         if (Math.abs(r.sp - want) > 6 || r.boosts !== 1) problems.push(`往上 ${-vin} → ${r.sp.toFixed(0)}（應 ${want}）、加速 ${r.boosts} 次`);
       }
       const down = trial(800);
       if (down && (Math.abs(down.sp - 800) > 6 || down.boosts)) problems.push(`往下 800 → ${down.sp.toFixed(0)}、加速 ${down.boosts} 次（應不加速）`);
       const cd = trial(-800, true);
       if (cd && cd.boosts !== 1) problems.push(`0.5 秒內加速了 ${cd.boosts} 次`);
-      return { pass: !problems.length, value: problems.length ? problems.join("；") : "條數 1／2／2／0／0／0；500→1000、800→1080、1700→2000；往下不加速；0.5 秒內不重複" };
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : "首領關沒有、500→1000、800→1080、1700→2000；往下不加速；0.5 秒內不重複" };
     }}
-  , { id: "AC-S29", name: "第 2～5 區難度（擬人新手、滑板）：每區不比前一區簡單超過 0.15、第 5 區每關 0.8～1.4 顆、每區平均一關 ≤ 90 秒（每區 9 關 × 2 局）", run(T) {
+  , { id: "AC-S40", report: true, name: "【報告】加速帶條數（設計值：第 3 區 1 條、第 4、5 區 2 條、第 1、2 區與首領關沒有）", run(T) {
+      const count = n => { const w = P().buildTable(T, {}, SR.layoutFor(n), "paddle"); P().placeStage(w, SR.buildStage(n)); return (w.boosts || []).length; };
+      const counts = [25, 35, 45, 30, 15, 5].map(count);
+      return { pass: counts.join() === "1,2,2,0,0,0", value: `第 25／35／45／30／15／5 關：${counts.join("／")} 條（設計值 1／2／2／0／0／0）` };
+    }}
+  , { id: "AC-S39", report: true, name: "【報告】台面輪替：同一區相鄰兩關的台面不同", run(T) {
+      const same = [];
+      for (let n = 2; n <= 50; n++) if ((n - 1) % 10 && SR.layoutFor(n).id === SR.layoutFor(n - 1).id) same.push(n);
+      return { pass: !same.length, value: same.length ? `第 ${same.join("、")} 關跟上一關台面一樣` : "相鄰兩關都不一樣" };
+    }}
+  , { id: "AC-S29", report: true, name: "【報告】第 2～5 區難度（擬人新手、滑板）：設計目標＝每區不比前一區簡單超過 0.15、第 5 區每關 0.8～1.4 顆、每區平均一關 ≤ 90 秒（每區 9 關 × 2 局）", run(T) {
       const rows = [];
       for (let d = 1; d <= 4; d++) {
         let h = 0, sec = 0, n = 0;
@@ -581,7 +592,7 @@ SR.Tests = (function () {
       const txt = rows.map(r => `第 ${r.d} 區 ${r.hearts.toFixed(2)} 顆／${r.sec.toFixed(0)} 秒`).join("、");
       return { pass: !problems.length, value: (problems.length ? problems.join("；") + "｜" : "") + txt };
     }}
-  , { id: "AC-S30", name: "每區難度元件：球的大小、滑板大小、磚血、中柱數量、彈道預覽、拖尾長度", run(T) {
+  , { id: "AC-S30", report: true, name: "【報告】每區難度元件（跟第一版設計值比）：球的大小、滑板大小、磚血、中柱數量、彈道預覽、拖尾長度", run(T) {
       const problems = [], R = SR.Rules;
       const radii = [5, 15, 25, 35, 45].map(n => SR.ballRadiusFor ? SR.ballRadiusFor(n) : NaN);
       if (radii.join() !== "12,12,11,10.5,10.5") problems.push(`球半徑 ${radii.join("／")}`);
@@ -591,8 +602,8 @@ SR.Tests = (function () {
       const sizes = [3, 25, 35, 10].map(n => SR.paddleSizeFor(n));
       if (sizes.join() !== "M,M,S,S") problems.push(`滑板 ${sizes.join("／")}`);
       // 第 4、5 區不再少 1 血：每塊磚 ≥ 圖案數字、≤ 圖案數字 + 1
-      for (let n = 31; n <= 49; n++) if (n % 10) for (const c of SR.buildStage(n).cells) if (c.type === "brick" && (c.base == null || c.hp < c.base || c.hp > c.base + 1)) { problems.push(`第 ${n} 關有磚 ${c.hp} 血（圖案 ${c.base}）`); break; }
-      SR.DISTRICT_LAYOUTS.forEach((list, d) => { if (d) for (const id of list) { const pairs = (SR.LAYOUTS[id].bumpers || []).length / 2; if (pairs > (d === 1 ? 2 : 1)) problems.push(`${id} 有 ${pairs} 對中柱`); } });
+      for (let n = 31; n <= 49; n++) if (n % 10) for (const c of (SR.generateStage || SR.buildStage)(n).cells) if (c.type === "brick" && (c.base == null || c.hp < c.base || c.hp > c.base + 1)) { problems.push(`第 ${n} 關有磚 ${c.hp} 血（圖案 ${c.base}）`); break; }
+      for (let n = 11; n <= 50; n++) { const pairs = (SR.layoutFor(n).bumpers || []).length / 2; if (pairs > (n <= 20 ? 2 : 1)) problems.push(`第 ${n} 關（${SR.layoutFor(n).id}）有 ${pairs} 對中柱`); }
       if (R.assistsFor(25).preview) problems.push(`第 25 關還有 ${R.assistsFor(25).preview} 秒預覽`);
       const trails = [5, 15, 25, 35, 45].map(n => SR.trailFor ? SR.trailFor(n) : NaN);
       if (trails.join() !== "8,8,4,0,0") problems.push(`拖尾 ${trails.join("／")}`);
@@ -600,15 +611,18 @@ SR.Tests = (function () {
     }}
   , { id: "AC-S33", name: "道具膠囊：打破道具磚會掉膠囊、每秒 170 px 直直掉、碰到滑板就接住生效、沒接到過 y 1000 消失、不撞球", run(T) {
       const problems = [];
+      // 找一關有道具磚的（v3.7.2 起磚牆由企劃的表決定）
+      const gn = [...Array(50)].map((_, i) => i + 1).find(n => SR.buildStage(n).cells.some(c => c.type === "gift"));
       const setup = paddleUnder => {
-        const w = P().buildTable(T, {}, SR.layoutFor(12), "paddle"); P().placeStage(w, SR.buildStage(12)); w.balls = [];
+        if (!gn) return null;
+        const w = P().buildTable(T, {}, SR.layoutFor(gn), "paddle"); P().placeStage(w, SR.buildStage(gn)); w.balls = [];
         const k = w.bricks.find(x => x.type === "gift"); if (!k) return null;
         const cx = k.x + k.w / 2; w.paddle.x = w.paddle.target = paddleUnder ? P().clamp(cx, 76, 284) : (cx < 180 ? 284 : 76);
         const ev = []; P().damageBrick(w, k, 99, ev, "ball");
         return { w, k, cx };
       };
       const s = setup(true);
-      if (!s) return { pass: false, value: "第 12 關沒有道具磚" };
+      if (!s) return { pass: false, value: "50 關都沒有道具磚，沒辦法測" };
       const cap = (s.w.capsules || [])[0];
       if (!cap) problems.push("打破道具磚沒有掉膠囊");
       else {
@@ -638,13 +652,88 @@ SR.Tests = (function () {
       if (a.cy == null || Math.abs(a.cy - 500 - 170 / 6) > 1) problems.push("膠囊被球撞歪了");
       return { pass: !problems.length, value: problems.length ? problems.join("；") : "會掉、170 px/s、接住生效並移除、漏接消失、不撞球" };
     }}
-  , { id: "AC-S34", name: "道具磚：第 1 關 0 塊、第 2～50 關每關 2～3 塊", run(T) {
+  , { id: "AC-S34", report: true, name: "【報告】道具磚數量（設計值）：第 1 關 0 塊、第 2～50 關每關 2～3 塊", run(T) {
       const bad = [];
       for (let n = 1; n <= 50; n++) {
         const g = SR.buildStage(n).cells.filter(c => c.type === "gift").length;
         if (n === 1 ? g !== 0 : g < 2 || g > 3) bad.push(`第 ${n} 關 ${g} 塊`);
       }
       return { pass: !bad.length, value: bad.length ? bad.slice(0, 6).join("、") + (bad.length > 6 ? ` …共 ${bad.length} 關不對` : "") : "第 1 關 0 塊，第 2～50 關都是 2～3 塊" };
+    }}
+  /* ---------- v3.7.2 關卡設定表（申請單 level-config-table）---------- */
+  , { id: "AC-S36", name: "第一版關卡表跟原本公式產生的 50 關完全相同（企劃改過表之後改成報告）",
+      report: () => !!(SR.LEVELS && SR.LEVELS.source && SR.LEVELS.source !== "export"), run(T) {
+      if (!SR.LEVELS || !SR.generateStage || !SR.DEFAULTS) return { pass: false, value: "還沒有 SR.LEVELS／SR.generateStage／SR.DEFAULTS" };
+      const R = SR.Rules, D = SR.DEFAULTS, diff = [];
+      const cellsKey = st => st.cells.map(c => `${c.r},${c.c},${c.type},${c.type === "boss" ? "" : c.hp}`).sort().join("|");
+      const geo = L => JSON.stringify({ name: L.name, bumpers: L.bumpers || [], fish: L.fish || null, rails: (L.rails || []).map(r => r.slice(0, 5)), boost: L.boost || [] });
+      const asst = a => [a.preview || 0, !!a.timing, a.ballSave || 0, !!a.finisher].join();
+      for (let n = 1; n <= 50; n++) {
+        const a = SR.buildStage(n), b = SR.generateStage(n), what = [];
+        if (cellsKey(a) !== cellsKey(b)) what.push("磚牆");
+        if (a.name !== b.name) what.push("名稱");
+        if (a.parTime !== b.parTime) what.push("標準時間");
+        if (JSON.stringify(a.boss) !== JSON.stringify(b.boss)) what.push("首領");
+        if (SR.layoutFor(n).id !== D.layoutFor(n).id || geo(SR.layoutFor(n)) !== geo(D.layoutFor(n))) what.push("台面");
+        if (SR.paddleSizeFor(n) !== D.paddleSizeFor(n)) what.push("滑板");
+        if (SR.ballRadiusFor(n) !== D.ballRadiusFor(n)) what.push("球半徑");
+        if (SR.trailFor(n) !== D.trailFor(n)) what.push("拖尾");
+        if (asst(R.assistsFor(n)) !== asst(D.assistsFor(n))) what.push("輔助");
+        if (what.length) diff.push(`第 ${n} 關（${what.join("、")}）`);
+      }
+      return { pass: !diff.length, value: diff.length ? `跟第一版不同：${diff.slice(0, 8).join("、")}${diff.length > 8 ? ` …共 ${diff.length} 關` : ""}` : "50 關跟原本公式完全相同" };
+    }}
+  , { id: "AC-S37", name: "同步檢查：正確的表沒有問題；填壞的表會列出「第幾關・哪一欄・問題」", run(T) {
+      const L = SR.LevelCheck; if (!L || !SR.LEVELS) return { pass: false, value: "還沒有 SR.LevelCheck" };
+      const good = L.toRows(SR.LEVELS), ok = L.validate(good.stages, good.layouts);
+      const problems = [];
+      if (ok.problems.length) problems.push(`正確的表被擋：${ok.problems.slice(0, 3).map(p => `第 ${p.stage} 關・${p.column}：${p.message}`).join("；")}`);
+      const bad = JSON.parse(JSON.stringify(good)), row = n => bad.stages.find(r => +r["關卡"] === n);
+      row(7)["滑板"] = "Q";
+      row(9)["第3排"] = row(9)["第3排"].slice(0, 2) + "9" + row(9)["第3排"].slice(3);
+      row(5)["球半徑"] = 7;
+      row(6)["道具池"] = "bomb,lazer";
+      row(8)["台面配置"] = "z_new";
+      row(10)["第3排"] = row(10)["第3排"].replace("X", ".");
+      row(11)["第1排"] = "....X....";
+      row(12)["第2排"] = "22223223";
+      const r = L.validate(bad.stages, bad.layouts), has = (n, col) => r.problems.some(p => p.stage === n && p.column === col);
+      const want = [[7, "滑板"], [9, "第3排"], [5, "球半徑"], [6, "道具池"], [8, "台面配置"], [10, "磚牆"], [11, "磚牆"], [12, "第2排"]];
+      const miss = want.filter(([n, c]) => !has(n, c));
+      if (miss.length) problems.push(`沒抓到：${miss.map(([n, c]) => `第 ${n} 關・${c}`).join("、")}`);
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : `正確的表 0 個問題；填壞的表抓到 ${r.problems.length} 個問題，例如「第 ${r.problems[0].stage} 關・${r.problems[0].column}：${r.problems[0].message}」` };
+    }}
+  , { id: "AC-S38", name: "改表的效果：只影響改到的那一關；字元對應正確；純數字的排照樣讀；道具池決定掉什麼", run(T) {
+      if (!SR.LEVELS || !SR.withLevels || !SR.LevelCheck) return { pass: false, value: "還沒有 SR.withLevels／SR.LevelCheck" };
+      const problems = [], key = st => st.cells.map(c => `${c.r},${c.c},${c.type},${c.hp}`).sort().join("|");
+      const before13 = key(SR.buildStage(13));
+      const copy = JSON.parse(JSON.stringify(SR.LEVELS)), s12 = copy.stages.find(s => s.n === 12);
+      s12.paddle = "L"; s12.grid[0] = "333333333"; s12.items = ["wide"];
+      SR.withLevels(copy, () => {
+        const row0 = SR.buildStage(12).cells.filter(c => c.r === 0);
+        if (row0.length !== 9 || row0.some(c => c.type !== "brick" || c.hp !== 3)) problems.push("第 12 關第一排不是 9 塊 3 血");
+        if (SR.paddleSizeFor(12) !== "L") problems.push(`第 12 關滑板 ${SR.paddleSizeFor(12)}`);
+        if (key(SR.buildStage(13)) !== before13) problems.push("第 13 關被改到了");
+        const w = P().buildTable(T, {}, SR.layoutFor(12), "paddle"); P().placeStage(w, SR.buildStage(12)); w.stageN = 12;
+        const k = w.bricks.find(x => x.type === "gift");
+        if (!k) problems.push("第 12 關沒有道具磚");
+        else { const items = new Set(); for (let i = 0; i < 12; i++) { const e = []; const c = P().spawnCapsule(w, 100, 100, e, undefined, SR.itemPoolFor(12)); items.add(c.item); } if ([...items].join() !== "wide") problems.push(`道具池 wide 卻掉了 ${[...items].join("、")}`); }
+      });
+      // 純數字的排、各種字元
+      const rows = SR.LevelCheck.toRows(SR.LEVELS), r1 = rows.stages.find(r => +r["關卡"] === 1);
+      r1["第2排"] = 222232233; r1["第3排"] = ".1G.B..5.";
+      const v = SR.LevelCheck.validate(rows.stages, rows.layouts);
+      if (v.problems.length) problems.push(`檢查擋下：${v.problems[0].message}`);
+      else {
+        const g = v.levels.stages.find(s => s.n === 1).grid;
+        if (g[1] !== "222232233") problems.push(`純數字排讀成 ${g[1]}`);
+        SR.withLevels(v.levels, () => {
+          const c = SR.buildStage(1).cells.filter(x => x.r === 2), at = col => c.find(x => x.c === col);
+          const ok = at(1) && at(1).type === "brick" && at(1).hp === 1 && at(2) && at(2).type === "gift" && at(4) && at(4).type === "bucket" && at(7) && at(7).hp === 5 && c.length === 4;
+          if (!ok) problems.push(`「.1G.B..5.」變成 ${c.map(x => `${x.c}:${x.type}${x.hp}`).join(" ")}`);
+        });
+      }
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : "只改第 12 關、字元對應、純數字排、道具池都正確" };
     }}
   , { id: "AC-S25", name: "全破的街區按「從頭再打一次」從第 1 關開始", run() {
       const cases = [[1, 1], [6, 6], [11, 1], [51, 1]];             // 規則書 game-ui 的範例表
@@ -765,11 +854,14 @@ SR.Tests = (function () {
     return out;
   }
 
-  function run(T) {
-    return TESTS.map(t => {
+  // opts.node＝在 Node 跑（同步工具）：需要瀏覽器畫布量字的測試（browser: true）跳過，交給 test.html
+  function run(T, opts = {}) {
+    return TESTS.filter(t => !(opts.node && t.browser)).map(t => {
       const t0 = performance.now();
       let r; try { r = t.run(T); } catch (e) { r = { pass: false, value: "錯誤：" + e.message }; }
-      return { id: t.id, name: t.name, ms: Math.round(performance.now() - t0), ...r };
+      // report＝只報告、不擋部署（企劃一改表就可能不同的設計值與難度）
+      const report = typeof t.report === "function" ? !!t.report() : !!t.report;
+      return { id: t.id, name: t.name, ms: Math.round(performance.now() - t0), report, ...r };
     });
   }
   return { run, runGame, bot, playStage, stuckProbe, NOVICE, HUMAN, TESTS, GAME_TESTS };

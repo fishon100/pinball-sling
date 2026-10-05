@@ -10,7 +10,7 @@
   p { color: #9a9aa3; margin: 0 0 16px; }
   li { list-style: none; margin: 0 0 10px; display: grid; grid-template-columns: 28px 1fr; }
   ul { padding: 0; max-width: 760px; }
-  .ok { color: #7cff4f; } .bad { color: #ff5a5a; }
+  .ok { color: #7cff4f; } .bad { color: #ff5a5a; } .warn { color: #ffcc33; }
   small { color: #9a9aa3; font-family: Consolas, monospace; }
 </style>
 </head>
@@ -18,32 +18,40 @@
 <h1>噴漆闖關｜自動測試</h1>
 <p id="meta">執行中…</p>
 <ul id="list"></ul>
+<h1>報告（不擋部署）</h1>
+<p>設計值與難度：企劃改關卡表後可能跟第一版不同，這裡只顯示數字給企劃參考。⚠＝跟設計目標不同</p>
+<ul id="reportList"></ul>
 <h1>遊戲流程</h1>
 <p>在看不見的框架裡開真的遊戲來操作（測試模式，用另一份存檔，不會動到你的進度）</p>
 <ul id="gameList"></ul>
 <iframe id="gameFrame" title="遊戲流程測試" style="position:absolute;left:-10000px;top:0;width:400px;height:820px;border:0" aria-hidden="true"></iframe>
-<script src="js/data.js?v=3.7.1"></script>
-<script src="js/tuning.js?v=3.7.1"></script>
-<script src="js/physics.js?v=3.7.1"></script>
-<script src="js/rules.js?v=3.7.1"></script>
-<script src="js/art.js?v=3.7.1"></script>
-<script src="js/comic.js?v=3.7.1"></script>
-<script src="js/tests.js?v=3.7.1"></script>
+<script src="js/data.js?v=3.7.2"></script>
+<script src="js/levels.js?v=3.7.2"></script>
+<script src="js/levelcheck.js?v=3.7.2"></script>
+<script src="js/tuning.js?v=3.7.2"></script>
+<script src="js/physics.js?v=3.7.2"></script>
+<script src="js/rules.js?v=3.7.2"></script>
+<script src="js/art.js?v=3.7.2"></script>
+<script src="js/comic.js?v=3.7.2"></script>
+<script src="js/tests.js?v=3.7.2"></script>
 <script>
 (async () => {
   const T = await SR.loadTuning();
   const t0 = performance.now();
-  const item = r => `<li><span class="${r.pass ? "ok" : "bad"}">${r.pass ? "✓" : "✗"}</span><span><b>${r.id}</b> ${r.name}<br><small>${r.value}（${r.ms} ms）</small></span></li>`;
+  const item = r => r.report
+    ? `<li><span class="${r.pass ? "ok" : "warn"}">${r.pass ? "ⓘ" : "⚠"}</span><span><b>${r.id}</b> ${r.name}<br><small>${r.value}（${r.ms} ms）</small></span></li>`
+    : `<li><span class="${r.pass ? "ok" : "bad"}">${r.pass ? "✓" : "✗"}</span><span><b>${r.id}</b> ${r.name}<br><small>${r.value}（${r.ms} ms）</small></span></li>`;
   const unit = SR.Tests.run(T);
-  document.getElementById("list").innerHTML = unit.map(item).join("");
-  document.getElementById("meta").textContent = `規則與物理 ${unit.filter(r => r.pass).length}/${unit.length}・遊戲流程測試執行中…`;
+  document.getElementById("list").innerHTML = unit.filter(r => !r.report).map(item).join("");
+  document.getElementById("reportList").innerHTML = unit.filter(r => r.report).map(item).join("");
+  document.getElementById("meta").textContent = `規則與物理 ${unit.filter(r => !r.report && r.pass).length}/${unit.filter(r => !r.report).length}・遊戲流程測試執行中…`;
   // 遊戲流程測試：在看不見的框架開真的遊戲（測試模式，另一份存檔）
   const game = await SR.Tests.runGame(document.getElementById("gameFrame"));
   document.getElementById("gameList").innerHTML = game.map(item).join("");
   const res = unit.concat(game);
   window.SR_TEST_RESULTS = res;
-  const ok = res.filter(r => r.pass).length;
-  document.getElementById("meta").textContent = `${ok}/${res.length} 通過・參數來源：${T._source}・${Math.round(performance.now() - t0)} ms`;
+  const block = res.filter(r => !r.report), reps = res.filter(r => r.report);
+  document.getElementById("meta").textContent = `${block.filter(r => r.pass).length}/${block.length} 通過・報告 ${reps.length} 項（⚠ ${reps.filter(r => !r.pass).length} 項跟設計目標不同）・參數來源：${T._source}・關卡表：${SR.LEVELS ? SR.LEVELS.source + " " + (SR.LEVELS.syncedAt || "") : "（公式）"}・${Math.round(performance.now() - t0)} ms`;
 })();
 </script>
 </body>

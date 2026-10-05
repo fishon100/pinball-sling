@@ -21,7 +21,14 @@ SR.Rules = (function () {
     world.flipperPower = 1 + 0.12 * lv(run, "power");   // 不改擋板長度，避免擋板尖端把出口堵住
     world.splash = lv(run, "splash");
   }
-  function assistsFor(n) { return SR.districtOf(n).assists; }
+  // v3.7.2：輔助照關卡表（預覽秒、落點提示、加長球保險、收尾輔助）；沒有表時照街區（SR.DEFAULTS.assistsFor）
+  function districtAssists(n) { return SR.districtOf(n).assists; }
+  if (SR.DEFAULTS) SR.DEFAULTS.assistsFor = districtAssists;
+  function assistsFor(n) {
+    const r = SR.row && SR.row(n);
+    if (!r) return districtAssists(n);
+    return { preview: r.preview, timing: r.landing, ballSave: r.ballSave, finisher: r.finisher };
+  }
 
   /* 收尾輔助：剩 ≤ 3 塊一般磚、而且 8 秒沒碎磚 → 設定磁力目標（離球最近的那塊）；否則清掉。回傳是否啟動 */
   function updateFinisher(T, world, assists, sinceBreak) {

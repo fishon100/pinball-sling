@@ -74,15 +74,41 @@ SR.DISTRICT_LAYOUTS = [
 // 首領關（每區第 10 關）不要用阿鰭的配置：阿鰭會擋住打首領的路線（AC-S8b 抓到第 50 關 7 分鐘打不完）
 /* 滑板尺寸（第 6 輪）：一般關卡＝中；首領關＝小（挑戰）；大＝道具「寬板」作用中（見 physics.js 的 paddleSize） */
 // v3.7：第 4、5 區一般關卡也用小滑板
-SR.paddleSizeFor = n => n % 10 === 0 || n > 30 ? "S" : "M";
-/* v3.7 每區的難度元件：球的半徑（第 3 區起變小，「大罐」強化另外加）、球的拖尾光長度（第 3 區剩一半、第 4、5 區沒有） */
-// 量測定案（擬人新手，AC-S29）：原本規劃 12／12／10.5／9／9，第 5 區每關掉 3.39 顆太難，改成 12／12／11／10.5／10.5
-SR.ballRadiusFor = n => n > 30 ? 10.5 : n > 20 ? 11 : 12;
-SR.trailFor = n => n > 30 ? 0 : n > 20 ? 4 : 8;
-SR.layoutFor = function (n) {
-  const d = Math.min(4, Math.floor((n - 1) / 10)), list = SR.DISTRICT_LAYOUTS[d];
-  return SR.LAYOUTS[list[(n - 1) % 10 % list.length]];
+/* v3.7 每區的難度元件：球的半徑（第 3 區起變小，「大罐」強化另外加）、球的拖尾光長度（第 3 區剩一半、第 4、5 區沒有）
+   量測定案（擬人新手，AC-S29）：原本規劃 12／12／10.5／9／9，第 5 區每關掉 3.39 顆太難，改成 12／12／11／10.5／10.5
+   v3.7.2（申請單 level-config-table）：這些公式只用來產生「第一版關卡表」和當報告的參考（SR.DEFAULTS）；
+   遊戲實際照企劃的關卡表（levels.js 的 SR.LEVELS）跑，見下面的 SR.row */
+SR.DEFAULTS = {
+  paddleSizeFor: n => n % 10 === 0 || n > 30 ? "S" : "M",
+  ballRadiusFor: n => n > 30 ? 10.5 : n > 20 ? 11 : 12,
+  trailFor: n => n > 30 ? 0 : n > 20 ? 4 : 8,
+  layoutFor(n) {
+    const d = Math.min(4, Math.floor((n - 1) / 10)), list = SR.DISTRICT_LAYOUTS[d];
+    return SR.LAYOUTS[list[(n - 1) % 10 % list.length]];
+  }
+  // assistsFor 在 rules.js（照街區）
 };
+SR.row = n => SR.LEVELS && SR.LEVELS.stages ? SR.LEVELS.stages[n - 1] : null;
+// 台面配置表 → 跟 SR.LAYOUTS 同樣的格式（同一份表只轉一次，物件固定，方便比對）
+SR._layoutCache = null;
+SR.tableLayout = function (id) {
+  if (!SR.LEVELS) return null;
+  if (!SR._layoutCache || SR._layoutCache.src !== SR.LEVELS) SR._layoutCache = { src: SR.LEVELS, map: {} };
+  const map = SR._layoutCache.map;
+  if (!map[id]) {
+    const L = SR.LEVELS.layouts[id]; if (!L) return null;
+    map[id] = { id, name: L.name, top: 320, bumpers: L.bumpers || [], rails: L.rails || [], boost: L.boost || [], fish: L.fish || undefined };
+  }
+  return map[id];
+};
+SR.paddleSizeFor = n => { const r = SR.row(n); return r ? r.paddle : SR.DEFAULTS.paddleSizeFor(n); };
+SR.ballRadiusFor = n => { const r = SR.row(n); return r ? r.ball : SR.DEFAULTS.ballRadiusFor(n); };
+SR.trailFor = n => { const r = SR.row(n); return r ? r.trail : SR.DEFAULTS.trailFor(n); };
+SR.layoutFor = n => { const r = SR.row(n); return (r && SR.tableLayout(r.layout)) || SR.DEFAULTS.layoutFor(n); };
+// 道具池：「隨機」＝5 種都有；或企劃指定的幾種
+SR.itemPoolFor = n => { const r = SR.row(n); return r && Array.isArray(r.items) && r.items.length ? r.items : SR.ITEMS.map(i => i.id); };
+// 測試用：暫時換一份關卡表
+SR.withLevels = function (levels, fn) { const old = SR.LEVELS; SR.LEVELS = levels; try { return fn(); } finally { SR.LEVELS = old; } };
 SR.ASSIST_NAMES ={ preview: "彈道預覽", timing: "擋板時機提示", ballSave: "加長球保險", finisher: "收尾輔助" };
 SR.districtOf = n => SR.DISTRICTS[Math.min(4, Math.floor((n - 1) / 10))];
 
@@ -210,7 +236,8 @@ SR.rng = function (seed) {
   let s = seed % 2147483647; if (s <= 0) s += 2147483646;
   return () => (s = (s * 16807) % 2147483647) / 2147483647;
 };
-SR.buildStage = function (n) {
+/* 原本的公式（v3.7.1 以前）：v3.7.2 起只用來產生第一版關卡表、當報告的參考 */
+SR.generateStage = function (n) {
   const d = Math.floor((n - 1) / 10), local = (n - 1) % 10, isBoss = local === 9;
   const rnd = SR.rng(n * 7919 + 13);
   const pat = isBoss ? SR.BOSS_PATTERN : SR.PATTERNS[(local + d * 3) % SR.PATTERNS.length];
@@ -248,6 +275,21 @@ SR.buildStage = function (n) {
     boss: isBoss ? { hp: 18 + d * 9, speed: 45 + d * 18, regen: 7 - d * 0.5 } : null,
     parTime: Math.round(35 + bricks * 2.2 + (isBoss ? 40 : 0) + d * 6)
   };
+};
+/* v3.7.2：每一關照企劃的關卡表建（磚牆字元：. 空格、1～5 磚血、B 油漆桶、G 道具磚、X 首領）；沒有表時退回原公式 */
+SR.buildStage = function (n) {
+  const row = SR.row(n);
+  if (!row) return SR.generateStage(n);
+  const d = Math.floor((n - 1) / 10), isBoss = n % 10 === 0, cells = [];
+  row.grid.forEach((line, r) => line.split("").forEach((ch, c) => {
+    if (ch === ".") return;
+    if (ch === "X") cells.push({ r, c, type: "boss" });
+    else if (ch === "B") cells.push({ r, c, type: "bucket", hp: 1 });
+    else if (ch === "G") cells.push({ r, c, type: "gift", hp: 1 });
+    else cells.push({ r, c, type: "brick", hp: +ch });
+  }));
+  return { n, district: d, isBoss, name: row.name, cells, items: SR.itemPoolFor(n),
+    boss: isBoss && row.boss ? { hp: row.boss.hp, speed: row.boss.speed, regen: row.boss.regen } : null, parTime: row.par };
 };
 
 /* ---------- 強化卡 ---------- */

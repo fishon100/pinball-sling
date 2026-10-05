@@ -19,15 +19,16 @@
 
 ### Google Sheet Is The Planner Source
 
-試算表「噴漆闖關 關卡設定表」放在團隊 Google Drive，三個分頁：
+Google Drive「我的雲端硬碟」的資料夾「噴漆闖關 關卡設定」（2026-10-05 建立）裡有三個檔案：
 
-| 分頁 | 一列是什麼 | 主要欄位 |
+| 檔案 | 一列是什麼 | 主要欄位 |
 |---|---|---|
-| 關卡 | 一關 | 關卡、區、名稱、圖案（指到「圖案」分頁）、道具池（隨機／指定道具）、台面配置、滑板（S／M／L）、球半徑、拖尾、彈道預覽秒數、落點提示、加長球保險秒數、收尾輔助、首領血量、首領速度、首領補磚秒數、標準時間、備註 |
-| 圖案 | 一關的磚牆 | 圖案代號、每一排的文字（9 個字元一排） |
-| 台面配置 | 一種台面 | 代號、名稱、中柱座標、阿鰭、彈力牆、加速帶 |
+| 關卡設定表（試算表） | 一關 | 關卡、區、街區、名稱、道具池、台面配置、滑板、球半徑、拖尾、彈道預覽秒、落點提示、加長球保險秒、收尾輔助、首領血量、首領速度、首領補磚秒、標準時間秒、備註、第1排～第11排（磚牆，一排 9 個字） |
+| 台面配置表（試算表） | 一種台面 | 代號、名稱、中柱座標、阿鰭、彈力牆、加速帶左上角 |
+| 使用說明（文件） | — | 欄位與字元說明 |
 
-試算表是企劃的正本；repo 裡的 `web/street/levels.json` 是同步後的副本，遊戲讀這個檔。
+原本規劃「一份試算表三個分頁」，但多分頁的檔案太大，上傳時無法可靠傳遞，改成兩份試算表；磚牆直接放在關卡那一列，一關的設定都在同一列。
+試算表是企劃的正本；repo 裡的 `web/street/js/levels.js`（`SR.LEVELS`）是同步後的副本，遊戲讀這個檔（用 script 載入，不需要另外下載，測試頁也能直接用）。
 
 ### Resolved Grids Per Stage
 
@@ -49,9 +50,15 @@
 `web/street/editor.html`：選一關 → 顯示這關的磚牆（用遊戲的美術畫出來，看得到被台面圓弧切掉的格子）→ 點格子切換 `.`／1～5／B／G → 右邊即時顯示「幾塊磚、總血量、道具磚幾塊」→「複製」把這關的磚牆文字複製下來，貼回試算表的「圖案」分頁。
 理由：網頁沒有權限直接寫團隊的試算表；複製貼上最簡單、不需要另外登入。
 
+### Sync Downloads CSV And Shows The Diff
+
+同步時 AI 用 Google Drive 下載兩份試算表的 CSV（base64）→ 存到 `tools/levels/in/`（不進 git）→ 執行 `node tools/levels/sync.js`：解碼、檢查欄位、跟上一次的 `levels.js` 比對、寫出新的 `levels.js`。部署前先列出「這次改了哪幾關、哪幾欄」給企劃確認。
+理由：下載的內容要經過 AI 轉存，萬一轉存出錯，差異清單會顯示企劃沒改過的地方，企劃一看就知道，不會默默上線。
+替代方案：把試算表設成「知道連結的人都能看」讓程式直接抓 → 會把企劃文件公開，不採用。
+
 ### Sync Blocks Only Breaking Problems
 
-企劃說「同步關卡表」時，AI 讀試算表、轉成 `levels.json`，然後檢查：
+檢查分成兩種：
 
 | 會擋下（不能部署） | 只報告 |
 |---|---|
@@ -61,7 +68,11 @@
 | 台面卡球（AC-S7）、柱子貼磚（AC-S19） | |
 | 首領打不倒（AC-S8b） | |
 
-擋下時會列出「第幾關、哪一欄、什麼問題」，企劃改表後再同步一次。
+擋下時會列出「第幾關、哪一欄、什麼問題」，企劃改表後再同步一次。欄位與字元檢查寫在 `web/street/js/levelcheck.js`（同步工具和測試頁共用）；需要模擬的檢查（卡球、首領打得倒、磚放得下）由測試頁負責。
+
+### Tests Split Into Blocking And Report
+
+測試頁的測試分成「會擋」與「報告」。改成報告的：AC-S17（收尾時間）、AC-S20（第 1 區新手難度）、AC-S29（第 2～5 區難度）、AC-S30（每區難度元件）、AC-S34（道具磚數量），以及 AC-S19 的「相鄰兩關台面不同」與 AC-S28 的「每區加速帶條數」。這些測的是設計值，企劃一改表就會不同，不應該擋住企劃。報告項目在測試頁另外一區顯示，跟設計目標並列。
 
 ### First Table Reproduces The Current Game
 
@@ -70,9 +81,9 @@
 ## Implementation Contract
 
 - 行為：遊戲 50 關全部依 `levels.json` 建立；企劃改試算表並說「同步關卡表」後，下一次部署就生效；改壞時同步被擋下並列出問題
-- 介面／資料：`levels.json` = `{ version, stages: [{ n, name, grid: [9 字元字串...], items: "random" | [id...], layout, paddle, ballRadius, trail, assists: {...}, boss: {hp, speed, regen} | null, parTime }], layouts: {...} }`；試算表三個分頁的欄位名稱如上表
-- 失敗情況：`levels.json` 讀不到時遊戲用內建的同一份資料（打包在 data.js），不會白畫面；試算表欄位名稱被改掉時同步失敗並說明
-- 驗收：讀表後 50 關與目前完全相同（新測試）；故意填壞的表（例如磚血 9、滑板 Q、磚放不下）同步會被擋下並列出問題；編輯器能載入任一關、改格子、複製出的文字貼回後同步成功
+- 介面／資料：`SR.LEVELS` = `{ version, syncedAt, stages: [{ n, name, items: "random" | [id...], layout, paddle, ball, trail, preview, landing, ballSave, finisher, boss: {hp, speed, regen} | null, par, grid: [9 字元字串...] }], layouts: { id: { name, bumpers: [[x,y]...], fish: {y,x0,x1,speed} | null, rails: [[x1,y1,x2,y2,kind]...], boost: [[x,y]...] } } }`；`SR.LevelCheck.validate(rowsStages, rowsLayouts) → { levels, problems: [{ stage, column, message }] }`；`SR.generateStage(n)` 保留原公式
+- 失敗情況：`levels.js` 沒載入時遊戲退回原公式，不會白畫面；試算表欄位名稱被改掉時同步失敗並說明
+- 驗收：AC-S36 讀表後 50 關與原公式完全相同；AC-S37 故意填壞的表（磚血 9、滑板 Q、未知台面、首領關沒有 X…）會被擋下並列出問題；AC-S38 改表的效果（第 12 關改大滑板與第一排、純數字排、指定道具池）；編輯器能載入任一關、改格子、複製出的文字貼回後同步成功；實際從 Drive 下載兩份表同步一次，差異 0 關
 - 範圍外：台面配置的圖形編輯器、劇情／美術／音樂表格、遊戲執行時直接讀試算表
 
 ## Risks / Trade-offs

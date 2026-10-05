@@ -146,6 +146,7 @@ SR.Physics = (function () {
   function placeStage(world, stage) {
     world.bricks = []; world.grid = new Map(); world.boss = null;
     if (stage.isBoss) world.boosts = [];      // 首領關沒有加速帶
+    world.itemPool = stage.items || null;     // 這一關的道具池
     const top = world.top || 0;
     for (const cell of stage.cells) {
       if (cell.type === "boss") {
@@ -198,8 +199,10 @@ SR.Physics = (function () {
 
   /* ---------- 道具膠囊（v3.7.1）：打破道具磚掉下來，直直往下掉、不撞球也不撞磚；碰到滑板／擋板就接住 ---------- */
   const CAPSULE = { hw: 17, hh: 8, missY: 1000 };
-  function spawnCapsule(world, x, y, ev, item) {
-    const id = item || SR.ITEMS[Math.floor(Math.random() * SR.ITEMS.length)].id;
+  // 道具從這一關的道具池抽（v3.7.2 關卡表「道具池」；沒設定＝5 種都有可能）
+  function spawnCapsule(world, x, y, ev, item, pool) {
+    const p = pool || world.itemPool || SR.ITEMS.map(i => i.id);
+    const id = item || p[Math.floor(Math.random() * p.length)];
     const c = { id: world.nextId++, item: id, x, y };
     (world.capsules || (world.capsules = [])).push(c);
     ev.push({ type: "capsule_drop", c });

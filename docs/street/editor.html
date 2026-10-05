@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>磚塊圖案編輯器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Permanent+Marker&family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<style>
+/* 企劃用的磚塊圖案編輯器：選一關 → 點格子 → 複製貼回「關卡設定表」 */
+:root { --bg: #141418; --panel: #22222a; --ink: #111114; --text: #f5f5f7; --muted: #a7a7b3; --pink: #ff3ea5; --yellow: #ffe14d; --cyan: #3ee0ff; --lime: #9dff3a; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 760px) { .wrap { grid-template-columns: 1fr; } }
+h1 { font-family: "Bungee", Impact, sans-serif; font-size: 20px; color: var(--yellow); margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
+canvas { width: 100%; height: auto; display: block; border-radius: 14px; border: 3px solid var(--ink); box-shadow: 0 0 0 2px var(--pink); touch-action: manipulation; cursor: pointer; background: #000; }
+.panel { background: var(--panel); border: 2px solid var(--ink); border-radius: 14px; padding: 14px; display: grid; gap: 12px; }
+label { font-weight: 700; display: grid; gap: 4px; }
+select, button { font: inherit; }
+select { padding: 8px; border-radius: 10px; border: 2px solid var(--ink); background: #fff; color: var(--ink); font-weight: 700; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { appearance: none; border: 2px solid var(--ink); border-radius: 10px; padding: 8px 12px; font-weight: 900; background: var(--yellow); color: var(--ink); box-shadow: 2px 2px 0 var(--ink); cursor: pointer; }
+.btn.ghost { background: #3a3a44; color: var(--text); }
+.btn.pink { background: var(--pink); color: #fff; }
+.btn:disabled { opacity: .4; cursor: default; }
+.brushes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.brush { appearance: none; border: 2px solid var(--ink); border-radius: 8px; padding: 6px 0; font-weight: 900; background: #3a3a44; color: var(--text); cursor: pointer; font-family: "Bungee", "Noto Sans TC", sans-serif; }
+.brush.on { background: var(--cyan); color: var(--ink); box-shadow: 0 0 0 2px var(--cyan); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+.stats div { background: #18181d; border-radius: 10px; padding: 8px 4px; }
+.stats b { display: block; font-family: "Bungee", sans-serif; font-size: 20px; color: var(--lime); }
+.stats span { font-size: 12px; color: var(--muted); }
+pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 15px/1.35 Consolas, "Courier New", monospace; letter-spacing: 2px; overflow-x: auto; }
+.msg { min-height: 20px; color: var(--lime); font-size: 13px; }
+.warn { color: #ffcc33; }
+.help { color: var(--muted); font-size: 13px; margin: 0; }
+.help code { background: #18181d; padding: 1px 5px; border-radius: 4px; color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section>
+    <h1>磚塊圖案編輯器</h1>
+    <p class="sub">點格子換成右邊選的筆刷；再點一次同一格會變回空格。灰色斜線＝被台面切掉、放不了磚的格子。</p>
+    <canvas id="view" width="400" height="740" aria-label="這一關的台面與磚牆"></canvas>
+  </section>
+  <section class="panel">
+    <label>關卡<select id="stage"></select></label>
+    <div>
+      <div style="font-weight:700;margin-bottom:6px">筆刷</div>
+      <div class="brushes" id="brushes"></div>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="addRow">＋ 加一排</button>
+      <button class="btn ghost" id="delRow">－ 刪最後一排</button>
+      <button class="btn ghost" id="reset">還原這一關</button>
+    </div>
+    <div class="stats">
+      <div><b id="sBricks">0</b><span>磚塊</span></div>
+      <div><b id="sHp">0</b><span>總血量</span></div>
+      <div><b id="sGifts">0</b><span>道具磚</span></div>
+    </div>
+    <pre id="text" aria-label="磚牆文字"></pre>
+    <button class="btn pink" id="copy">複製（貼到試算表這一關的「第1排」）</button>
+    <div class="msg" id="msg"></div>
+    <p class="help">貼回「關卡設定表」：點這一關的 <code>第1排</code> 格子 → 貼上，會自動排到第1排～第N排。後面多的排要清空。改完跟 AI 說「同步關卡表」。</p>
+    <p class="help">字元：<code>.</code> 空格、<code>1</code>～<code>5</code> 磚血、<code>B</code> 油漆桶、<code>G</code> 道具磚、<code>X</code> 首領（只有首領關）。</p>
+  </section>
+</div>
+<script src="js/data.js?v=3.7.2"></script>
+<script src="js/levels.js?v=3.7.2"></script>
+<script src="js/levelcheck.js?v=3.7.2"></script>
+<script src="js/tuning.js?v=3.7.2"></script>
+<script src="js/physics.js?v=3.7.2"></script>
+<script src="js/rules.js?v=3.7.2"></script>
+<script src="js/art.js?v=3.7.2"></script>
+<script>
+(async () => {
+  const T = await SR.loadTuning(); SR.T = T;
+  const P = SR.Physics, A = SR.Art, $ = id => document.getElementById(id);
+  const cv = $("view"), g = cv.getContext("2d"), MAX = 11, CODES = [".", "1", "2", "3", "4", "5", "B", "G", "X"];
+  let n = 1, grid = [], brush = "1", t0 = performance.now();
+
+  $("stage").innerHTML = SR.LEVELS.stages.map(s => `<option value="${s.n}">第 ${s.n} 關・${s.name}</option>`).join("");
+  const isBoss = () => n % 10 === 0;
+  function drawBrushes() {
+    $("brushes").innerHTML = CODES.filter(c => c !== "X" || isBoss()).map(c => `<button class="brush ${c === brush ? "on" : ""}" data-c="${c}">${c === "." ? "空" : c}</button>`).join("");
+    $("brushes").querySelectorAll("[data-c]").forEach(b => b.onclick = () => { brush = b.dataset.c; drawBrushes(); });
+  }
+  function load(stage) { n = stage; $("stage").value = String(n); grid = SR.LEVELS.stages[n - 1].grid.slice(); if (!isBoss() && brush === "X") brush = "1"; drawBrushes(); render(); }
+  function levelsWith(gridNow) { const L = JSON.parse(JSON.stringify(SR.LEVELS)); L.stages[n - 1].grid = gridNow; return L; }
+
+  function render() {
+    const t = (performance.now() - t0) / 1000;
+    SR.withLevels(levelsWith(grid), () => {
+      const L = SR.layoutFor(n), w = P.buildTable(T, R_assists(), L, "paddle"); P.placeStage(w, SR.buildStage(n));
+      const top = w.top || 0, d = SR.districtOf(n), pal = d.colors;
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 400, 740);
+      g.save(); g.translate(0, -P.CAM_MAX);
+      g.drawImage(A.wall(d, 400, P.H, top), 0, 0);
+      A.table(g, w, pal, t);
+      for (const k of w.bricks) A.brick(g, k, pal, t);
+      if (w.boss) A.boss(g, w.boss, t, false);
+      if (w.paddle) { w.paddle.size = SR.paddleSizeFor(n); A.paddle(g, w.paddle, P.paddleDims(T, w), pal, t, false); }
+      // 格線、被切掉的格子
+      for (let r = 0; r < Math.max(grid.length + 1, 1) && r < MAX; r++) for (let c = 0; c < 9; c++) {
+        const rc = P.cellRect(r, c, top), ok = P.validRect(rc.x, rc.y, rc.w, rc.h, top);
+        g.strokeStyle = r < grid.length ? "rgba(255,255,255,0.18)" : "rgba(62,224,255,0.35)"; g.lineWidth = 1; g.strokeRect(rc.x, rc.y, rc.w, rc.h);
+        if (!ok) { g.save(); g.beginPath(); g.rect(rc.x, rc.y, rc.w, rc.h); g.clip(); g.strokeStyle = "rgba(160,160,170,0.6)";
+          for (let i = -20; i < 60; i += 6) { g.beginPath(); g.moveTo(rc.x + i, rc.y); g.lineTo(rc.x + i - 20, rc.y + 20); g.stroke(); } g.restore(); }
+      }
+      g.restore();
+    });
+    const all = grid.join(""), bricks = (all.match(/[1-5BG]/g) || []).length, hp = [...all].reduce((s, ch) => s + (/[1-5]/.test(ch) ? +ch : /[BG]/.test(ch) ? 1 : 0), 0);
+    $("sBricks").textContent = bricks; $("sHp").textContent = hp; $("sGifts").textContent = (all.match(/G/g) || []).length;
+    $("text").textContent = grid.join("\n") || "（沒有磚）";
+    $("addRow").disabled = grid.length >= MAX; $("delRow").disabled = !grid.length;
+    const v = check(); $("msg").className = "msg" + (v ? " warn" : ""); if (v) $("msg").textContent = v; else if ($("msg").dataset.keep !== "1") $("msg").textContent = "";
+  }
+  function R_assists() { return SR.Rules.assistsFor(n); }
+  function check() {
+    const xs = (grid.join("").match(/X/g) || []).length;
+    if (isBoss() && xs !== 1) return `首領關要剛好 1 個 X（現在 ${xs} 個）`;
+    if (!grid.join("").match(/[1-5BGX]/)) return "沒有任何磚";
+    return "";
+  }
+
+  // 點格子
+  cv.addEventListener("click", e => {
+    const rect = cv.getBoundingClientRect(), x = (e.clientX - rect.left) / rect.width * 400, y = (e.clientY - rect.top) / rect.height * 740 + P.CAM_MAX;
+    const top = (SR.layoutFor(n).top || 0), G0 = P.GRID, c = Math.floor((x - G0.x0) / G0.cw), r = Math.floor((y - G0.y0 - top) / G0.ch);
+    if (c < 0 || c > 8 || r < 0 || r >= MAX) return;
+    while (grid.length <= r) grid.push(".........");
+    const line = grid[r].split(""), cur = line[c];
+    let next = cur === brush ? "." : brush;
+    if (next === "X") for (let i = 0; i < grid.length; i++) grid[i] = grid[i].replace(/X/g, ".");   // 首領只能有一個
+    line[c] = next; grid[r] = line.join("");
+    while (grid.length && /^\.{9}$/.test(grid[grid.length - 1]) && grid.length > r + 1) grid.pop();
+    $("msg").dataset.keep = "0"; render();
+  });
+  $("stage").onchange = e => load(+e.target.value);
+  $("addRow").onclick = () => { if (grid.length < MAX) grid.push("........."); render(); };
+  $("delRow").onclick = () => { grid.pop(); render(); };
+  $("reset").onclick = () => load(n);
+  $("copy").onclick = async () => {
+    const text = grid.join("\t");
+    try { await navigator.clipboard.writeText(text); $("msg").textContent = `已複製第 ${n} 關的 ${grid.length} 排，貼到試算表這一關的「第1排」`; }
+    catch (err) { window.prompt("複製下面這段：", text); $("msg").textContent = "已顯示文字，請手動複製"; }
+    $("msg").dataset.keep = "1"; $("msg").className = "msg";
+  };
+  window.SR_EDITOR = { get grid() { return grid; }, load, get n() { return n; } };
+  load(1);
+  (function loop() { render(); setTimeout(() => requestAnimationFrame(loop), 120); })();
+})();
+</script>
+</body>
+</html>
