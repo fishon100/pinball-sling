@@ -25,4 +25,4 @@
 
 ## 5. 收尾
 
-- [ ] 5.1 `CLAUDE.md` 新增「同步關卡表」流程與 Google Sheet Is The Planner Source 的 Drive 檔案 ID；`?v=` 升版；測試頁全部會擋的測試通過；`tools/deploy.ps1` 部署；線上測試頁通過。驗收：線上測試頁會擋的測試全過，報告區有數字 [after: 2.3, 2.4, 2.5, 3.2, 3.3, 4.1]
+- [x] 5.1 `CLAUDE.md` 新增「同步關卡表」流程與 Google Sheet Is The Planner Source 的 Drive 檔案 ID；`?v=` 升版；測試頁全部會擋的測試通過；`tools/deploy.ps1` 部署；線上測試頁通過。驗收：線上測試頁會擋的測試全過，報告區有數字 [after: 2.3, 2.4, 2.5, 3.2, 3.3, 4.1]
