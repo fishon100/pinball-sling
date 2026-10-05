@@ -89,9 +89,9 @@ code:
 ---
 ### Requirement: Brick Hit Points
 
-The game SHALL give each `1`–`3` brick its digit as base HP, then add 1 HP with probability `min(0.65, 0.14 × d + 0.025 × local)`. In districts 4 and 5 (d ≥ 3) the game SHALL then subtract 1 HP from every brick whose HP is above 1. Brick HP SHALL be capped at 5. Paint buckets SHALL always have 1 HP.
+The game SHALL give each `1`–`3` brick its digit as base HP, then add 1 HP with probability `min(0.65, 0.14 × d + 0.025 × local)`. Brick HP SHALL NOT be reduced in any district (the former district 4–5 reduction of 1 HP is removed, which makes district 4–5 bricks harder than before). Brick HP SHALL be capped at 5. Paint buckets and gift bricks SHALL always have 1 HP.
 
-> 中文：磚血從圖案的數字開始，越後面的區與關越容易多 1 血（最多 65% 機率）；第 4、5 區每塊少 1 血，最多 5 血。
+> 中文：磚血從圖案的數字開始，越後面的區與關越容易多 1 血（最多 65% 機率），最多 5 血；第 4、5 區不再「每塊少 1 血」，所以比以前硬。
 
 #### Scenario: No bonus HP on the first stage
 
@@ -100,26 +100,18 @@ The game SHALL give each `1`–`3` brick its digit as base HP, then add 1 HP wit
 
 ##### Example: Bonus HP chance
 
-| Stage | d | local | Bonus chance | District 4–5 reduction |
-|---|---|---|---|---|
-| 1 | 0 | 0 | 0 | no |
-| 9 | 0 | 8 | 0.20 | no |
-| 15 | 1 | 4 | 0.24 | no |
-| 35 | 3 | 4 | 0.52 | yes |
-| 49 | 4 | 8 | 0.65 (capped from 0.76) | yes |
+| Stage | d | local | Bonus chance |
+|---|---|---|---|
+| 1 | 0 | 0 | 0 |
+| 9 | 0 | 8 | 0.20 |
+| 15 | 1 | 4 | 0.24 |
+| 35 | 3 | 4 | 0.52 |
+| 49 | 4 | 8 | 0.65 (capped from 0.76) |
 
-#### Scenario: Late districts never exceed base plus one
+#### Scenario: Late districts are no longer reduced
 
-- **WHEN** any brick in stages 31–49 is generated
-- **THEN** its HP is at least 1 and at most its pattern digit
-
-
-<!-- @trace
-source: baseline-specs
-updated: 2026-10-05
-code:
-  - CLAUDE.md
--->
+- **WHEN** any normal brick in stages 31–49 (excluding boss stages) is generated
+- **THEN** its HP is at least its pattern digit and at most its pattern digit + 1
 
 ---
 ### Requirement: Brick Damage And Bounce
@@ -154,22 +146,19 @@ code:
 ---
 ### Requirement: Gift Bricks
 
-From district 2 on (stages 11–50), the game SHALL turn plain 1 HP bricks into gold gift bricks: 1 or 2 per normal stage (50% chance each) and exactly 1 on a boss stage, limited by the number of 1 HP bricks available. District 1 stages SHALL NOT have gift bricks. Destroying a gift brick SHALL grant one random item (see power-ups-and-items).
+From stage 2 on (stages 2–50), the game SHALL turn plain bricks into gold gift bricks with 1 HP: 2 or 3 per stage (50% chance each), including boss stages. It SHALL pick among the plain bricks with the lowest HP first (normally 1 HP bricks), so every stage from 2 to 50 gets its full count. Stage 1 (the tutorial stage) SHALL NOT have gift bricks. Destroying a gift brick SHALL release an item capsule (see power-ups-and-items, Item Capsules).
 
-> 中文：第 2 區起每關有 1～2 塊金色道具磚（首領關 1 塊），打碎會掉一個道具。
+> 中文：第 2 關起每關一定有 2～3 塊金色道具磚（首領關也有，第 1 關教學關沒有）；先挑 1 血的磚，不夠就挑血最少的磚改成 1 血；打碎會掉下一顆道具膠囊。
 
-#### Scenario: Gift count by district
+#### Scenario: Gift count by stage
 
 - **WHEN** stages 1–50 are generated
-- **THEN** stages 1–10 have 0 gift bricks, normal stages 11–49 have 1 or 2, and boss stages 20–50 have at most 1
+- **THEN** stage 1 has 0 gift bricks and every stage from 2 to 50 has 2 or 3 gift bricks, each with 1 HP
 
+#### Scenario: Not enough 1 HP bricks
 
-<!-- @trace
-source: baseline-specs
-updated: 2026-10-05
-code:
-  - CLAUDE.md
--->
+- **WHEN** stage 23 is generated (it has only one plain 1 HP brick)
+- **THEN** it still has 2 or 3 gift bricks, the extra ones taken from the lowest-HP plain bricks and set to 1 HP
 
 ---
 ### Requirement: Stage Clear

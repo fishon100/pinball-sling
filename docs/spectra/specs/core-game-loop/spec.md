@@ -37,7 +37,7 @@ The game SHALL run each stage in the order map selection, comic (when due), stag
 #### Scenario: Clearing a boss stage ends the district
 
 - **WHEN** the player clears stage 10, 20, 30 or 40 and presses "continue" on the result screen
-- **THEN** the game SHALL play the post-stage comic, then show the district-cleared screen, grant 2 random items, and offer "back to city map"
+- **THEN** the game SHALL play the post-stage comic, then show the district-cleared screen and offer "back to city map", without granting any item
 - **AND** no upgrade can SHALL be granted for the boss stage
 
 ##### Example: Next action after the result screen
@@ -47,14 +47,6 @@ The game SHALL run each stage in the order map selection, comic (when due), stag
 | 3 | 下一關 ▶（第 4 關） | stage 4 |
 | 10 | 繼續 | district-cleared screen |
 | 50 | 看結局 | ending credits |
-
-
-<!-- @trace
-source: baseline-specs
-updated: 2026-10-05
-code:
-  - CLAUDE.md
--->
 
 ---
 ### Requirement: Steel Ball Physics
@@ -204,37 +196,29 @@ code:
 ---
 ### Requirement: Rising Difficulty Measured At Human Speed
 
-The game SHALL make later districts harder through taller tables, fewer assists and a smaller paddle on boss stages, and SHALL keep district 1 beatable for a beginner as measured by a human-like player model (reaction 0.32 s, aim error 22 px) rather than machine-speed play.
+The game SHALL make later districts harder while every table stays short: through fewer pop bumpers, a smaller ball from district 3, a small paddle on district 4–5 normal stages and on every boss stage, harder bricks in districts 4–5, boost pads from district 3, fewer ball guides (no trajectory preview or landing ring from district 3, a shorter ball trail in district 3 and none in districts 4–5), and fewer assists. District 1 SHALL stay beatable for a beginner, and difficulty SHALL be measured by a human-like player model (reaction 0.32 s, aim error 22 px) rather than machine-speed play.
 
-> 中文：越後面越難（台面越高、輔助越少、首領關滑板變小），但第 1 區要讓新手打得過，而且難度一定用「模擬真人手速」的自動玩家量，不用機器速度。
+> 中文：越後面越難，但台面都一樣矮：中柱變少、球變小、滑板變小、磚變硬、多了加速帶、球的軌跡提示（預覽線、落點圈、拖尾光）越來越少、輔助變少；第 1 區要讓新手打得過，難度一定用「模擬真人手速」的自動玩家量。
 
-#### Scenario: Tables grow taller by district
+#### Scenario: Every table is short
 
-- **WHEN** the shortest table of each district is compared
-- **THEN** visible table height SHALL be 740 / 900 / 980 / 1060 / 1060 px for districts 1–5, district 1 SHALL need no camera scrolling, and each stage SHALL use a different layout from the previous stage within a district
+- **WHEN** the layout of every stage from 1 to 50 is checked
+- **THEN** visible table height SHALL be 740 px, no stage SHALL need camera scrolling, and each stage SHALL use a different layout from the previous stage within a district
 
 #### Scenario: Assists shrink by district
 
 - **WHEN** a stage of each district starts
-- **THEN** trajectory preview SHALL be 1.0 / 0.7 / 0.4 / 0 / 0 seconds, the timing or landing hint SHALL be on only in districts 1–2, extra ball save SHALL be 3 / 1.5 / 0 / 0 / 0 seconds, and the finisher assist SHALL be on only in districts 1–2
+- **THEN** trajectory preview SHALL be 1.0 / 0.7 / 0 / 0 / 0 seconds, the timing or landing hint SHALL be on only in districts 1–2, extra ball save SHALL be 3 / 1.5 / 0 / 0 / 0 seconds, and the finisher assist SHALL be on only in districts 1–2
 
-#### Scenario: Boss stages use the small paddle
+#### Scenario: Paddle shrinks in late districts
 
-- **WHEN** a boss stage (10, 20, 30, 40, 50) starts in paddle mode
-- **THEN** the paddle SHALL be size S; all other stages SHALL use size M
+- **WHEN** a stage starts in paddle mode
+- **THEN** the paddle SHALL be size M on normal stages of districts 1–3 and size S on normal stages of districts 4–5 and on every boss stage
 
 #### Scenario: District 1 is beginner-friendly at human speed
 
 - **WHEN** the human-like novice player plays stages 1–9 five times each in paddle mode with district assists
 - **THEN** the average hearts lost per stage SHALL be at most 1 and at least half of the stages SHALL be perfect (0 hearts lost)
-
-
-<!-- @trace
-source: baseline-specs
-updated: 2026-10-05
-code:
-  - CLAUDE.md
--->
 
 ---
 ### Requirement: Fairy-Tale Story Tone
@@ -259,3 +243,20 @@ updated: 2026-10-05
 code:
   - CLAUDE.md
 -->
+
+---
+### Requirement: Ball Size Per District
+
+The game SHALL set the base ball radius by district: 12 px in districts 1 and 2, 11 px in district 3 and 10.5 px in districts 4 and 5. The "大罐" upgrade SHALL still add 1.5 px per level on top of the district's base radius.
+
+> 中文：球越後面越小：第 1、2 區半徑 12、第 3 區 11、第 4、5 區 10.5；「大罐」強化照樣每級再大 1.5。
+
+#### Scenario: Base radius by district
+
+- **WHEN** stages 5, 15, 25, 35 and 45 start with no "大罐" upgrade
+- **THEN** the ball radius SHALL be 12, 12, 11, 10.5 and 10.5 px
+
+#### Scenario: Big upgrade adds to the district radius
+
+- **WHEN** stage 35 starts with "大罐" at level 2
+- **THEN** the ball radius SHALL be 13.5 px (10.5 + 2 × 1.5)
