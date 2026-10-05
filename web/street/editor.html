@@ -3,100 +3,250 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>磚塊圖案編輯器</title>
+<title>關卡編輯器</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Permanent+Marker&family=Noto+Sans+TC:wght@500;700;900&display=swap">
 <style>
-/* 企劃用的磚塊圖案編輯器：選一關 → 點格子 → 複製貼回「關卡設定表」 */
-:root { --bg: #141418; --panel: #22222a; --ink: #111114; --text: #f5f5f7; --muted: #a7a7b3; --pink: #ff3ea5; --yellow: #ffe14d; --cyan: #3ee0ff; --lime: #9dff3a; color-scheme: dark; }
+/* 企劃用的關卡編輯器：磚牆模式（點格子）＋台面模式（中柱、彈力牆、加速帶、阿鰭），改完複製貼回試算表 */
+:root { --bg: #141418; --panel: #22222a; --ink: #111114; --text: #f5f5f7; --muted: #a7a7b3; --pink: #ff3ea5; --yellow: #ffe14d; --cyan: #3ee0ff; --lime: #9dff3a; --warn: #ffcc33; color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; }
-.wrap { max-width: 980px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.wrap { max-width: 1000px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 20px; align-items: start; }
 @media (max-width: 760px) { .wrap { grid-template-columns: 1fr; } }
 h1 { font-family: "Bungee", Impact, sans-serif; font-size: 20px; color: var(--yellow); margin: 0 0 4px; }
 .sub { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
-canvas { width: 100%; height: auto; display: block; border-radius: 14px; border: 3px solid var(--ink); box-shadow: 0 0 0 2px var(--pink); touch-action: manipulation; cursor: pointer; background: #000; }
+canvas { width: 100%; height: auto; display: block; border-radius: 14px; border: 3px solid var(--ink); box-shadow: 0 0 0 2px var(--pink); touch-action: none; cursor: pointer; background: #000; }
 .panel { background: var(--panel); border: 2px solid var(--ink); border-radius: 14px; padding: 14px; display: grid; gap: 12px; }
 label { font-weight: 700; display: grid; gap: 4px; }
-select, button { font: inherit; }
-select { padding: 8px; border-radius: 10px; border: 2px solid var(--ink); background: #fff; color: var(--ink); font-weight: 700; }
-.row { display: flex; gap: 8px; flex-wrap: wrap; }
+select, button, input { font: inherit; }
+select, input[type=number], input[type=text] { padding: 8px; border-radius: 10px; border: 2px solid var(--ink); background: #fff; color: var(--ink); font-weight: 700; min-width: 0; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .btn { appearance: none; border: 2px solid var(--ink); border-radius: 10px; padding: 8px 12px; font-weight: 900; background: var(--yellow); color: var(--ink); box-shadow: 2px 2px 0 var(--ink); cursor: pointer; }
 .btn.ghost { background: #3a3a44; color: var(--text); }
 .btn.pink { background: var(--pink); color: #fff; }
+.btn.on { background: var(--cyan); color: var(--ink); }
 .btn:disabled { opacity: .4; cursor: default; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .brushes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .brush { appearance: none; border: 2px solid var(--ink); border-radius: 8px; padding: 6px 0; font-weight: 900; background: #3a3a44; color: var(--text); cursor: pointer; font-family: "Bungee", "Noto Sans TC", sans-serif; }
 .brush.on { background: var(--cyan); color: var(--ink); box-shadow: 0 0 0 2px var(--cyan); }
+.tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
 .stats div { background: #18181d; border-radius: 10px; padding: 8px 4px; }
 .stats b { display: block; font-family: "Bungee", sans-serif; font-size: 20px; color: var(--lime); }
 .stats span { font-size: 12px; color: var(--muted); }
-pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 15px/1.35 Consolas, "Courier New", monospace; letter-spacing: 2px; overflow-x: auto; }
+pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 14px/1.35 Consolas, "Courier New", monospace; letter-spacing: 1px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
 .msg { min-height: 20px; color: var(--lime); font-size: 13px; }
-.warn { color: #ffcc33; }
+.warns { margin: 0; padding-left: 18px; color: var(--warn); font-size: 13px; }
+.warns:empty::after { content: "沒有問題"; color: var(--lime); margin-left: -18px; }
 .help { color: var(--muted); font-size: 13px; margin: 0; }
 .help code { background: #18181d; padding: 1px 5px; border-radius: 4px; color: var(--text); }
+.box { background: #18181d; border-radius: 10px; padding: 10px; display: grid; gap: 8px; }
+.used { font-size: 13px; color: var(--muted); }
+.reminder { background: var(--yellow); color: var(--ink); border-radius: 10px; padding: 8px 10px; font-weight: 900; font-size: 13px; }
+.reminder:empty { display: none; }
+[hidden] { display: none !important; }
+.nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.nums label { font-size: 12px; font-weight: 700; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <section>
-    <h1>磚塊圖案編輯器</h1>
-    <p class="sub">點格子換成右邊選的筆刷；再點一次同一格會變回空格。灰色斜線＝被台面切掉、放不了磚的格子。</p>
+    <h1>關卡編輯器</h1>
+    <p class="sub" id="hintTop">點格子換成右邊選的筆刷；再點一次同一格會變回空格。灰色斜線＝被台面切掉、放不了磚的格子。</p>
     <canvas id="view" width="400" height="740" aria-label="這一關的台面與磚牆"></canvas>
   </section>
   <section class="panel">
     <label>關卡<select id="stage"></select></label>
-    <div>
-      <div style="font-weight:700;margin-bottom:6px">筆刷</div>
+    <div class="tabs"><button class="btn on" id="modeWall">磚牆</button><button class="btn ghost" id="modeLayout">台面</button></div>
+
+    <!-- 磚牆模式 -->
+    <div id="wallPanel" class="box">
+      <div style="font-weight:700">筆刷</div>
       <div class="brushes" id="brushes"></div>
+      <div class="row">
+        <button class="btn ghost" id="addRow">＋ 加一排</button>
+        <button class="btn ghost" id="delRow">－ 刪最後一排</button>
+        <button class="btn ghost" id="reset">還原這一關</button>
+      </div>
+      <div class="stats">
+        <div><b id="sBricks">0</b><span>磚塊</span></div>
+        <div><b id="sHp">0</b><span>總血量</span></div>
+        <div><b id="sGifts">0</b><span>道具磚</span></div>
+      </div>
     </div>
-    <div class="row">
-      <button class="btn ghost" id="addRow">＋ 加一排</button>
-      <button class="btn ghost" id="delRow">－ 刪最後一排</button>
-      <button class="btn ghost" id="reset">還原這一關</button>
+
+    <!-- 台面模式 -->
+    <div id="layoutPanel" class="box" hidden>
+      <div class="used" id="usedBy"></div>
+      <div class="row"><b id="layoutName"></b><button class="btn ghost" id="saveAs">另存成新台面</button></div>
+      <div class="reminder" id="reminder"></div>
+      <div class="tools" id="tools">
+        <button class="btn on" data-tool="select">選取／拖曳</button>
+        <button class="btn ghost" data-tool="bumper">＋中柱</button>
+        <button class="btn ghost" data-tool="rail">＋彈力牆</button>
+        <button class="btn ghost" data-tool="boost">＋加速帶</button>
+      </div>
+      <div class="row">
+        <label style="display:flex;gap:6px;align-items:center;font-weight:700"><input type="checkbox" id="mirror" checked> 中柱左右對稱</label>
+        <button class="btn ghost" id="fishToggle">加上阿鰭</button>
+      </div>
+      <div id="selBox" class="box" hidden style="background:#26262e">
+        <div class="row"><b id="selName"></b><button class="btn ghost" id="delSel">刪除</button></div>
+        <div class="nums" id="selNums"></div>
+      </div>
+      <div>
+        <div style="font-weight:700;margin-bottom:4px">提醒</div>
+        <ul class="warns" id="warns"></ul>
+      </div>
+      <div class="row"><button class="btn ghost" id="stuckBtn">檢查卡球</button><span class="msg" id="stuckMsg"></span></div>
+      <button class="btn ghost" id="resetLayout">還原這個台面</button>
     </div>
-    <div class="stats">
-      <div><b id="sBricks">0</b><span>磚塊</span></div>
-      <div><b id="sHp">0</b><span>總血量</span></div>
-      <div><b id="sGifts">0</b><span>道具磚</span></div>
-    </div>
-    <pre id="text" aria-label="磚牆文字"></pre>
-    <button class="btn pink" id="copy">複製（貼到試算表這一關的「第1排」）</button>
+
+    <pre id="text" aria-label="要貼回試算表的文字"></pre>
+    <button class="btn pink" id="copy">複製</button>
     <div class="msg" id="msg"></div>
-    <p class="help">貼回「關卡設定表」：點這一關的 <code>第1排</code> 格子 → 貼上，會自動排到第1排～第N排。後面多的排要清空。改完跟 AI 說「同步關卡表」。</p>
-    <p class="help">字元：<code>.</code> 空格、<code>1</code>～<code>5</code> 磚血、<code>B</code> 油漆桶、<code>G</code> 道具磚、<code>X</code> 首領（只有首領關）。</p>
+    <p class="help" id="helpWall">貼回「關卡設定表」：點這一關的 <code>第1排</code> 格子 → 貼上，會自動排到第1排～第N排；後面多的排要清空。字元：<code>.</code> 空格、<code>1</code>～<code>5</code> 磚血、<code>B</code> 油漆桶、<code>G</code> 道具磚、<code>X</code> 首領（只有首領關）。</p>
+    <p class="help" id="helpLayout" hidden>貼回「台面配置表」：直接改＝點這個台面那一列的 <code>代號</code> 格子 → 貼上（整列覆蓋）；另存新台面＝貼在最下面的空白列，再到「關卡設定表」把這一關的 <code>台面配置</code> 改成新代號。改完跟 AI 說「同步關卡表」。</p>
   </section>
 </div>
-<script src="js/data.js?v=3.7.2"></script>
-<script src="js/levels.js?v=3.7.2"></script>
-<script src="js/levelcheck.js?v=3.7.2"></script>
-<script src="js/tuning.js?v=3.7.2"></script>
-<script src="js/physics.js?v=3.7.2"></script>
-<script src="js/rules.js?v=3.7.2"></script>
-<script src="js/art.js?v=3.7.2"></script>
+<script src="js/data.js?v=3.7.3"></script>
+<script src="js/levels.js?v=3.7.3"></script>
+<script src="js/levelcheck.js?v=3.7.3"></script>
+<script src="js/tuning.js?v=3.7.3"></script>
+<script src="js/physics.js?v=3.7.3"></script>
+<script src="js/rules.js?v=3.7.3"></script>
+<script src="js/art.js?v=3.7.3"></script>
+<script src="js/tests.js?v=3.7.3"></script>
 <script>
 (async () => {
   const T = await SR.loadTuning(); SR.T = T;
   const P = SR.Physics, A = SR.Art, $ = id => document.getElementById(id);
   const cv = $("view"), g = cv.getContext("2d"), MAX = 11, CODES = [".", "1", "2", "3", "4", "5", "B", "G", "X"];
-  let n = 1, grid = [], brush = "1", t0 = performance.now();
+  const BOOST_W = 56, BOOST_H = 14, BUMPER_R = T.bumper.radius, HIT = 16;
+  const clone = o => JSON.parse(JSON.stringify(o));
+  // 編輯中的關卡表（只在這個頁面裡改，複製貼回試算表才會生效）
+  const work = clone(SR.LEVELS);
+  let n = 1, mode = "wall", brush = "1", tool = "select", mirror = true, sel = null, drag = null, reminder = "", t0 = performance.now();
 
-  $("stage").innerHTML = SR.LEVELS.stages.map(s => `<option value="${s.n}">第 ${s.n} 關・${s.name}</option>`).join("");
+  /* ---------- 共用 ---------- */
+  const row = () => work.stages[n - 1];
+  const layoutId = () => row().layout;
+  const layout = () => work.layouts[layoutId()];
   const isBoss = () => n % 10 === 0;
+  const usedBy = id => work.stages.filter(s => s.layout === id).map(s => s.n);
+  const clampXY = (x, y) => [Math.round(Math.max(20, Math.min(340, x))), Math.round(Math.max(340, Math.min(1000, y)))];
+  function withWork(fn) { SR._layoutCache = null; try { return SR.withLevels(work, fn); } finally { SR._layoutCache = null; } }
+
+  $("stage").innerHTML = work.stages.map(s => `<option value="${s.n}">第 ${s.n} 關・${s.name}</option>`).join("");
+  function load(stage) {
+    n = stage; $("stage").value = String(n); sel = null; reminder = "";
+    if (!isBoss() && brush === "X") brush = "1";
+    drawBrushes(); render();
+  }
+  function setMode(m) {
+    mode = m; sel = null;
+    $("modeWall").className = "btn " + (m === "wall" ? "on" : "ghost"); $("modeLayout").className = "btn " + (m === "layout" ? "on" : "ghost");
+    $("wallPanel").hidden = m !== "wall"; $("layoutPanel").hidden = m !== "layout"; $("helpWall").hidden = m !== "wall"; $("helpLayout").hidden = m !== "layout";
+    $("hintTop").textContent = m === "wall" ? "點格子換成右邊選的筆刷；再點一次同一格會變回空格。灰色斜線＝被台面切掉、放不了磚的格子。"
+      : "選工具後點台面新增；用「選取／拖曳」拖動物件（彈力牆可以拖兩端或中間、阿鰭可以拖路線和左右界）。";
+    render();
+  }
+
+  /* ---------- 磚牆模式 ---------- */
   function drawBrushes() {
     $("brushes").innerHTML = CODES.filter(c => c !== "X" || isBoss()).map(c => `<button class="brush ${c === brush ? "on" : ""}" data-c="${c}">${c === "." ? "空" : c}</button>`).join("");
     $("brushes").querySelectorAll("[data-c]").forEach(b => b.onclick = () => { brush = b.dataset.c; drawBrushes(); });
   }
-  function load(stage) { n = stage; $("stage").value = String(n); grid = SR.LEVELS.stages[n - 1].grid.slice(); if (!isBoss() && brush === "X") brush = "1"; drawBrushes(); render(); }
-  function levelsWith(gridNow) { const L = JSON.parse(JSON.stringify(SR.LEVELS)); L.stages[n - 1].grid = gridNow; return L; }
+  function clickCell(x, y) {
+    const top = 320, G0 = P.GRID, c = Math.floor((x - G0.x0) / G0.cw), r = Math.floor((y - G0.y0 - top) / G0.ch), grid = row().grid;
+    if (c < 0 || c > 8 || r < 0 || r >= MAX) return;
+    while (grid.length <= r) grid.push(".........");
+    const line = grid[r].split(""), next = line[c] === brush ? "." : brush;
+    if (next === "X") for (let i = 0; i < grid.length; i++) grid[i] = grid[i].replace(/X/g, ".");
+    line[c] = next; grid[r] = line.join("");
+    while (grid.length && /^\.{9}$/.test(grid[grid.length - 1]) && grid.length > r + 1) grid.pop();
+    render();
+  }
 
+  /* ---------- 台面模式：物件操作（測試也用這些） ---------- */
+  function partnerOf(i) { const L = layout(), [x, y] = L.bumpers[i]; if (x === 180) return -1; return L.bumpers.findIndex((b, k) => k !== i && b[0] === 360 - x && b[1] === y); }
+  function addBumper(x, y) { const L = layout(); [x, y] = clampXY(x, y); L.bumpers.push([x, y]); if (mirror && x !== 180) L.bumpers.push([360 - x, y]); sel = { kind: "bumper", i: L.bumpers.length - (mirror && x !== 180 ? 2 : 1) }; render(); }
+  function addRail(x1, y1, x2, y2) { const L = layout(); [x1, y1] = clampXY(x1, y1); [x2, y2] = clampXY(x2, y2); L.rails.push([x1, y1, x2, y2, "rubber"]); sel = { kind: "rail", i: L.rails.length - 1 }; render(); }
+  function addBoost(x, y) { const L = layout(); x = Math.round(Math.max(20, Math.min(340 - BOOST_W, x))); y = Math.round(Math.max(340, Math.min(1000 - BOOST_H, y))); L.boost.push([x, y]); sel = { kind: "boost", i: L.boost.length - 1 }; render(); }
+  function setFish(f) { const L = layout(); L.fish = f ? { y: Math.round(f.y), x0: Math.round(f.x0), x1: Math.round(f.x1), speed: Math.round(f.speed) } : null; sel = f ? { kind: "fish", i: 0 } : null; render(); }
+  function moveObject(kind, i, x, y, part) {
+    const L = layout();
+    if (kind === "bumper") { const p = mirror ? partnerOf(i) : -1; [x, y] = clampXY(x, y); L.bumpers[i] = [x, y]; if (p >= 0) L.bumpers[p] = [360 - x, y]; }
+    else if (kind === "boost") { L.boost[i] = [Math.round(Math.max(20, Math.min(340 - BOOST_W, x))), Math.round(Math.max(340, Math.min(1000 - BOOST_H, y)))]; }
+    else if (kind === "rail") { const r = L.rails[i];
+      if (part === "a") { const [ax, ay] = clampXY(x, y); r[0] = ax; r[1] = ay; }
+      else if (part === "b") { const [bx, by] = clampXY(x, y); r[2] = bx; r[3] = by; }
+      else { const mx = (r[0] + r[2]) / 2, my = (r[1] + r[3]) / 2, dx = x - mx, dy = y - my; [r[0], r[1]] = clampXY(r[0] + dx, r[1] + dy); [r[2], r[3]] = clampXY(r[2] + dx, r[3] + dy); } }
+    else if (kind === "fish" && L.fish) { const f = L.fish;
+      if (part === "x0") f.x0 = Math.round(Math.max(20, Math.min(f.x1 - 20, x)));
+      else if (part === "x1") f.x1 = Math.round(Math.min(340, Math.max(f.x0 + 20, x)));
+      else f.y = clampXY(180, y)[1]; }
+    render();
+  }
+  function remove(kind, i) {
+    const L = layout();
+    if (kind === "bumper") { const p = mirror ? partnerOf(i) : -1; L.bumpers = L.bumpers.filter((_, k) => k !== i && k !== p); }
+    else if (kind === "rail") L.rails.splice(i, 1);
+    else if (kind === "boost") L.boost.splice(i, 1);
+    else if (kind === "fish") L.fish = null;
+    sel = null; render();
+  }
+  function saveAs(id) {
+    id = String(id || "").trim();
+    if (!/^[A-Za-z0-9_]+$/.test(id)) { $("msg").textContent = "代號只能用英文、數字、底線"; return false; }
+    if (work.layouts[id]) { $("msg").textContent = `代號 ${id} 已經有了，換一個`; return false; }
+    work.layouts[id] = clone(layout()); row().layout = id;
+    reminder = `請到「關卡設定表」把第 ${n} 關的「台面配置」改成 ${id}，並把複製的這一列貼到「台面配置表」最下面的空白列`;
+    render(); return true;
+  }
+  const fmt = list => (list || []).map(p => p.join(",")).join("; ");
+  function layoutRow() { const L = layout(), f = L.fish; return [layoutId(), L.name, fmt(L.bumpers), f ? [f.y, f.x0, f.x1, f.speed].join(",") : "", fmt(L.rails), fmt(L.boost)]; }
+  function copyText() { return mode === "layout" ? layoutRow().join("\t") : row().grid.join("\t"); }
+
+  /* ---------- 台面模式：即時提醒 ---------- */
+  function warnings() {
+    const id = layoutId(), out = new Map(), add = (msg, s) => { if (!out.has(msg)) out.set(msg, new Set()); out.get(msg).add(s); };
+    withWork(() => {
+      for (const s of usedBy(id)) {
+        const w = P.buildTable(T, {}, SR.layoutFor(s), "paddle"); P.placeStage(w, SR.buildStage(s));
+        const all = w.boss ? [...w.bricks, w.boss] : w.bricks;
+        const gap = (a, b) => Math.hypot(Math.max(0, a.x - (b.x + b.w), b.x - (a.x + a.w)), Math.max(0, a.y - (b.y + b.h), b.y - (a.y + a.h)));
+        const pt = (x, y) => ({ x, y, w: 0, h: 0 });
+        for (const c of w.circles) {
+          if (c.kind === "bumper" && all.some(k => gap(pt(c.x, c.y), k) < 46)) add(`中柱 (${c.x},${c.y}) 離磚太近（要 46 以上）`, s);
+          if (c.kind === "fish") for (const f of [0, 0.25, 0.5, 0.75, 1]) { const x = c.x0 + (c.x1 - c.x0) * f; if (all.some(k => gap(pt(x, c.y), k) < 46)) { add(`阿鰭的路線 (y ${c.y}) 離磚太近`, s); break; } }
+        }
+        for (const b of w.boosts || []) {
+          if (all.some(k => gap(b, k) < 46)) add(`加速帶 (${b.x},${b.y}) 離磚太近`, s);
+          if (w.circles.some(c => c.kind === "bumper" && gap(b, pt(c.x, c.y)) < 46)) add(`加速帶 (${b.x},${b.y}) 離中柱太近`, s);
+        }
+      }
+    });
+    const L = layout();
+    for (const [x, y] of L.bumpers) if (y > 900) add(`中柱 (${x},${y}) 太靠近滑板`, 0);
+    for (const [x, y] of L.boost) if (y + BOOST_H > 900) add(`加速帶 (${x},${y}) 太靠近滑板`, 0);
+    if (L.fish && L.fish.y > 900) add(`阿鰭 (y ${L.fish.y}) 太靠近滑板`, 0);
+    return [...out].map(([m, set]) => { const st = [...set].filter(Boolean).sort((a, b) => a - b); return st.length ? `${m}：${st.map(v => `第 ${v} 關`).join("、")}` : m; });
+  }
+  function stuck() {
+    const L = clone(layout()), obj = { id: layoutId(), name: L.name, top: 320, bumpers: L.bumpers, rails: L.rails, boost: L.boost, fish: L.fish || undefined };
+    const a = SR.Tests.stuckProbe(T, {}, obj, "flipper"), b = SR.Tests.stuckProbe(T, {}, obj, "paddle");
+    return a.pass && b.pass ? "沒有卡球死角" : `有卡球死角：${[a, b].filter(r => !r.pass).map(r => r.value).join("；")}`;
+  }
+
+  /* ---------- 畫面 ---------- */
   function render() {
     const t = (performance.now() - t0) / 1000;
-    SR.withLevels(levelsWith(grid), () => {
-      const L = SR.layoutFor(n), w = P.buildTable(T, R_assists(), L, "paddle"); P.placeStage(w, SR.buildStage(n));
+    withWork(() => {
+      const w = P.buildTable(T, SR.Rules.assistsFor(n), SR.layoutFor(n), "paddle"); P.placeStage(w, SR.buildStage(n));
       const top = w.top || 0, d = SR.districtOf(n), pal = d.colors;
       g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 400, 740);
       g.save(); g.translate(0, -P.CAM_MAX);
@@ -105,55 +255,124 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
       for (const k of w.bricks) A.brick(g, k, pal, t);
       if (w.boss) A.boss(g, w.boss, t, false);
       if (w.paddle) { w.paddle.size = SR.paddleSizeFor(n); A.paddle(g, w.paddle, P.paddleDims(T, w), pal, t, false); }
-      // 格線、被切掉的格子
-      for (let r = 0; r < Math.max(grid.length + 1, 1) && r < MAX; r++) for (let c = 0; c < 9; c++) {
-        const rc = P.cellRect(r, c, top), ok = P.validRect(rc.x, rc.y, rc.w, rc.h, top);
-        g.strokeStyle = r < grid.length ? "rgba(255,255,255,0.18)" : "rgba(62,224,255,0.35)"; g.lineWidth = 1; g.strokeRect(rc.x, rc.y, rc.w, rc.h);
-        if (!ok) { g.save(); g.beginPath(); g.rect(rc.x, rc.y, rc.w, rc.h); g.clip(); g.strokeStyle = "rgba(160,160,170,0.6)";
-          for (let i = -20; i < 60; i += 6) { g.beginPath(); g.moveTo(rc.x + i, rc.y); g.lineTo(rc.x + i - 20, rc.y + 20); g.stroke(); } g.restore(); }
-      }
+      if (mode === "wall") {
+        for (let r = 0; r < Math.min(row().grid.length + 1, MAX); r++) for (let c = 0; c < 9; c++) {
+          const rc = P.cellRect(r, c, top), ok = P.validRect(rc.x, rc.y, rc.w, rc.h, top);
+          g.strokeStyle = r < row().grid.length ? "rgba(255,255,255,0.18)" : "rgba(62,224,255,0.35)"; g.lineWidth = 1; g.strokeRect(rc.x, rc.y, rc.w, rc.h);
+          if (!ok) { g.save(); g.beginPath(); g.rect(rc.x, rc.y, rc.w, rc.h); g.clip(); g.strokeStyle = "rgba(160,160,170,0.6)";
+            for (let i = -20; i < 60; i += 6) { g.beginPath(); g.moveTo(rc.x + i, rc.y); g.lineTo(rc.x + i - 20, rc.y + 20); g.stroke(); } g.restore(); }
+        }
+      } else drawHandles();
       g.restore();
     });
-    const all = grid.join(""), bricks = (all.match(/[1-5BG]/g) || []).length, hp = [...all].reduce((s, ch) => s + (/[1-5]/.test(ch) ? +ch : /[BG]/.test(ch) ? 1 : 0), 0);
-    $("sBricks").textContent = bricks; $("sHp").textContent = hp; $("sGifts").textContent = (all.match(/G/g) || []).length;
-    $("text").textContent = grid.join("\n") || "（沒有磚）";
-    $("addRow").disabled = grid.length >= MAX; $("delRow").disabled = !grid.length;
-    const v = check(); $("msg").className = "msg" + (v ? " warn" : ""); if (v) $("msg").textContent = v; else if ($("msg").dataset.keep !== "1") $("msg").textContent = "";
+    // 側欄
+    if (mode === "wall") {
+      const all = row().grid.join(""), hp = [...all].reduce((s, ch) => s + (/[1-5]/.test(ch) ? +ch : /[BG]/.test(ch) ? 1 : 0), 0);
+      $("sBricks").textContent = (all.match(/[1-5BG]/g) || []).length; $("sHp").textContent = hp; $("sGifts").textContent = (all.match(/G/g) || []).length;
+      $("addRow").disabled = row().grid.length >= MAX; $("delRow").disabled = !row().grid.length;
+      $("text").textContent = row().grid.join("\n") || "（沒有磚）";
+    } else {
+      const id = layoutId(), used = usedBy(id), L = layout();
+      $("layoutName").textContent = `台面：${L.name}（${id}）`;
+      $("usedBy").textContent = `這個台面用在第 ${used.join("、")} 關${used.length > 1 ? "：直接改會影響這幾關；只想改這一關請按「另存成新台面」" : ""}`;
+      $("reminder").textContent = reminder;
+      $("fishToggle").textContent = L.fish ? "拿掉阿鰭" : "加上阿鰭";
+      $("warns").innerHTML = warnings().map(m => `<li>${m}</li>`).join("");
+      $("text").textContent = layoutRow().map((v, i) => `${["代號", "名稱", "中柱座標", "阿鰭", "彈力牆", "加速帶"][i]}：${v || "（空）"}`).join("\n");
+      drawSel();
+    }
   }
-  function R_assists() { return SR.Rules.assistsFor(n); }
-  function check() {
-    const xs = (grid.join("").match(/X/g) || []).length;
-    if (isBoss() && xs !== 1) return `首領關要剛好 1 個 X（現在 ${xs} 個）`;
-    if (!grid.join("").match(/[1-5BGX]/)) return "沒有任何磚";
-    return "";
+  function drawHandles() {
+    const L = layout(), isSel = (k, i) => sel && sel.kind === k && sel.i === i;
+    g.lineWidth = 2;
+    L.bumpers.forEach(([x, y], i) => { g.strokeStyle = isSel("bumper", i) ? "#ffe14d" : "rgba(255,255,255,0.7)"; g.beginPath(); g.arc(x, y, BUMPER_R + 4, 0, Math.PI * 2); g.stroke(); });
+    L.rails.forEach((r, i) => { const c = isSel("rail", i) ? "#ffe14d" : "#ff3ea5";
+      g.strokeStyle = c; g.lineWidth = 5; g.beginPath(); g.moveTo(r[0], r[1]); g.lineTo(r[2], r[3]); g.stroke(); g.lineWidth = 2;
+      for (const [x, y] of [[r[0], r[1]], [r[2], r[3]]]) { g.fillStyle = c; g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.fill(); } });
+    L.boost.forEach(([x, y], i) => { g.strokeStyle = isSel("boost", i) ? "#ffe14d" : "rgba(157,255,58,0.9)"; g.strokeRect(x - 2, y - 2, BOOST_W + 4, BOOST_H + 4); });
+    if (L.fish) { const f = L.fish, c = isSel("fish", 0) ? "#ffe14d" : "#3ee0ff";
+      g.strokeStyle = c; g.setLineDash([6, 5]); g.beginPath(); g.moveTo(f.x0, f.y); g.lineTo(f.x1, f.y); g.stroke(); g.setLineDash([]);
+      for (const x of [f.x0, f.x1]) { g.fillStyle = c; g.fillRect(x - 5, f.y - 12, 10, 24); } }
   }
-
-  // 點格子
-  cv.addEventListener("click", e => {
-    const rect = cv.getBoundingClientRect(), x = (e.clientX - rect.left) / rect.width * 400, y = (e.clientY - rect.top) / rect.height * 740 + P.CAM_MAX;
-    const top = (SR.layoutFor(n).top || 0), G0 = P.GRID, c = Math.floor((x - G0.x0) / G0.cw), r = Math.floor((y - G0.y0 - top) / G0.ch);
-    if (c < 0 || c > 8 || r < 0 || r >= MAX) return;
-    while (grid.length <= r) grid.push(".........");
-    const line = grid[r].split(""), cur = line[c];
-    let next = cur === brush ? "." : brush;
-    if (next === "X") for (let i = 0; i < grid.length; i++) grid[i] = grid[i].replace(/X/g, ".");   // 首領只能有一個
-    line[c] = next; grid[r] = line.join("");
-    while (grid.length && /^\.{9}$/.test(grid[grid.length - 1]) && grid.length > r + 1) grid.pop();
-    $("msg").dataset.keep = "0"; render();
+  function drawSel() {
+    const box = $("selBox"); if (!sel) { box.hidden = true; return; }
+    const L = layout(); box.hidden = false;
+    const num = (label, key, val) => `<label>${label}<input type="number" data-k="${key}" value="${val}"></label>`;
+    let html = "", name = "";
+    if (sel.kind === "bumper") { const [x, y] = L.bumpers[sel.i] || []; name = `中柱 (${x},${y})`; html = num("x", "x", x) + num("y", "y", y); }
+    else if (sel.kind === "boost") { const [x, y] = L.boost[sel.i] || []; name = `加速帶 (${x},${y})`; html = num("x", "x", x) + num("y", "y", y); }
+    else if (sel.kind === "rail") { const r = L.rails[sel.i] || []; name = "彈力牆"; html = num("x1", "x1", r[0]) + num("y1", "y1", r[1]) + num("x2", "x2", r[2]) + num("y2", "y2", r[3]); }
+    else if (sel.kind === "fish" && L.fish) { const f = L.fish; name = "阿鰭"; html = num("高度 y", "fy", f.y) + num("左界", "fx0", f.x0) + num("右界", "fx1", f.x1) + num("速度", "fs", f.speed); }
+    $("selName").textContent = name;
+    if ($("selNums").dataset.key !== sel.kind + sel.i + html) { $("selNums").innerHTML = html; $("selNums").dataset.key = sel.kind + sel.i + html; }
+  }
+  $("selNums").addEventListener("change", e => {
+    const k = e.target.dataset.k, v = +e.target.value, L = layout(); if (!sel || !isFinite(v)) return;
+    if (sel.kind === "bumper") { const [x, y] = L.bumpers[sel.i]; moveObject("bumper", sel.i, k === "x" ? v : x, k === "y" ? v : y); }
+    else if (sel.kind === "boost") { const [x, y] = L.boost[sel.i]; moveObject("boost", sel.i, k === "x" ? v : x, k === "y" ? v : y); }
+    else if (sel.kind === "rail") { const r = L.rails[sel.i]; if (k === "x1" || k === "y1") moveObject("rail", sel.i, k === "x1" ? v : r[0], k === "y1" ? v : r[1], "a"); else moveObject("rail", sel.i, k === "x2" ? v : r[2], k === "y2" ? v : r[3], "b"); }
+    else if (sel.kind === "fish") { const f = L.fish; if (k === "fy") moveObject("fish", 0, 180, v); else if (k === "fx0") moveObject("fish", 0, v, f.y, "x0"); else if (k === "fx1") moveObject("fish", 0, v, f.y, "x1"); else { f.speed = Math.max(0, Math.min(400, Math.round(v))); render(); } }
   });
+
+  /* ---------- 指標操作 ---------- */
+  const toTable = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 400, (e.clientY - r.top) / r.height * 740 + P.CAM_MAX]; };
+  function hitTest(x, y) {
+    const L = layout(), d = (ax, ay) => Math.hypot(x - ax, y - ay);
+    for (let i = L.rails.length - 1; i >= 0; i--) { const r = L.rails[i]; if (d(r[0], r[1]) < HIT) return { kind: "rail", i, part: "a" }; if (d(r[2], r[3]) < HIT) return { kind: "rail", i, part: "b" }; }
+    if (L.fish) { const f = L.fish; if (d(f.x0, f.y) < HIT) return { kind: "fish", i: 0, part: "x0" }; if (d(f.x1, f.y) < HIT) return { kind: "fish", i: 0, part: "x1" }; }
+    for (let i = L.bumpers.length - 1; i >= 0; i--) if (d(L.bumpers[i][0], L.bumpers[i][1]) < BUMPER_R + 6) return { kind: "bumper", i };
+    for (let i = L.boost.length - 1; i >= 0; i--) { const [bx, by] = L.boost[i]; if (x > bx - 6 && x < bx + BOOST_W + 6 && y > by - 8 && y < by + BOOST_H + 8) return { kind: "boost", i, dx: x - bx, dy: y - by }; }
+    for (let i = L.rails.length - 1; i >= 0; i--) { const r = L.rails[i], abx = r[2] - r[0], aby = r[3] - r[1], k = Math.max(0, Math.min(1, ((x - r[0]) * abx + (y - r[1]) * aby) / (abx * abx + aby * aby || 1)));
+      if (d(r[0] + abx * k, r[1] + aby * k) < 10) return { kind: "rail", i, part: "mid" }; }
+    if (L.fish && Math.abs(y - L.fish.y) < 12 && x > L.fish.x0 && x < L.fish.x1) return { kind: "fish", i: 0, part: "y" };
+    return null;
+  }
+  cv.addEventListener("pointerdown", e => {
+    const [x, y] = toTable(e);
+    if (mode === "wall") { clickCell(x, y); return; }
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    if (tool === "bumper") return addBumper(x, y);
+    if (tool === "rail") return addRail(x, y - 60, x, y + 60);
+    if (tool === "boost") return addBoost(x - BOOST_W / 2, y - BOOST_H / 2);
+    const h = hitTest(x, y); sel = h ? { kind: h.kind, i: h.i } : null; drag = h; render();
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!drag || mode !== "layout") return;
+    const [x, y] = toTable(e);
+    if (drag.kind === "boost") moveObject("boost", drag.i, x - drag.dx, y - drag.dy);
+    else moveObject(drag.kind, drag.i, x, y, drag.part);
+  });
+  const end = () => { drag = null; };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+
+  /* ---------- 按鈕 ---------- */
   $("stage").onchange = e => load(+e.target.value);
-  $("addRow").onclick = () => { if (grid.length < MAX) grid.push("........."); render(); };
-  $("delRow").onclick = () => { grid.pop(); render(); };
-  $("reset").onclick = () => load(n);
+  $("modeWall").onclick = () => setMode("wall");
+  $("modeLayout").onclick = () => setMode("layout");
+  $("addRow").onclick = () => { if (row().grid.length < MAX) row().grid.push("........."); render(); };
+  $("delRow").onclick = () => { row().grid.pop(); render(); };
+  $("reset").onclick = () => { row().grid = clone(SR.LEVELS.stages[n - 1].grid); render(); };
+  $("resetLayout").onclick = () => { const id = layoutId(); if (SR.LEVELS.layouts[id]) work.layouts[id] = clone(SR.LEVELS.layouts[id]); sel = null; render(); };
+  $("tools").querySelectorAll("[data-tool]").forEach(b => b.onclick = () => { tool = b.dataset.tool; $("tools").querySelectorAll("[data-tool]").forEach(x => x.className = "btn " + (x.dataset.tool === tool ? "on" : "ghost")); });
+  $("mirror").onchange = e => { mirror = e.target.checked; };
+  $("fishToggle").onclick = () => { if (layout().fish) remove("fish", 0); else setFish({ y: 690, x0: 70, x1: 290, speed: 110 }); };
+  $("delSel").onclick = () => { if (sel) remove(sel.kind, sel.i); };
+  $("saveAs").onclick = () => { const id = window.prompt("新台面的代號（英文、數字、底線）：", `${layoutId()}_${n}`); if (id) saveAs(id); };
+  $("stuckBtn").onclick = () => { $("stuckMsg").textContent = "檢查中…（約 10 秒）"; setTimeout(() => { $("stuckMsg").textContent = stuck(); }, 30); };
   $("copy").onclick = async () => {
-    const text = grid.join("\t");
-    try { await navigator.clipboard.writeText(text); $("msg").textContent = `已複製第 ${n} 關的 ${grid.length} 排，貼到試算表這一關的「第1排」`; }
+    const text = copyText();
+    try { await navigator.clipboard.writeText(text); $("msg").textContent = mode === "layout" ? "已複製台面配置表的一列" : `已複製第 ${n} 關的 ${row().grid.length} 排，貼到試算表這一關的「第1排」`; }
     catch (err) { window.prompt("複製下面這段：", text); $("msg").textContent = "已顯示文字，請手動複製"; }
-    $("msg").dataset.keep = "1"; $("msg").className = "msg";
   };
-  window.SR_EDITOR = { get grid() { return grid; }, load, get n() { return n; } };
+
+  window.SR_EDITOR = {
+    load, setMode, addBumper, addRail, addBoost, setFish, moveObject, remove, saveAs, warnings, copyText, stuck,
+    setMirror: v => { mirror = !!v; $("mirror").checked = mirror; },
+    get mode() { return mode; }, get n() { return n; }, get grid() { return row().grid; }, get layout() { return layout(); }, get reminder() { return reminder; },
+    ready: true
+  };
   load(1);
-  (function loop() { render(); setTimeout(() => requestAnimationFrame(loop), 120); })();
+  (function loop() { if (!drag) render(); setTimeout(() => requestAnimationFrame(loop), 150); })();
 })();
 </script>
 </body>

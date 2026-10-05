@@ -155,9 +155,9 @@ SR.Tests = (function () {
   }
 
   /* 卡球探測：台面上每 24px 放一顆球（含 ±5 px/s 擾動與大罐滿級的球），速度 < 8 px/s 連續 3 秒算卡住 */
-  function stuckProbe(T, assists, layout = null) {
+  function stuckProbe(T, assists, layout = null, control = "flipper") {
       const r = T.ball.radius, stuckAt = [];
-      const base = P().buildTable(T, assists, layout), top = base.top;
+      const base = P().buildTable(T, assists, layout, control), top = base.top;
       const overlaps = (x, y) => {
         for (const s of base.segments) {
           const abx = s.bx - s.ax, aby = s.by - s.ay, k = P().clamp(((x - s.ax) * abx + (y - s.ay) * aby) / (abx * abx + aby * aby), 0, 1);
@@ -180,7 +180,7 @@ SR.Tests = (function () {
         if (y > bottom - r - 2) continue;
         if (P().SLING_TRIS.some(t => inTri(x, y, t)) || overlaps(x, y)) continue;
         for (const [vx, bonus] of [[5, 0], [-5, 0], [5, 4.5]]) {     // 最後一種＝大罐滿級的球
-          const w = P().buildTable(T, assists, layout); w.radiusBonus = bonus;
+          const w = P().buildTable(T, assists, layout, control); w.radiusBonus = bonus;
           const b = P().newBall(T, w, x, y); b.vx = vx; w.balls = [b]; runs++;
           let still = 0;
           for (let i = 0; i < 600 && w.balls.length; i++) {
@@ -280,8 +280,10 @@ SR.Tests = (function () {
       const uniq = [...new Set(problems)];
       return { pass: uniq.length === 0, value: uniq.length ? uniq.slice(0, 3).join("；") : "50 關全部有效" };
     }},
-    { id: "AC-S7", name: "每一種台面配置都沒有卡球死角", run(T) {
-      const ids = Object.keys(SR.LAYOUTS), rs = ids.map(id => stuckProbe(T, {}, SR.LAYOUTS[id]));
+    { id: "AC-S7", name: "每一種台面配置都沒有卡球死角（台面配置表裡的每一種）", run(T) {
+      // v3.7.3：檢查企劃「台面配置表」裡的台面（之前誤用原本公式的 SR.LAYOUTS，企劃新增的台面不會被檢查到）
+      const ids = SR.LEVELS ? Object.keys(SR.LEVELS.layouts) : Object.keys(SR.LAYOUTS);
+      const rs = ids.map(id => stuckProbe(T, {}, (SR.tableLayout && SR.tableLayout(id)) || SR.LAYOUTS[id]));
       const bad = ids.filter((id, i) => !rs[i].pass);
       return { pass: !bad.length, value: bad.length ? bad.map(id => `${id}：${rs[ids.indexOf(id)].value}`).join("；") : `${ids.length} 種配置、${rs.reduce((s, r) => s + +r.value.split(" ")[0], 0)} 次放球，0 次卡住` };
     } },
@@ -842,7 +844,60 @@ SR.Tests = (function () {
       const noReward = !/街區獎勵/.test(rewardText) && rewardText !== "（沒測）";
       return { pass: !barShown && noReward, value: `道具欄 ${barShown ? "還在" : "沒有"}・街區解放畫面 ${rewardText === "（沒測）" ? "沒辦法測" : noReward ? "沒有送道具" : "還在送道具"}` };
     }}
+    /* ---------- v3.7.3 台面編輯器（申請單 layout-editor）：在看不見的框架開 editor.html，用 SR_EDITOR 操作 ---------- */
+    , { id: "AC-S41", name: "台面編輯器：中柱對稱新增與拖曳、關掉對稱、刪除、離磚提醒、另存新台面", async run(frame) {
+      const w = await bootEditor(frame), E = w.SR_EDITOR;
+      if (!E || !E.setMode) return { pass: false, value: "編輯器沒有台面模式（SR_EDITOR.setMode）" };
+      const problems = [], has = (x, y) => E.layout.bumpers.some(b => b[0] === x && b[1] === y);
+      E.load(1); E.setMode("layout"); E.setMirror(true);
+      const n0 = E.layout.bumpers.length;
+      E.addBumper(90, 700);
+      if (E.layout.bumpers.length !== n0 + 2 || !has(90, 700) || !has(270, 700)) problems.push(`對稱新增後 ${JSON.stringify(E.layout.bumpers)}`);
+      E.moveObject("bumper", E.layout.bumpers.findIndex(b => b[0] === 90 && b[1] === 700), 100, 690);
+      if (!has(100, 690) || !has(260, 690)) problems.push(`拖曳後另一顆沒跟著動：${JSON.stringify(E.layout.bumpers)}`);
+      E.setMirror(false); E.addBumper(90, 760);
+      if (E.layout.bumpers.length !== n0 + 3) problems.push("關掉對稱還是加了兩顆");
+      E.remove("bumper", E.layout.bumpers.findIndex(b => b[0] === 90 && b[1] === 760));
+      if (E.layout.bumpers.length !== n0 + 2) problems.push("刪除沒有效果");
+      E.moveObject("bumper", E.layout.bumpers.findIndex(b => b[0] === 100 && b[1] === 690), 100, 470);
+      const warn = E.warnings().join("｜");
+      if (!/第 1 關/.test(warn) || !/磚/.test(warn)) problems.push(`移到磚區沒有提醒：「${warn}」`);
+      // 另存新台面
+      E.load(35); E.setMode("layout");
+      const orig = JSON.stringify(w.SR.LEVELS.layouts.d_high);
+      E.saveAs("d_high_35"); E.setMirror(true); E.addBumper(120, 730);
+      const copy = E.copyText();
+      if (!copy.startsWith("d_high_35\t")) problems.push(`另存後複製的開頭是「${copy.split("\t")[0]}」`);
+      if (!/第 35 關/.test(E.reminder || "") || !/d_high_35/.test(E.reminder || "")) problems.push(`沒有提醒改台面配置：「${E.reminder || ""}」`);
+      if (JSON.stringify(w.SR.LEVELS.layouts.d_high) !== orig) problems.push("另存後原本的 d_high 被改到了");
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : "對稱新增／拖曳、關掉對稱、刪除、離磚提醒、另存新台面都正確" };
+    }}
+    , { id: "AC-S42", name: "台面編輯器的「複製」＝台面配置表的一列，貼回同步讀得回來", async run(frame) {
+      const w = await bootEditor(frame), E = w.SR_EDITOR;
+      if (!E || !E.copyText) return { pass: false, value: "編輯器沒有 copyText" };
+      const problems = [];
+      E.load(31); E.setMode("layout");
+      const want = "d_tri\t雙柱\t80,700; 280,700\t\t\t82,773; 222,773";
+      if (E.copyText() !== want) problems.push(`d_tri 複製成「${E.copyText().replace(/\t/g, "⇥")}」`);
+      E.setMirror(true); E.addBumper(120, 730); E.addRail(30, 620, 30, 700); E.addBoost(152, 800); E.setFish({ y: 660, x0: 80, x1: 280, speed: 90 });
+      const cols = E.copyText().split("\t"), L = w.SR.LevelCheck, rows = L.toRows(w.SR.LEVELS);
+      const heads = Object.keys(rows.layouts[0]), i = rows.layouts.findIndex(r => r["代號"] === "d_tri");
+      rows.layouts[i] = Object.fromEntries(heads.map((h, k) => [h, cols[k] ?? ""]));
+      const v = L.validate(rows.stages, rows.layouts);
+      if (v.problems.length) problems.push(`讀回有問題：${v.problems[0].column}：${v.problems[0].message}`);
+      else {
+        const a = v.levels.layouts.d_tri, b = E.layout, norm = x => JSON.stringify({ bumpers: x.bumpers, fish: x.fish || null, rails: (x.rails || []).map(r => r.slice(0, 5)), boost: x.boost });
+        if (norm(a) !== norm(b)) problems.push(`讀回不一樣：${norm(a)} ≠ ${norm(b)}`);
+      }
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : "複製格式正確，加了中柱、彈力牆、加速帶、阿鰭後讀回完全相同" };
+    }}
   ];
+  async function bootEditor(frame) {
+    await new Promise(res => { frame.onload = res; frame.src = "editor.html?test=1&r=" + Math.random(); });
+    const w = frame.contentWindow;
+    for (let i = 0; i < 200 && !(w.SR_EDITOR && w.SR_EDITOR.ready); i++) await new Promise(r => setTimeout(r, 25));
+    return w;
+  }
   async function runGame(frame) {
     const out = [];
     for (const t of GAME_TESTS) {
