@@ -369,6 +369,7 @@
       AU.play("save"); say("球保險！再來一次！", "wow"); popup(185, 900, "BALL SAVED", true);
       return;
     }
+    if (SR.TUNE && SR.TUNE.practice) { G.world.balls = [P.newBall(T, G.world)]; popup(185, 900, "PRACTICE", true); return; }
     G.run.hearts--; G.heartsLost++;
     AU.play("drain"); vibrate([90, 50, 160]); G.shake = 12;
     updateHud();
@@ -1039,8 +1040,10 @@
     show(`<h2 class="tag-title" style="font-size:52px">PAUSE</h2>
       <button class="big-btn" id="resume">繼續</button>
       <div class="row"><button class="big-btn ghost" id="pSfx">${AU.sfxOn ? "音效：開" : "音效：關"}</button><button class="big-btn ghost" id="pMusic">${AU.musicOn ? "音樂：開" : "音樂：關"}</button><button class="big-btn ghost" id="pVib">${save.vibrate === false ? "震動：關" : "震動：開"}</button></div>
+      ${SR.TUNE ? `<button class="big-btn alt" id="pTune">🎚 手感調整（邊玩邊調）</button>` : ""}
       <button class="big-btn ghost" id="quit">放棄這一輪，回地圖</button>`);
     on("resume", togglePause);
+    on("pTune", () => { SR.TUNE.open(); togglePause(); });
     on("pSfx", () => { AU.setSfx(!AU.sfxOn); G.paused = false; togglePause(); });
     on("pMusic", () => { AU.setMusic(!AU.musicOn); G.paused = false; togglePause(); });
     on("pVib", () => { save.vibrate = save.vibrate === false; R.persist(save); if (save.vibrate) vibrate([30, 40, 60]); G.paused = false; togglePause(); });
