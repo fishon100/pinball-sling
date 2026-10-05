@@ -1,0 +1,44 @@
+﻿檔名,類別,狀態,規格,使用位置,Figma,提示詞
+pinky_happy/_wow/_sad/_idle/_grey.png,角色,待製作,512×512 透明,HUD、標題、開場、漫畫（噴噴 表情＋灰色版）,,"graffiti character sticker, chubby pink bunny-like blob creature, thick black outlines, big round eyes with red pupils, wide toothy grin, stitched seam on forehead, short stubby arms, American street art spray paint style, flat bold colors, white background, full body ＋表情"
+fish_sleepy/_wow.png,角色,待製作,512×512 透明,台面（會游的彈跳柱）、漫畫（阿鰭）,,"cartoon teal fish, half-closed sleepy eyelids, huge yawning open mouth with two tiny fangs and pink tongue, dark teal scales on back, thick brown outlines, sticker style, white background（參考 角色參考-阿鰭.png）"
+kid_*.png,角色,待製作,512×768 透明,漫畫（小葵 4 表情）,,"little girl in yellow hoodie, short hair, big eyes, graffiti sticker style, thick black outline ＋表情"
+grey_*.png、grey_young_*.png,角色,待製作,512×768 透明,漫畫（灰先生）,,"stern man in long grey coat, dark sunglasses, expressionless, thick black outline, flat grey palette"
+boss_grey.png／_hurt,角色,待製作,512×256 透明,F07 首領灰先生（灰先生首領造型）,,"graffiti villain, grumpy rounded square grey blob, black sunglasses, crown made of three spray cans, thick black outlines, sticker style"
+citizen.png、boy.png,角色,待製作,256×384,漫畫（配角）,,"simple graffiti style passerby, thick black outline"
+paddle_S/M/L.png,場景,方向稿,寬 80／112／152 ×22,F02 滑板操作（滑板 3 尺寸）,,"neon pink capsule pinball paddle with yellow chevron arrows on both ends and the word ""SHOOT!"" in the middle, dark purple outline, glossy, game UI asset, transparent background"
+rail_paddle.png,場景,方向稿,320×10,F02 滑板操作（滑板下的鉻滑軌）,,"chrome metal rail bar with yellow-black hazard stripe end caps and bolts, side view, transparent"
+table_frame.png、bg_stage.png,場景,方向稿,800×2120,F13 美術呈現（機台外框、夜店舞台背景）,,"neon nightclub pinball table background, dark purple, hexagon pattern, spotlights, crowd silhouette, neon signs RUSH! BOOM! HIT!, graffiti crowns stars hearts"
+plunger_knob.png、plunger_spring.png,場景,待製作,34×40,F04 發射桿（發射桿拉柄＋彈簧）,,"yellow mushroom-shaped pinball plunger knob with chrome spring, thick outline, cartoon（參考 物件參考-發射桿拉柄.png）"
+bumper.png／_lit,場景,待製作,64×64,F05 台面配置（彈跳柱（俯視噴漆罐））,,"top-down view of a spray paint can cap, cyan rings, glowing neon, thick black outline"
+brick_hp1～5.png、brick_bucket.png、brick_gift.png,場景,待製作,33×18（＋擠出）,F06 磚塊與關卡（磚塊）,,"grey concrete brick tile, 2.5D extruded, thick black outline, cracks variants"
+wall_alley.png ～ wall_downtown.png,場景,待製作,800×2120,遊玩背景（5 區灰牆背景）,,"grey painted-over brick wall, faint ghost traces of old graffiti under grey paint, top-down flat texture ＋區域"
+splat_01～08.png,場景,待製作,128×128 白色透明（程式上色）,碎磚（噴漆濺痕）,,"single spray paint splat with drips, white on transparent, high contrast"
+logo_sprayrun.png,UI,待製作,待做,"graffiti wildstyle lettering ""SPRAY RUN"", pink yellow cyan gradient, thick black outline, paint drips, transparent（標題字）",,
+arcade_cabinet.png,UI,待製作,待做,"old dusty pinball machine in an abandoned arcade, faded graffiti side art, warm light, nostalgic（老彈珠台機台）",,
+map_city.png,UI,待製作,待做,"isometric cartoon city map, five districts, graffiti style, half grey half colorful（城市地圖插圖）",,
+medal_gold/silver/bronze.png,UI,待製作,待做,"shiny {gold/silver/bronze} medal with pink-white-cyan ribbon, sticker style, thick outline（獎牌）",,
+badge_*.png ×19,UI,待製作,待做,"round graffiti sticker badge, icon of {主題}, bold colors, thick black outline（成就徽章）",,
+card_*.png ×9,UI,待製作,待做,"spray paint can power-up icon, {效果}, sticker style（強化罐圖示）",,
+item_bomb/slow/save/ball/wide.png,UI,待製作,待做,"round sticker icon of {paint bomb / hourglass / life ring / plus ball / skateboard}, graffiti style（5 種道具）",,
+sfx_paddle.wav,音效,待製作,,滑板／擋板擊球,,"punchy rubber skateboard pop, 0.15 seconds"
+sfx_launch.wav,音效,待製作,,發射,,spring plunger release with metal ball whoosh
+sfx_pull.wav,音效,待製作,,拉發射桿,,spring compressing ratchet click
+sfx_brick_hit.wav,音效,待製作,,碰到磚,,light concrete tap
+sfx_brick_break.wav,音效,待製作,,碎磚（連擊升調）,,"small concrete brick cracking with paint splash, punchy, 0.3 seconds"
+sfx_bucket.wav,音效,待製作,,油漆桶,,"paint bucket explosion, wet splat with low thump"
+sfx_bumper.wav,音效,待製作,,彈跳柱／阿鰭,,pinball pop bumper ding with spray hiss
+sfx_spray.wav,音效,待製作,,開場、噴漆,,"short aerosol spray paint hiss, 0.3 seconds"
+sfx_drain.wav,音效,待製作,,掉球,,sad descending arcade tone
+sfx_save.wav,音效,待製作,,球保險,,positive rescue chime
+sfx_clear.wav,音效,待製作,,過關,,triumphant arcade fanfare with spray burst
+sfx_boss_hit.wav、sfx_boss_regen.wav,音效,待製作,,首領受傷、補磚,,heavy thud／ominous grey spray hiss with low hum
+sfx_coin.wav,音效,待製作,,開場投幣、續關,,coin drop into arcade machine slot
+vo_pinky_*.wav,音效,待製作,,噴噴短句（「上吧！」「小心！」）,,"cute high-pitched cartoon creature voice, playful, Mandarin"
+vo_fish_*.wav,音效,待製作,,阿鰭短句（「吵死了……」）,,"sleepy grumpy low cartoon fish voice, yawning, Mandarin"
+bgm_alley.mp3,音樂,待製作,2 分鐘可循環,1 巷口,,"boom bap hip hop instrumental, 88 bpm, A minor, dusty drums, warm bass, playful, loopable, no vocals"
+bgm_subway.mp3,音樂,待製作,同上,2 地鐵站,,"lo-fi hip hop with subway ambience, 92 bpm, G minor, jazzy keys, hopeful"
+bgm_rooftops.mp3,音樂,待製作,同上,3 屋頂,,"tense boom bap, 96 bpm, F minor, dark strings, windy atmosphere"
+bgm_riverside.mp3,音樂,待製作,同上,4 河堤,,"melancholic lo-fi hip hop, 84 bpm, D minor, soft piano, nostalgic"
+bgm_downtown.mp3,音樂,待製作,同上,5 市中心大牆,,"triumphant hip hop, 100 bpm, A minor to A major lift, brass stabs, energetic"
+bgm_*_intense.mp3,音樂,待製作,與主曲同步,連擊／首領戰加強層,,"同主曲＋extra percussion and synth arpeggio layer, same tempo and key"
+jingle_opening.mp3,音樂,待製作,7 秒,開場動畫,,"arcade coin insert jingle into graffiti hip hop sting, 7 seconds"

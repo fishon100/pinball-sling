@@ -1,0 +1,13 @@
+﻿標題,類別,遊戲裡的位置,最後同步,Obsidian 原文
+名詞與命名總表,名詞,,,彈珠專案/02 知識庫/名詞與命名總表.md
+數值總表,數值,,,彈珠專案/02 知識庫/數值總表.md
+五個街區,世界觀,data.js 的 SR.DISTRICTS（名稱、簡介、配色、音樂速度、輔助）,,彈珠專案/02 知識庫/世界/五個街區.md
+世界觀,世界觀,,,彈珠專案/02 知識庫/劇情/世界觀.md
+劇情大綱,劇情,data.js 的 SR.storyBefore／storyAfter（什麼時候播）,,彈珠專案/02 知識庫/劇情/劇情大綱.md
+劇情腳本,劇情,,,彈珠專案/02 知識庫/劇情/劇情腳本.md
+噴噴,角色,data.js 的 SR.SPEAKERS.pinky；繪圖 art.js 的 pinky()（HUD、標題、開場、漫畫共用）・美術素材：美術素材清單,,彈珠專案/02 知識庫/角色/噴噴.md
+小葵,角色,data.js 的 SR.SPEAKERS.kid；漫畫繪圖 comic.js 的 CHAR.kid・美術素材：美術素材清單,,彈珠專案/02 知識庫/角色/小葵.md
+灰先生,角色,data.js 的 SR.SPEAKERS.grey；漫畫繪圖 comic.js 的 CHAR.grey／greyYoung；首領造型 art.js 的 boss()；玩法 F07 首領灰先生・美術素材：美術素材清單,,彈珠專案/02 知識庫/角色/灰先生.md
+阿鰭,角色,data.js 的 SR.SPEAKERS.fish；繪圖 art.js 的 fish()（台面與漫畫共用）；台面元件 F05 台面配置・美術素材：美術素材清單,,彈珠專案/02 知識庫/角色/阿鰭.md
+配角,角色,data.js 的 SR.SPEAKERS；繪圖 comic.js 的 CHAR,,彈珠專案/02 知識庫/角色/配角.md
+美術風格指南,美術風格,,,彈珠專案/03 媒體庫/美術/美術風格指南.md

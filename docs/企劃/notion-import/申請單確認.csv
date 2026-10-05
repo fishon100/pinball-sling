@@ -1,0 +1,62 @@
+﻿名稱,中文標題,狀態,摘要,任務進度,影響功能,GitHub,預覽,企劃意見
+baseline-specs,把現有遊戲寫成 16 份規則書,已結案,"為什麼：噴漆闖關目前的規則散在 Obsidian 的主架構規劃書與 F01～F15 功能規劃書，只有企劃這台電腦看得到，也沒有逐條對應到自動測試。團隊要改用 Spectra 的「申請單」流程，第一步必須先把「遊戲現在已經是這樣」寫成正式規則書，之後每張申請單才有比對的基準。
+
+改什麼：- 把主架構規劃書與 F01～F15 的現有行為，寫成 16 份 Spectra 規則書（每份一個功能）
+- 每條規則都寫成「當……就要……」的情境，並標出目前由哪一個自動測試檢查
+- 找出還沒有測試的情境，補上測試或寫明為什麼不用測（例如純外觀）
+- 遊戲行為完全不改；只新增規則書與缺少的測試",9/9,"art-presentation, audio-and-haptics, boss-mr-grey, bricks-and-stages, comics-and-story-replay, core-game-loop, difficulty-balance, flipper-control, game-ui, medals-and-achievements, newbie-assist, opening-animation, paddle-control, plunger-launch, power-ups-and-items, table-layout",https://github.com/fishon100/pinball-sling/tree/main/docs/spectra/changes/archive/2026-10-05-baseline-specs,https://fishon100.github.io/pinball-sling/street/,
+fix-baseline-bugs,修 4 個 bug（空白鍵、音效記憶、從頭再打、跳過漫畫）,已結案,"為什麼：盤點現有遊戲（申請單 `baseline-specs`）時發現 4 個 bug，企劃決定全部修正：
+
+1. 電腦上按住空白鍵拉發射桿，常常拉不滿、甚至發射不出去
+2. 音效、音樂開關重新整理後不會記住，每次都回到「開」
+3. 已經全破的街區，地圖上的「從頭再打一次」會從第 10 關（首領關）開始
+4. 第一次看漫畫時按「跳過」，也被記成「看過」，之後不會再自動播放
+
+改什麼：1. 空白鍵的重送訊號不再重新拉桿；按住會一路拉滿
+2. 開關狀態寫進存檔（`save.sfx`、`save.music`），開遊戲時套用
+3. 全破的街區按「從頭再打一次」從該區第 1 關開始；其他情況維持原本公式
+4. 漫畫完整看完才記成「看過」；按跳過不記，下次還會自動播放",10/10,"audio-and-haptics, comics-and-story-replay, game-ui, plunger-launch",https://github.com/fishon100/pinball-sling/tree/main/docs/spectra/changes/archive/2026-10-05-fix-baseline-bugs,https://fishon100.github.io/pinball-sling/street/,
+fix-item-bar-covers-table,手機上道具欄蓋住台面,已結案,"為什麼：手機上，道具欄出現後會蓋住台面最下面一段（約 30 px），剛好是發射桿和滑板線的位置，畫面變得很擠、看不清楚；道具按鈕的名字也被擠成兩行（例如「慢動／作」）。
+
+改什麼：- 台面所在區域的大小一改變（包含道具欄出現或消失）就重新計算台面大小，台面永遠不會跟上方資訊列或下方道具欄重疊
+- 道具欄改成精簡的一行：圖示＋名字不換行、按鈕變矮，把空間留給台面",4/4,power-ups-and-items,https://github.com/fishon100/pinball-sling/tree/main/docs/spectra/changes/archive/2026-10-05-fix-item-bar-covers-table,https://fishon100.github.io/pinball-sling/street/,
+fix-plunger-moves-paddle,拉發射桿時滑板跟著跑,已結案,"為什麼：滑板模式下，球在發射道時按住畫面往下拉發射桿，滑板也會跟著手指（或滑鼠）左右移動。玩家只是想發射，滑板卻被拉走，發射後常常接不到第一球。
+
+改什麼：正在拉發射桿的那根手指（或滑鼠）不控制滑板：按下開始拉桿時不移動滑板，拉的過程中移動也不帶動滑板。放開（發射或沒拉夠）之後，滑板恢復跟著指標走。其他手指（多指觸控）仍然可以控制滑板。",3/3,paddle-control,https://github.com/fishon100/pinball-sling/tree/main/docs/spectra/changes/archive/2026-10-05-fix-plunger-moves-paddle,https://fishon100.github.io/pinball-sling/street/,
+item-capsules,道具改成掉落膠囊,已結案,"為什麼：道具欄放在台面下方會擠壓台面（申請單 `fix-item-bar-covers-table` 修過一次），而且玩家要一邊接球一邊去按下面的按鈕，操作分心。企劃決定改成經典打磚塊的做法：道具藏在磚塊裡，打破後道具會掉下來，用滑板接到就馬上生效。這樣遊玩畫面上不需要道具欄，台面永遠是最大的。
+
+改什麼：- 道具磚：第 2 關起每關 2～3 塊（第 1 關是教學關，不放），首領關也有
+- 打破道具磚，會掉下一顆「道具膠囊」（上面是道具圖示），直直往下掉
+- 用滑板（經典擋板模式：擋板）接到膠囊，就立刻用掉這個道具；沒接到就消失
+- 5 種道具的效果不變（漆彈、慢動作、球保險、加一顆、寬板）
+- **BREAKING** 拿掉道具欄與道具庫存：道具不再存起來帶到下一關；打完一區送 2 個道具的「街區獎勵」也拿掉；舊存檔裡的道具不再使用",8/8,"bricks-and-stages, core-game-loop, power-ups-and-items",https://github.com/fishon100/pinball-sling/tree/main/docs/spectra/changes/archive/2026-10-05-item-capsules,https://fishon100.github.io/pinball-sling/street/,
+layout-editor,關卡編輯器加台面模式,已結案,"為什麼：關卡設定表上線後，磚牆可以用編輯器畫，但台面上的彈力牆、中柱、加速帶、阿鰭還是只能在「台面配置表」填座標（例如「78,664; 282,664」）。企劃很難想像座標對應到哪裡，也不知道放了會不會貼到磚或卡球。企劃要求這些也要能直接編輯。
+
+改什麼：- 磚塊圖案編輯器加一個「台面」模式，在台面上直接操作：
+  - **中柱**：點一下新增、拖曳移動、選取後刪除；預設左右對稱（放一顆左邊的、右邊自動出現一顆），可以關掉
+  - **彈力牆**：新增一段、拖曳兩端改長度和角度、整段拖曳移動、刪除
+  - **加速帶**：新增、拖曳移動、刪除
+  - **阿鰭的游泳路線**：新增或拿掉阿鰭；拖曳改高度和左右範圍；速度用數字輸入
+- 即時提醒：中柱、阿鰭、加速帶離磚太近（用這個台面的每一關都檢查）、超出台面、太靠近滑板；按「檢查卡球」會跑跟同步時一樣的卡球檢查
+- 共用台面：顯示「這個台面用在第幾關」，可以選「直接改（影響這些關）」或「另存成新台面」（取新代號，只給這一關用）
+- 「複製」：複製成台面配置表的一列（代號、名稱、中柱、阿鰭、彈力牆、加速帶），貼回試算表；另存新台面時會提醒到關卡設定表把這一關的「台面配置」改成新代號",8/8,level-config,https://github.com/fishon100/pinball-sling/tree/main/docs/spectra/changes/archive/2026-10-05-layout-editor,https://fishon100.github.io/pinball-sling/street/,
+level-config-table,關卡改由企劃的關卡設定表決定,已結案,"為什麼：現在每一關的磚塊圖案、磚血、道具磚數量、台面配置、滑板與球的大小、首領數值，全部由程式裡的公式自動產生（`SR.buildStage`、`SR.layoutFor`、`SR.paddleSizeFor`…）。企劃想調某一關，只能請 AI 改公式，而且一改就影響很多關。正式的遊戲開發是由企劃逐關調配，所以要把這些數值搬到企劃自己能編輯的「關卡設定表」，程式只負責照表演出。
+
+改什麼：- 新增 **關卡設定表**（Google 試算表，放在團隊的 Google Drive）：一關一列，企劃逐關填寫磚塊圖案、道具、難度元件、首領數值
+- 新增 **磚塊圖案編輯器**（網頁）：在 9 欄格子上點選畫出這一關的磚（血量 1～5、油漆桶、道具磚），畫好複製回試算表
+- 遊戲改成讀關卡設定表的匯出檔（`web/street/levels.json`），不再用公式產生關卡
+- 企劃說「**同步關卡表**」：AI 讀試算表 → 檢查「不能壞掉的規則」（不卡球、柱子不貼磚、磚放得進台面、首領打得倒、數值在合理範圍）→ 跑測試 → 部署
+- 第一版關卡表 = 目前遊戲的 50 關，換成讀表後遊戲玩起來完全一樣
+- **BREAKING** 難度目標（第 1 區新手每關 ≤ 1 顆、每區越來越難）改成「只報告、不擋部署」，難度由企劃試玩判斷",14/14,"art-presentation, boss-mr-grey, bricks-and-stages, core-game-loop, difficulty-balance, level-config, newbie-assist, paddle-control, table-layout",https://github.com/fishon100/pinball-sling/tree/main/docs/spectra/changes/archive/2026-10-05-level-config-table,https://fishon100.github.io/pinball-sling/street/,
+short-tables-all-districts,全部矮台面、鏡頭固定,已結案,"為什麼：企劃試玩發現：第 2～5 區台面比較高，鏡頭會跟著球一直上下移動，玩家很難操作、也會煩躁。更根本的問題是：球從高處掉下來時，鏡頭要先追回底部，玩家常常來不及反應球就掉了。所以所有區的台面都要跟第 1 區一樣矮，鏡頭完全不捲動。
+
+但「台面越高越難」原本是後面街區的主要難度來源。先做實驗（擬人新手、滑板、每區 9 關 × 2 局）：台面全部變矮後，第 3～5 區每關掉的愛心從 0.83 降到 0.28～0.61，每關秒數從 82～118 秒降到 24～34 秒，難度曲線變平。企劃決定改用其他方式維持「越後面越難」。
+
+改什麼：- 50 關全部用矮台面（跟第 1 區一樣，一個畫面看完），遊玩時鏡頭固定不捲動
+- 第 2～5 區的台面配置重新擺：彈跳柱（中柱）越後面越少
+- 球越後面越小：第 3 區起變小，第 4、5 區更小（半徑 12／12／11／10.5／10.5，量測後定案）
+- 第 4、5 區一般關卡也用小滑板（小滑板寬度 80 → 96，量測後定案）
+- 第 4、5 區磚塊變硬：拿掉 v3.5.5 為了高台面而做的「第 4、5 區少 1 血」（原本規劃第 3～5 區再 +1 血，量測太難不採用）
+- 新元件「加速帶」：像瑪利歐賽車那樣，球往上經過時會被加速；第 3 區起出現
+- 球的軌跡提示越後面越少：彈道預覽線與落點圈只留在第 1、2 區；球的拖尾光第 3 區剩一半、第 4、5 區沒有
+- 第 2～5 區也訂出難度目標，用擬人玩家量測並寫成自動測試",12/12,"art-presentation, bricks-and-stages, core-game-loop, difficulty-balance, newbie-assist, paddle-control, table-layout",https://github.com/fishon100/pinball-sling/tree/main/docs/spectra/changes/archive/2026-10-05-short-tables-all-districts,https://fishon100.github.io/pinball-sling/street/,

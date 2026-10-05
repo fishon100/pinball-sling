@@ -12,3 +12,6 @@ tools/levels/in/
 
 # Spectra 的 skills 由 `spxa init --tools claude` 產生（授權不允許轉散布，不進 git）
 .claude/skills/spectra-*/
+
+# Obsidian vault 的本機路徑（tools/vault-mirror.mjs 用）
+tools/vault.config.json
