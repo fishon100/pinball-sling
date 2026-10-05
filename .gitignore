@@ -6,3 +6,6 @@ tools/notify.config.json
 
 # Spectra app data
 .spectra/
+
+# 同步關卡表時從 Google Drive 下載的試算表（企劃文件，不進 git）
+tools/levels/in/
