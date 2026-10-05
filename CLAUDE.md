@@ -31,6 +31,7 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 
 # CLAUDE.md — 給 AI 的專案規則
 
+> 📋 **使用者換回自己的 Claude 帳號後，先讀並執行 [`docs/同步計劃－回到自己帳號.md`](docs/同步計劃－回到自己帳號.md)**（狀態不是「✅ 已完成」就照做）。
 > **開發流程依 [game-dev-flow-template](https://github.com/fishon100/game-dev-flow-template)**（`docs/flow/` 00～07：一輪開發、角色分工、Notion 與 GitHub、品質把關、工具與帳號、對 AI 說的話）。本專案是它的實戰範例；下面是本專案特有的規則。
 > Notion 工作區尚未建立：建好前，需求／回饋／開發日誌／知識庫的**正本是 Obsidian**（`彈珠專案/`），**GitHub `docs/企劃/` 是鏡像**（任何 Claude 帳號都讀得到；讀不到 Obsidian MCP 時就讀這裡）。
 > 「同步企劃文件」＝`node tools/vault-mirror.mjs`（Obsidian → `docs/企劃/`，再 commit、push）。處理完回饋、寫完開發日誌後也要跑一次。不要直接改 `docs/企劃/`。
