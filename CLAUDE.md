@@ -44,11 +44,11 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 - `彈珠專案/`：`00 主架構規劃書`（遊戲核心）、`01 功能規劃書/F01～F15`、`02 知識庫/`（劇情腳本、角色、街區、數值總表、名詞與命名總表）、`03 媒體庫/`（美術／音樂音效清單、參考圖）、`04 紀錄/`（開發日誌、舊版本規格、舊版文件，只看不改）、`回饋.md`（企劃試玩回饋）
 
 ## 文件規則（企劃要求，2026-10-05）
-- **管理台（電腦）**：https://fishon100.github.io/game-dev-flow-template/console/?repo=fishon100/pinball-sling （流程樹、申請單進度鏈、規則書、內容庫、素材庫；內容來自 `docs/企劃/`）
+- **管理台（電腦）**：https://fishon100.github.io/game-dev-flow-template/console/?repo=fishon100/pinball-sling （流程樹、提案進度鏈、規則書、內容庫、素材庫；內容來自 `docs/企劃/`）
 - **工作台（手機）**：https://fishon100.github.io/game-dev-flow-template/workbench/?repo=fishon100/pinball-sling （workbench Action 自動更新；說「更新工作台」＝`gh workflow run workbench`）
-- **企劃同意**＝申請單 `tasks.md` 的 `0.1 企劃確認` 已勾（規則見 `docs/spectra/config.yaml`）。`/spectra-apply` 前先 `git pull` 確認；沒勾就停，請企劃到工作台同意。企劃在對話中說「同意 <名稱>」時才可以由 AI 勾，並註明「（企劃於對話中同意，日期）」。舊規則「企劃說開始」等同於說「同意」
+- **企劃同意**＝提案 `tasks.md` 的 `0.1 企劃確認` 已勾（規則見 `docs/spectra/config.yaml`）。`/spectra-apply` 前先 `git pull` 確認；沒勾就停，請企劃到工作台同意。企劃在對話中說「同意 <名稱>」時才可以由 AI 勾，並註明「（企劃於對話中同意，日期）」。舊規則「企劃說開始」等同於說「同意」
 - 「看回饋」＝先讀 GitHub 未處理的「回饋」Issue（`gh issue list -l 回饋 -s open`；處理完回覆並關閉），再讀 `彈珠專案/回饋.md` 最上面的「第 N 輪」；處理完把標題改成「已處理 → 版本」並開下一輪空段落；回饋裡貼的圖搬到 `03 媒體庫/參考圖/`，改成 `類別-內容.png` 並更新連結
-- **正式規則＝`docs/spectra/specs/<capability>/spec.md`**（2026-10-05 起，英文規則＋每條一行 `> 中文：`）。任何改動（回饋、新功能、bug）都走 Spectra 申請單：`docs/spectra/changes/<name>/`（proposal → specs 差異 → design → tasks）→ 推上去（自動開申請單 Issue）→ 企劃同意（0.1 已勾）才實作（修 bug 且企劃已說要修時可直接做）→ 先寫會失敗的測試再修 → 部署 → 歸檔 `spxa archive <name> -y`（把規則併回 specs）。Obsidian 的主架構規劃書與 F01～F15 改為背景說明，最上面有連到對應規則書的註記
+- **正式規則＝`docs/spectra/specs/<capability>/spec.md`**（2026-10-05 起，英文規則＋每條一行 `> 中文：`）。任何改動（回饋、新功能、bug）都走 Spectra 提案：`docs/spectra/changes/<name>/`（proposal → specs 差異 → design → tasks）→ 推上去（自動開提案 Issue）→ 企劃同意（0.1 已勾）才實作（修 bug 且企劃已說要修時可直接做）→ 先寫會失敗的測試再修 → 部署 → 歸檔 `spxa archive <name> -y`（把規則併回 specs）。Obsidian 的主架構規劃書與 F01～F15 改為背景說明，最上面有連到對應規則書的註記
 - 功能規劃書要記背景時，只改那一份（含修改紀錄）；新增功能要新增規則書（capability）並加進名詞與命名總表
 - **單一來源**：劇情＝`02 知識庫/劇情/劇情腳本`（對應 `data.js` 的 `SR.COMICS`）、角色＝角色卡、數值＝`數值總表`（對應 `tuning.js`）、名詞＝`名詞與命名總表`。其他文件用 `![[ ]]` 嵌入，不重抄。企劃說「同步 <檔名>」→ 把文件內容套用到程式並跑相關測試；程式改了這些內容 → 回寫到對應的知識庫文件
 - 「套用調參」＝企劃從遊戲內手感調整面板（`web/street/js/tune.js`，暫停 → 🎚 手感調整）複製的「參數：原 → 新」清單。寫進 `tuning.js` 的 `STREET_TUNING`（**不要改 `data/tuning.json`**，那是 Godot v2 共用、會動到 AC1–AC13），更新 `數值總表`，跑 22 項測試＋擬人玩家難度，數字有變就更新 F15
@@ -97,6 +97,15 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 - 改台面幾何後 AC-S7（卡球）與 AC-S9c（最大顆的球）一定要過；改數值後看 AC-S8／AC-S8b（自動遊玩清關時間）
 - **改了 street 的 JS 要把 `index.html`、`test.html` 裡的 `?v=` 版本號一起加 1**，否則手機會拿到快取的舊檔（新舊檔混用會出錯）
 - 測試用的自動玩家要「按一下就放開」，一直按住會把球卡在接球位置，誤判成遊戲問題
+
+## 在 GitHub 上被 @claude 呼叫時（`.github/workflows/ai.yml`）
+留言的人多半不是程式人員（管理台的「交給 AI」按鈕會幫他留言）。先看留言在哪種 Issue 上：
+- **提案 Issue**（內文有 `<!-- spectra-change: 名稱 -->`）＋「開工／做」：先確認 `tasks.md` 的 0.1 已勾（或這個 Issue 內文的「- [x] 企劃同意」已勾——表示 workbench 正在寫回 0.1），兩個都沒勾就回覆「企劃還沒同意」並停止。已勾就照 `/spectra-apply` 做（沒有 skill 時照 tasks.md 逐項做、勾任務）。網頁版（`web/street/`）的 Node 測試要全過；GitHub 上沒有 Godot 與瀏覽器，只能在瀏覽器跑的測試在 PR 裡寫明「請在本機開 test.html 確認」。做完在 Issue 回覆：做了什麼、怎麼試玩、還有哪些任務要人做（例如【美術】的素材）
+- **提案 Issue**＋其他意見：照意見改提案，0.1 改回未勾，回覆改了什麼、請企劃重新同意
+- **回饋／需求 Issue**＋「寫成提案」：照 `/spectra-propose` 寫提案（遵守 `docs/spectra/config.yaml`），`spxa validate` 通過後直接推上 main（只改 `docs/spectra/changes/` 的提案文件可以直接推），workbench 會自動開提案 Issue；在原本的 Issue 回覆提案連結。只是小修就不用寫提案，直接修（一樣開 PR）
+- **PR**＋意見：照審查意見改
+- 改到程式或遊戲內容的，一律在新分支工作、開 PR 給程式審查，**不要直接推 main**（只有提案文件例外）；PR 說明寫白話：改了什麼、怎麼驗收、對應哪張提案或哪則回饋。**不要改 `docs/企劃/`**（那是 Obsidian 的鏡像，由「同步企劃文件」處理）
+- 絕不自己勾 0.1；需要企劃決定的事，在 Issue 列出來問
 
 ## 常用指令
 | 做什麼 | 指令 |
