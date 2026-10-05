@@ -49,13 +49,24 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
 [hidden] { display: none !important; }
 .nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .nums label { font-size: 12px; font-weight: 700; }
+/* 手機：常用的選關、模式、筆刷／工具固定在上方；台面縮小到一個畫面內，兩側留空可以滑動捲動 */
+#mbar { display: none; }
+@media (max-width: 760px) {
+  #mbar { display: grid; gap: 8px; position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0 10px; margin: 0 -2px; }
+  #mbar label { grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
+  #mbar .brush { padding: 8px 0; }
+  #mbar .tools .btn { padding: 8px 4px; font-size: 13px; }
+  canvas { width: auto; max-width: 100%; max-height: calc(100svh - 230px); margin: 0 auto; }
+  .sub { font-size: 12.5px; }
+}
 </style>
 </head>
 <body>
 <div class="wrap">
   <section>
     <h1>關卡編輯器</h1>
-    <p class="sub" id="hintTop">點格子換成右邊選的筆刷；再點一次同一格會變回空格。灰色斜線＝被台面切掉、放不了磚的格子。</p>
+    <p class="sub" id="hintTop">點格子換成選好的筆刷；再點一次同一格會變回空格。灰色斜線＝被台面切掉、放不了磚的格子。</p>
+    <div id="mbar"></div>
     <canvas id="view" width="400" height="740" aria-label="這一關的台面與磚牆"></canvas>
   </section>
   <section class="panel">
@@ -149,8 +160,9 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
   function setMode(m) {
     mode = m; sel = null;
     $("modeWall").className = "btn " + (m === "wall" ? "on" : "ghost"); $("modeLayout").className = "btn " + (m === "layout" ? "on" : "ghost");
-    $("wallPanel").hidden = m !== "wall"; $("layoutPanel").hidden = m !== "layout"; $("helpWall").hidden = m !== "wall"; $("helpLayout").hidden = m !== "layout";
-    $("hintTop").textContent = m === "wall" ? "點格子換成右邊選的筆刷；再點一次同一格會變回空格。灰色斜線＝被台面切掉、放不了磚的格子。"
+    $("wallPanel").hidden = m !== "wall"; $("layoutPanel").hidden = m !== "layout"; $("brushes").hidden = m !== "wall"; $("tools").hidden = m !== "layout";
+    cv.style.touchAction = m === "wall" ? "pan-y" : "none"; $("helpWall").hidden = m !== "wall"; $("helpLayout").hidden = m !== "layout";
+    $("hintTop").textContent = m === "wall" ? "點格子換成選好的筆刷；再點一次同一格會變回空格。灰色斜線＝被台面切掉、放不了磚的格子。"
       : "選工具後點台面新增；用「選取／拖曳」拖動物件（彈力牆可以拖兩端或中間、阿鰭可以拖路線和左右界）。";
     render();
   }
@@ -318,18 +330,20 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
   const toTable = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 400, (e.clientY - r.top) / r.height * 740 + P.CAM_MAX]; };
   function hitTest(x, y) {
     const L = layout(), d = (ax, ay) => Math.hypot(x - ax, y - ay);
-    for (let i = L.rails.length - 1; i >= 0; i--) { const r = L.rails[i]; if (d(r[0], r[1]) < HIT) return { kind: "rail", i, part: "a" }; if (d(r[2], r[3]) < HIT) return { kind: "rail", i, part: "b" }; }
-    if (L.fish) { const f = L.fish; if (d(f.x0, f.y) < HIT) return { kind: "fish", i: 0, part: "x0" }; if (d(f.x1, f.y) < HIT) return { kind: "fish", i: 0, part: "x1" }; }
-    for (let i = L.bumpers.length - 1; i >= 0; i--) if (d(L.bumpers[i][0], L.bumpers[i][1]) < BUMPER_R + 6) return { kind: "bumper", i };
+    for (let i = L.rails.length - 1; i >= 0; i--) { const r = L.rails[i]; if (d(r[0], r[1]) < HIT * hitR) return { kind: "rail", i, part: "a" }; if (d(r[2], r[3]) < HIT * hitR) return { kind: "rail", i, part: "b" }; }
+    if (L.fish) { const f = L.fish; if (d(f.x0, f.y) < HIT * hitR) return { kind: "fish", i: 0, part: "x0" }; if (d(f.x1, f.y) < HIT * hitR) return { kind: "fish", i: 0, part: "x1" }; }
+    for (let i = L.bumpers.length - 1; i >= 0; i--) if (d(L.bumpers[i][0], L.bumpers[i][1]) < BUMPER_R + 6 * hitR) return { kind: "bumper", i };
     for (let i = L.boost.length - 1; i >= 0; i--) { const [bx, by] = L.boost[i]; if (x > bx - 6 && x < bx + BOOST_W + 6 && y > by - 8 && y < by + BOOST_H + 8) return { kind: "boost", i, dx: x - bx, dy: y - by }; }
     for (let i = L.rails.length - 1; i >= 0; i--) { const r = L.rails[i], abx = r[2] - r[0], aby = r[3] - r[1], k = Math.max(0, Math.min(1, ((x - r[0]) * abx + (y - r[1]) * aby) / (abx * abx + aby * aby || 1)));
       if (d(r[0] + abx * k, r[1] + aby * k) < 10) return { kind: "rail", i, part: "mid" }; }
     if (L.fish && Math.abs(y - L.fish.y) < 12 && x > L.fish.x0 && x < L.fish.x1) return { kind: "fish", i: 0, part: "y" };
     return null;
   }
+  let tap = null, hitR = 1;
   cv.addEventListener("pointerdown", e => {
     const [x, y] = toTable(e);
-    if (mode === "wall") { clickCell(x, y); return; }
+    hitR = e.pointerType === "touch" ? 1.8 : 1; // 手指比滑鼠粗：判定範圍放大
+    if (mode === "wall") { if (e.pointerType === "mouse") clickCell(x, y); else tap = { x: e.clientX, y: e.clientY, id: e.pointerId }; return; }
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
     if (tool === "bumper") return addBumper(x, y);
     if (tool === "rail") return addRail(x, y - 60, x, y + 60);
@@ -342,8 +356,22 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
     if (drag.kind === "boost") moveObject("boost", drag.i, x - drag.dx, y - drag.dy);
     else moveObject(drag.kind, drag.i, x, y, drag.part);
   });
-  const end = () => { drag = null; };
-  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+  const end = () => { drag = null; tap = null; };
+  cv.addEventListener("pointerup", e => {
+    if (mode === "wall" && tap && tap.id === e.pointerId && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 10) { const [x, y] = toTable(e); clickCell(x, y); }
+    end();
+  });
+  cv.addEventListener("pointercancel", end);
+  // 手機：選關、模式、筆刷、工具移到台面上方（固定在畫面頂端）；寬螢幕時放回右側
+  const mq = matchMedia("(max-width: 760px)"), moved = [$("stage").closest("label"), document.querySelector(".tabs"), $("brushes"), $("tools")], home = moved.map(el => [el.parentNode, el.nextSibling]);
+  function placeControls() {
+    if (mq.matches) moved.forEach(el => $("mbar").appendChild(el));
+    else for (let i = moved.length - 1; i >= 0; i--) home[i][0].insertBefore(moved[i], home[i][1]);
+  }
+  let wasMobile = null;
+  const relayout = () => { if (mq.matches !== wasMobile) { wasMobile = mq.matches; placeControls(); } };
+  mq.addEventListener("change", relayout); addEventListener("resize", relayout); relayout();
+  $("tools").hidden = true; cv.style.touchAction = "pan-y"; // 一開始是磚牆模式
 
   /* ---------- 按鈕 ---------- */
   $("stage").onchange = e => load(+e.target.value);
