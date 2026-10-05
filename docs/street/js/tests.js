@@ -517,7 +517,83 @@ SR.Tests = (function () {
       const ms = time * 1000;
       return { pass: Math.abs(ms - 35.4) < 0.1 && Math.abs(best - 1901) < 2, value: `全舉 ${ms.toFixed(1)} ms（v2：35.4）・尖端 ${Math.round(best)} px/s（v2：1901）` };
     }}
+  , { id: "AC-S25", name: "全破的街區按「從頭再打一次」從第 1 關開始", run() {
+      const cases = [[1, 1], [6, 6], [11, 1], [51, 1]];             // 規則書 game-ui 的範例表
+      const got = cases.map(([u]) => SR.Rules.districtStartStage({ unlocked: u }, 0));
+      const d2 = SR.Rules.districtStartStage({ unlocked: 15 }, 1);
+      return { pass: cases.every(([, e], i) => got[i] === e) && d2 === 15,
+        value: `第 1 區（已解鎖 1／6／11／51）→ ${got.join("／")}・第 2 區已解鎖 15 → ${d2}` };
+    }}
   ];
+
+  /* ---------- 遊戲流程測試（v3.6.2）：在看不見的框架開 index.html?test=1，用 SR_GAME 操作真的遊戲 ----------
+     測試模式用另一份存檔（sprayrun.save.test），不會動到玩家的存檔 */
+  const TEST_SAVE = "sprayrun.save.test";
+  const BASE_SAVE = { seenOpening: true, tutorialDone: true };
+  async function bootGame(frame, preset) {                          // preset：物件＝先寫入測試存檔；null＝保留上一次的測試存檔
+    try { if (preset) localStorage.setItem(TEST_SAVE, JSON.stringify(preset)); else if (preset === undefined) localStorage.removeItem(TEST_SAVE); } catch (e) {}
+    await new Promise(res => { frame.onload = res; frame.src = "index.html?test=1&r=" + Math.random(); });
+    const w = frame.contentWindow;
+    for (let i = 0; i < 200 && !w.SR_GAME; i++) await new Promise(r => setTimeout(r, 25));
+    if (!w.SR_GAME) throw new Error("遊戲沒有啟動");
+    return w;
+  }
+  function runTicks(w, secs, until) {
+    for (let t = 0; t < secs; t += 1 / 60) { w.SR_GAME.tick(1 / 60); if (until && until()) return true; }
+    return until ? until() : true;
+  }
+  function toLaunch(w) {                                            // 關掉漫畫、跑完開場運鏡，等球停在發射道底部
+    const g = w.SR_GAME; g.closeDialog();
+    return runTicks(w, 8, () => g.G.screen === "play" && g.G.world.balls.some(b => w.SR.Physics.ballInLane(b) && b.y > 990 && Math.abs(b.vy) < 30));
+  }
+  const GAME_TESTS = [
+    { id: "AC-S23", name: "按住空白鍵：系統連發的按鍵訊號不會讓發射桿力道歸零", async run(frame) {
+      const w = await bootGame(frame, BASE_SAVE), g = w.SR_GAME;
+      g.startDistrict(0, 2);
+      if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
+      const key = (type, repeat) => w.dispatchEvent(new w.KeyboardEvent(type, { code: "Space", key: " ", repeat }));
+      key("keydown", false); runTicks(w, 0.54);
+      const before = g.G.plunger.charge;
+      key("keydown", true); key("keydown", true);
+      const after = g.G.plunger.charge;
+      key("keyup", false);
+      return { pass: before > 0.5 && after >= before - 1e-9, value: `連發前力道 ${before.toFixed(2)} → 連發後 ${after.toFixed(2)}` };
+    }},
+    { id: "AC-S24", name: "音樂關掉後重新整理，仍然是關", async run(frame) {
+      let w = await bootGame(frame, BASE_SAVE);
+      const btn = w.document.getElementById("goSound");
+      if (!btn) return { pass: false, value: "標題畫面沒有音樂按鈕" };
+      btn.click();
+      const offNow = w.SR.Audio.musicOn === false;
+      w = await bootGame(frame, null);
+      const label = (w.document.getElementById("goSound") || {}).textContent;
+      return { pass: offNow && w.SR.Audio.musicOn === false && label === "音樂：關", value: `按下後 ${offNow ? "關" : "開"}・重新整理後按鈕「${label}」` };
+    }},
+    { id: "AC-S26", name: "按跳過的漫畫不算看過；看完才算", async run(frame) {
+      let w = await bootGame(frame, BASE_SAVE), g = w.SR_GAME;
+      g.startDistrict(0, 1);
+      const playing = !w.document.getElementById("comicLayer").hidden;
+      w.document.getElementById("comicSkip").click();
+      for (let i = 0; i < 30; i++) w.SR.Comic.update(1 / 60);
+      const afterSkip = !!g.save.seenComic.intro;
+      w = await bootGame(frame, BASE_SAVE); g = w.SR_GAME;
+      g.startDistrict(0, 1);
+      // 看完＝一格一格點到最後（closeDialog 等於按跳過，不能拿來模擬看完）
+      for (let i = 0; i < 3000 && w.SR.Comic.active(); i++) { w.SR.Comic.tap(); w.SR.Comic.update(0.05); }
+      const afterWatch = !!g.save.seenComic.intro;
+      return { pass: playing && !afterSkip && afterWatch, value: `有播放 ${playing ? "是" : "否"}・跳過後算看過 ${afterSkip ? "是" : "否"}・看完後算看過 ${afterWatch ? "是" : "否"}` };
+    }}
+  ];
+  async function runGame(frame) {
+    const out = [];
+    for (const t of GAME_TESTS) {
+      const t0 = performance.now();
+      let r; try { r = await t.run(frame); } catch (e) { r = { pass: false, value: "錯誤：" + e.message }; }
+      out.push({ id: t.id, name: t.name, ms: Math.round(performance.now() - t0), ...r });
+    }
+    try { localStorage.removeItem(TEST_SAVE); } catch (e) {}
+    return out;
+  }
 
   function run(T) {
     return TESTS.map(t => {
@@ -526,5 +602,5 @@ SR.Tests = (function () {
       return { id: t.id, name: t.name, ms: Math.round(performance.now() - t0), ...r };
     });
   }
-  return { run, bot, playStage, stuckProbe, NOVICE, HUMAN, TESTS };
+  return { run, runGame, bot, playStage, stuckProbe, NOVICE, HUMAN, TESTS, GAME_TESTS };
 })();

@@ -201,7 +201,8 @@ SR.Rules = (function () {
   function medalCount(save, m) { return Object.values(save.stars).filter(v => v === m).length; }
 
   /* 存檔 */
-  const KEY = "sprayrun.save.v1";
+  // 測試模式（index.html?test=1，測試頁的遊戲流程測試用）用另一份存檔，不會動到玩家的存檔
+  const KEY = /[?&]test=1\b/.test(location.search) ? "sprayrun.save.test" : "sprayrun.save.v1";
   // seenComic：看過的漫畫（v3.4 起；舊的 seenStory 是對話框時代的紀錄，同名 key 會讓漫畫被當成看過而跳掉——第 5 輪「沒看到漫畫」的原因）
   function emptySave() { return { unlocked: 1, stars: {}, achievements: {}, stats: { bricks: 0, runs: 0, clears: 0 }, best: {}, seenComic: {}, items: {}, tutorialDone: false, control: "paddle" }; }
   function load() {
@@ -210,9 +211,14 @@ SR.Rules = (function () {
   }
   function persist(save) { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} }
   function districtUnlocked(save, d) { return save.unlocked >= SR.DISTRICTS[d].stages[0]; }
+  // 地圖上每區大按鈕要開哪一關：全破（已解鎖超過最後一關）＝從第一關重打；否則＝繼續到目前進度
+  function districtStartStage(save, d) {
+    const [s0, s1] = SR.DISTRICTS[d].stages;
+    return save.unlocked > s1 ? s0 : Math.max(s0, save.unlocked);
+  }
 
   return { newRun, applyBonuses, ballSaveTime, piercePerLaunch, offerUpgrades, takeUpgrade, lv,
            launch, newPlayState, processEvents, paintBomb, simulatedBuild,
            assistsFor, grantItem, randomItem, useItem, tickItems, heartOnClear, continueRun, updateFinisher,
-           bossTick, isCleared, stars, MEDALS, medalCount, checkAchievements, totalStars, load, persist, emptySave, districtUnlocked };
+           bossTick, isCleared, stars, MEDALS, medalCount, checkAchievements, totalStars, load, persist, emptySave, districtUnlocked, districtStartStage };
 })();

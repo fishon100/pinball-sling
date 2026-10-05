@@ -36,7 +36,7 @@ SR.TUNE_PARAMS = [
   SR.loadTuning = async function () {
     const T = await orig();
     TUNE.defaults = {};
-    const saved = load();
+    const saved = /[?&]test=1\b/.test(location.search) ? {} : load();   // 測試模式不套用個人調整
     for (const sec of SR.TUNE_PARAMS) for (const p of sec.items) {
       const id = p.g + "." + p.k;
       TUNE.defaults[id] = T[p.g][p.k];

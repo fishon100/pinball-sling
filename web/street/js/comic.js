@@ -344,7 +344,8 @@ SR.Comic = (function () {
     if (st.pi < st.pages.length - 1) { st.turn = 0.0001; return; }
     finish(false);
   }
-  function finish() { if (!st) return; st.closing = true; }
+  // skipped＝玩家按了「跳過劇情」；結束時告訴遊戲（看完才算看過）
+  function finish(skipped) { if (!st) return; if (skipped) st.skipped = true; st.closing = true; }
   function update(dt) {
     if (!st) return;
     st.t += dt;
@@ -356,7 +357,7 @@ SR.Comic = (function () {
       st.turn += dt;
       if (st.turn > 0.35) { st.pi++; st.cells = layout(st.pages[st.pi]); st.shown = 1; st.ages = [0]; st.typed = [0]; st.turn = 0; }
     }
-    if (st.closing) { st.fade += dt; if (st.fade > 0.3) { const d = st.done; st = null; layer.hidden = true; d(); return; } }
+    if (st.closing) { st.fade += dt; if (st.fade > 0.3) { const d = st.done, skipped = !!st.skipped; st = null; layer.hidden = true; d(skipped); return; } }
     render();
   }
   function render() {

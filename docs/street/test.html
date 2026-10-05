@@ -18,23 +18,32 @@
 <h1>噴漆闖關｜自動測試</h1>
 <p id="meta">執行中…</p>
 <ul id="list"></ul>
-<script src="js/data.js?v=3.6.1"></script>
-<script src="js/tuning.js?v=3.6.1"></script>
-<script src="js/physics.js?v=3.6.1"></script>
-<script src="js/rules.js?v=3.6.1"></script>
-<script src="js/art.js?v=3.6.1"></script>
-<script src="js/comic.js?v=3.6.1"></script>
-<script src="js/tests.js?v=3.6.1"></script>
+<h1>遊戲流程</h1>
+<p>在看不見的框架裡開真的遊戲來操作（測試模式，用另一份存檔，不會動到你的進度）</p>
+<ul id="gameList"></ul>
+<iframe id="gameFrame" title="遊戲流程測試" style="position:absolute;left:-10000px;top:0;width:400px;height:820px;border:0" aria-hidden="true"></iframe>
+<script src="js/data.js?v=3.6.2"></script>
+<script src="js/tuning.js?v=3.6.2"></script>
+<script src="js/physics.js?v=3.6.2"></script>
+<script src="js/rules.js?v=3.6.2"></script>
+<script src="js/art.js?v=3.6.2"></script>
+<script src="js/comic.js?v=3.6.2"></script>
+<script src="js/tests.js?v=3.6.2"></script>
 <script>
 (async () => {
   const T = await SR.loadTuning();
   const t0 = performance.now();
-  const res = SR.Tests.run(T);
+  const item = r => `<li><span class="${r.pass ? "ok" : "bad"}">${r.pass ? "✓" : "✗"}</span><span><b>${r.id}</b> ${r.name}<br><small>${r.value}（${r.ms} ms）</small></span></li>`;
+  const unit = SR.Tests.run(T);
+  document.getElementById("list").innerHTML = unit.map(item).join("");
+  document.getElementById("meta").textContent = `規則與物理 ${unit.filter(r => r.pass).length}/${unit.length}・遊戲流程測試執行中…`;
+  // 遊戲流程測試：在看不見的框架開真的遊戲（測試模式，另一份存檔）
+  const game = await SR.Tests.runGame(document.getElementById("gameFrame"));
+  document.getElementById("gameList").innerHTML = game.map(item).join("");
+  const res = unit.concat(game);
   window.SR_TEST_RESULTS = res;
   const ok = res.filter(r => r.pass).length;
   document.getElementById("meta").textContent = `${ok}/${res.length} 通過・參數來源：${T._source}・${Math.round(performance.now() - t0)} ms`;
-  document.getElementById("list").innerHTML = res.map(r =>
-    `<li><span class="${r.pass ? "ok" : "bad"}">${r.pass ? "✓" : "✗"}</span><span><b>${r.id}</b> ${r.name}<br><small>${r.value}（${r.ms} ms）</small></span></li>`).join("");
 })();
 </script>
 </body>

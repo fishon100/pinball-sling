@@ -7,6 +7,12 @@
   const T = await SR.loadTuning();
   SR.T = T;
   const save = R.load();
+  // 音效／音樂開關記在存檔（舊存檔沒有這兩個欄位＝開）
+  AU.setSfx(save.sfx !== false); AU.setMusic(save.music !== false);
+  function setSound(kind, on) {
+    if (kind === "sfx") { AU.setSfx(on); save.sfx = on; } else { AU.setMusic(on); save.music = on; }
+    R.persist(save);
+  }
   const $ = id => document.getElementById(id);
   const canvas = $("game"), ctx = canvas.getContext("2d");
   const VW = 400, VH = P.VIEW_H;
@@ -130,7 +136,7 @@
     on("goControl", () => controlScreen(titleScreen));
     on("goOpening", openingScreen);
     on("goAch", achievementScreen);
-    on("goSound", () => { AU.setMusic(!AU.musicOn); titleScreen(); });
+    on("goSound", () => { setSound("music", !AU.musicOn); titleScreen(); });
     updateHud();
   }
 
@@ -148,7 +154,7 @@
         nodes.push(`<button class="node ${done ? "done m" + st : ""} ${next ? "next" : ""} ${n % 10 === 0 ? "boss" : ""}" ${open ? `data-n="${n}"` : "disabled"} title="第 ${n} 關">${done ? `<span class="s">${R.MEDALS[st] ? R.MEDALS[st].name[0] : ""}</span>` : next ? "▶" : n % 10 === 0 ? "王" : ""}</button>`);
       }
       const best = save.best[i] ? `最佳 ${save.best[i].toLocaleString()} 分` : "";
-      const nextN = Math.min(s1, Math.max(s0, save.unlocked));
+      const nextN = R.districtStartStage(save, i);
       return `<article class="district ${unlocked ? "" : "locked"}">
         <div class="bg" style="background:linear-gradient(120deg, ${d.colors.a}, ${d.colors.b} 55%, ${d.colors.c})"></div>
         <span class="act">第 ${i + 1} 區</span>
@@ -300,9 +306,12 @@
   let dlg = null;                                         // 播漫畫時為 true（遊戲暫停）
   function playStory(keys, done) {
     if (!keys.some(k => SR.COMICS[k])) { done(); return; }
-    keys.forEach(k => save.seenComic[k] = true); R.persist(save);
     dlg = true; AU.ensure();
-    SR.Comic.play(keys, () => { dlg = null; done(); });
+    SR.Comic.play(keys, skipped => {
+      // 看完才記成「看過」；按跳過的話下次還會自動播
+      if (!skipped) { keys.forEach(k => save.seenComic[k] = true); R.persist(save); }
+      dlg = null; done();
+    });
   }
   function advanceDialog() { SR.Comic.tap(); }
   function closeDialog() { SR.Comic.finish(); }
@@ -1023,7 +1032,7 @@
     if (e.code === "Escape" || e.code === "KeyP") { togglePause(); return; }
     if (G.screen !== "play" || G.paused) return;
     if (KEYS[e.code]) { if (G.world.paddle) keysHeld.add(KEYS[e.code]); else setFlipper(KEYS[e.code], true); e.preventDefault(); }
-    else if (e.code === "Space") { setPlunger(true); e.preventDefault(); }
+    else if (e.code === "Space") { if (!e.repeat) setPlunger(true); e.preventDefault(); }   // 按住時系統會一直重送 keydown，只認第一次
   });
   addEventListener("keyup", e => {
     if (KEYS[e.code]) keysHeld.delete(KEYS[e.code]);
@@ -1044,8 +1053,8 @@
       <button class="big-btn ghost" id="quit">放棄這一輪，回地圖</button>`);
     on("resume", togglePause);
     on("pTune", () => { SR.TUNE.open(); togglePause(); });
-    on("pSfx", () => { AU.setSfx(!AU.sfxOn); G.paused = false; togglePause(); });
-    on("pMusic", () => { AU.setMusic(!AU.musicOn); G.paused = false; togglePause(); });
+    on("pSfx", () => { setSound("sfx", !AU.sfxOn); G.paused = false; togglePause(); });
+    on("pMusic", () => { setSound("music", !AU.musicOn); G.paused = false; togglePause(); });
     on("pVib", () => { save.vibrate = save.vibrate === false; R.persist(save); if (save.vibrate) vibrate([30, 40, 60]); G.paused = false; togglePause(); });
     on("quit", () => { G.paused = false; mapScreen(); });
   }
