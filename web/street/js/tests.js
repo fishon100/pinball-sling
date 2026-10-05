@@ -583,6 +583,23 @@ SR.Tests = (function () {
       const afterWatch = !!g.save.seenComic.intro;
       return { pass: playing && !afterSkip && afterWatch, value: `有播放 ${playing ? "是" : "否"}・跳過後算看過 ${afterSkip ? "是" : "否"}・看完後算看過 ${afterWatch ? "是" : "否"}` };
     }}
+    , { id: "AC-S31", name: "拉發射桿的手指不會帶動滑板；放開後才恢復", async run(frame) {
+      const w = await bootGame(frame, BASE_SAVE), g = w.SR_GAME;
+      g.startDistrict(0, 2);
+      if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
+      const cv = w.document.getElementById("game"), rc = cv.getBoundingClientRect(), p = g.G.world.paddle;
+      p.target = 180;
+      const ev = (type, x, y) => cv.dispatchEvent(new w.PointerEvent(type, { pointerId: 7, pointerType: "touch", clientX: rc.left + x * rc.width, clientY: rc.top + y * rc.height, bubbles: true, cancelable: true }));
+      ev("pointerdown", 0.02, 0.5);
+      const pulling = g.G.plunger.holding, afterDown = p.target;
+      ev("pointermove", 0.7, 0.6);
+      const afterMove = p.target;
+      ev("pointerup", 0.7, 0.6);
+      ev("pointermove", 0.3, 0.6);
+      const afterRelease = p.target;
+      return { pass: pulling && afterDown === 180 && afterMove === 180 && afterRelease !== 180,
+        value: `拉桿中 ${pulling ? "是" : "否"}・按下後目標 ${Math.round(afterDown)}・拖動後 ${Math.round(afterMove)}・放開後移動 ${Math.round(afterRelease)}` };
+    }}
   ];
   async function runGame(frame) {
     const out = [];

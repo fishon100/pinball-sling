@@ -987,7 +987,9 @@
   addEventListener("pointermove", e => {
     if (!G.world || G.screen !== "play" || G.paused) return;
     pullPlunger(e);
-    if (G.world.paddle && (e.pointerType === "mouse" || e.target === canvas)) G.world.paddle.target = toGameX(e);
+    // 正在拉發射桿的那根手指／滑鼠不帶動滑板（放開後才恢復）
+    const pulling = G.plunger.holding && G.plunger.drag && G.plunger.drag.id === e.pointerId;
+    if (G.world.paddle && !pulling && (e.pointerType === "mouse" || e.target === canvas)) G.world.paddle.target = toGameX(e);
   });
   canvas.addEventListener("pointerdown", e => {
     e.preventDefault(); AU.ensure();
@@ -996,11 +998,10 @@
     if (G.screen !== "play") return;
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}     // 有些瀏覽器／觸控筆會拒絕，不影響操作
     if (G.world.paddle) {
-      // 滑板模式：按哪裡都可以；球在發射道時按住＝蓄力
-      G.world.paddle.target = toGameX(e);
+      // 滑板模式：按哪裡都可以；球在發射道時按住＝蓄力（這一下只拉桿，不移動滑板）
       const plunge = G.world.balls.some(b => P.ballInLane(b) && b.y > 990);
       pointers.set(e.pointerId, { side: "P", plunge });
-      if (plunge) setPlunger(true, { id: e.pointerId, y: e.clientY });
+      if (plunge) setPlunger(true, { id: e.pointerId, y: e.clientY }); else G.world.paddle.target = toGameX(e);
       return;
     }
     const rect = canvas.getBoundingClientRect(), side = (e.clientX - rect.left) < rect.width / 2 ? "L" : "R";
