@@ -230,11 +230,16 @@ SR.buildStage = function (n) {
     // 所以第 4、5 區的磚比 v3.6 硬 1 血。原本規劃第 3～5 區再 +1 血，量測太難（第 5 區每關掉 1.83 顆以上）不採用
     cells.push({ r, c, type: "brick", hp: Math.min(5, hp), base: +ch });   // base＝圖案上的數字（測試用）
   }));
-  // 道具磚★：第 2 區起，每關把 1～2 塊 1 血的磚換成道具磚
-  if (d >= 1) {
-    const plain = cells.filter(x => x.type === "brick" && x.hp === 1);
-    const want = Math.min(plain.length, isBoss ? 1 : 1 + (rnd() < 0.5 ? 1 : 0));
-    for (let i = 0; i < want; i++) { const k = plain.splice(Math.floor(rnd() * plain.length), 1)[0]; k.type = "gift"; }
+  // 道具磚★（v3.7.1 申請單 item-capsules）：第 2 關起每關把 2～3 塊 1 血的磚換成道具磚（首領關也有；第 1 關是教學關不放）。
+  // 打破會掉下道具膠囊，用滑板接到就生效（見 physics.js 的 capsules）
+  if (n >= 2) {
+    const want = 2 + (rnd() < 0.5 ? 1 : 0);
+    // 先從 1 血的磚挑；不夠的話（例如第 23 關只有 1 塊 1 血）再從血最少的磚挑，道具磚一律 1 血
+    for (let i = 0; i < want; i++) {
+      const plain = cells.filter(x => x.type === "brick"); if (!plain.length) break;
+      const low = Math.min(...plain.map(x => x.hp)), pool = plain.filter(x => x.hp === low);
+      const k = pool[Math.floor(rnd() * pool.length)]; k.type = "gift"; k.hp = 1;
+    }
   }
   const bricks = cells.filter(x => x.type !== "boss").length;
   return {
@@ -281,7 +286,7 @@ SR.ACHIEVEMENTS = [
   { id: "onecoin",   name: "一枚硬幣",   desc: "不續關打完一整區" }
 ];
 
-/* ---------- 道具（第 2 區起；道具磚★掉落、街區獎勵）---------- */
+/* ---------- 道具（第 2 關起；打破道具磚★掉下膠囊，用滑板接到立刻生效）---------- */
 SR.ITEMS = [
   { id: "bomb",  name: "漆彈",   icon: "💣", desc: "每顆球的位置炸開一顆漆彈" },
   { id: "slow",  name: "慢動作", icon: "⏳", desc: "5 秒內時間變慢一半" },
@@ -289,7 +294,6 @@ SR.ITEMS = [
   { id: "ball",  name: "加一顆", icon: "➕", desc: "從上方多放一顆球" },
   { id: "wide",  name: "寬板",   icon: "🛹", desc: "12 秒內滑板變成大尺寸（經典擋板模式：擋板變長）" }
 ];
-SR.ITEM_MAX = 3;
 
 /* ---------- 角色 ---------- */
 SR.SPEAKERS = {

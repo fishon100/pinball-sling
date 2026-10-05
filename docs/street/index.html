@@ -70,19 +70,6 @@ canvas#game {
   box-shadow: 0 0 0 3px var(--pink), 8px 10px 0 3px var(--ink); transform-origin: 50% 70%; will-change: transform;
 }
 .hint { font-size: 12px; color: var(--muted); padding-block: 6px; text-align: center; min-height: 18px; }
-/* 道具列（第 2 區起） */
-/* 精簡一行：名字不換行、按鈕約 36px 高，把空間留給台面 */
-.itembar { display: flex; gap: 6px; justify-content: center; padding-top: 10px; width: 100%; max-width: 420px; }
-.itembar[hidden] { display: none; }
-.item-btn {
-  appearance: none; flex: 1 1 0; min-width: 0; height: 36px; border: 2px solid var(--ink); border-radius: 10px; background: #fff; color: var(--ink);
-  box-shadow: 2px 2px 0 var(--ink); padding: 0 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px;
-  font-weight: 900; font-size: 11px; position: relative; white-space: nowrap;
-}
-.item-btn .ico { font-size: 16px; line-height: 1; }
-.item-btn .n { position: absolute; top: -8px; right: -5px; background: var(--pink); color: #fff; border: 2px solid var(--ink); border-radius: 999px; font-size: 10px; line-height: 14px; min-width: 18px; padding: 0 3px; }
-.item-btn:disabled { opacity: .35; cursor: default; box-shadow: none; }
-.item-btn.active { background: var(--lime); }
 .assist-line { font-size: 12px; color: var(--lime); margin: -4px 0 10px; }
 
 /* ---------- 全螢幕畫面 ---------- */
@@ -238,7 +225,6 @@ button.ach { appearance: none; color: inherit; font: inherit; }
   <div class="stagewrap" id="stagewrap">
     <canvas id="game" width="400" height="740" aria-label="噴漆彈珠台"></canvas>
   </div>
-  <div class="itembar" id="itembar" hidden></div>
   <div class="hint" id="hint"></div>
 </div>
 
@@ -249,15 +235,15 @@ button.ach { appearance: none; color: inherit; font: inherit; }
 </div>
 <div class="toasts" id="toasts"></div>
 
-<script src="js/data.js?v=3.7.0"></script>
-<script src="js/tuning.js?v=3.7.0"></script>
-<script src="js/tune.js?v=3.7.0"></script>
-<script src="js/physics.js?v=3.7.0"></script>
-<script src="js/rules.js?v=3.7.0"></script>
-<script src="js/art.js?v=3.7.0"></script>
-<script src="js/comic.js?v=3.7.0"></script>
-<script src="js/audio.js?v=3.7.0"></script>
-<script src="js/tests.js?v=3.7.0"></script>
-<script src="js/game.js?v=3.7.0"></script>
+<script src="js/data.js?v=3.7.1"></script>
+<script src="js/tuning.js?v=3.7.1"></script>
+<script src="js/tune.js?v=3.7.1"></script>
+<script src="js/physics.js?v=3.7.1"></script>
+<script src="js/rules.js?v=3.7.1"></script>
+<script src="js/art.js?v=3.7.1"></script>
+<script src="js/comic.js?v=3.7.1"></script>
+<script src="js/audio.js?v=3.7.1"></script>
+<script src="js/tests.js?v=3.7.1"></script>
+<script src="js/game.js?v=3.7.1"></script>
 </body>
 </html>

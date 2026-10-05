@@ -73,7 +73,7 @@ SR.Physics = (function () {
     for (const f of flippers) f.angle = flipperRest(T, f);
     // 加速帶（v3.7，第 3 區起）：56×14 的長條、箭頭朝上；首領關在 placeStage 拿掉
     const boosts = (L.boost || []).map(([x, y]) => ({ x, y, w: BOOST_SIZE.w, h: BOOST_SIZE.h, flash: 0 }));
-    return { segments, circles, flippers, bricks: [], grid: new Map(), boss: null, balls: [], time: 0, boosts,
+    return { segments, circles, flippers, bricks: [], grid: new Map(), boss: null, balls: [], time: 0, boosts, capsules: [],
              dmg: 1, flipperBonus: 0, radiusBonus: 0, nextId: 1, top, layout: L, control,
              paddle: paddle ? { x: 180, y: PADDLE_Y, target: 180, vx: 0, kick: 0, size: L.paddle || "M", wide: 0 } : null };
   }
@@ -190,9 +190,43 @@ SR.Physics = (function () {
     k.alive = false;
     ev.push({ type: "brick_break", k, cause, x: k.x + k.w / 2, y: k.y + k.h / 2 });
     if (k.type === "boss") { ev.push({ type: "boss_down", k }); return true; }
+    if (k.type === "gift" && !world.dry) spawnCapsule(world, k.x + k.w / 2, k.y + k.h / 2, ev);
     if (k.type === "bucket" && depth < 6) for (const n of neighbors(world, k, true)) damageBrick(world, n, 1, ev, "bucket", depth + 1);
     if (cause === "ball" && world.splash > 0 && depth === 0) for (const n of neighbors(world, k, false)) damageBrick(world, n, world.splash, ev, "splash", depth + 1);
     return true;
+  }
+
+  /* ---------- 道具膠囊（v3.7.1）：打破道具磚掉下來，直直往下掉、不撞球也不撞磚；碰到滑板／擋板就接住 ---------- */
+  const CAPSULE = { hw: 17, hh: 8, missY: 1000 };
+  function spawnCapsule(world, x, y, ev, item) {
+    const id = item || SR.ITEMS[Math.floor(Math.random() * SR.ITEMS.length)].id;
+    const c = { id: world.nextId++, item: id, x, y };
+    (world.capsules || (world.capsules = [])).push(c);
+    ev.push({ type: "capsule_drop", c });
+    return c;
+  }
+  function capsuleCaught(T, world, c) {
+    if (world.paddle) {
+      const p = world.paddle, { hw, r } = paddleDims(T, world);
+      return Math.abs(c.x - p.x) <= hw + CAPSULE.hw && Math.abs(c.y - p.y) <= r + CAPSULE.hh;
+    }
+    const { L, rb } = flipperDims(T, world);
+    for (const f of world.flippers) {
+      const tx = f.px + Math.cos(f.angle) * L, ty = f.py + Math.sin(f.angle) * L;
+      const dx = tx - f.px, dy = ty - f.py, t = clamp(((c.x - f.px) * dx + (c.y - f.py) * dy) / (dx * dx + dy * dy), 0, 1);
+      if (Math.hypot(c.x - (f.px + dx * t), c.y - (f.py + dy * t)) <= rb + CAPSULE.hh) return true;
+    }
+    return false;
+  }
+  function moveCapsules(T, world, dt, ev) {
+    if (!world.capsules || !world.capsules.length) return;
+    const v = (T.items && T.items.capsule_speed) || 170;
+    world.capsules = world.capsules.filter(c => {
+      c.y += v * dt;
+      if (capsuleCaught(T, world, c)) { ev.push({ type: "capsule_caught", item: c.item, x: c.x, y: c.y }); return false; }
+      if (c.y > CAPSULE.missY) { ev.push({ type: "capsule_missed", item: c.item }); return false; }
+      return true;
+    });
   }
 
   /* ---------- 球與擋板 ---------- */
@@ -335,6 +369,7 @@ SR.Physics = (function () {
       if (boss.x + boss.w > 336) { boss.x = 336 - boss.w; boss.vx = -Math.abs(boss.vx); }
     }
     for (const b of world.balls) if (!b.dead) substepBall(world, T, b, dt, ev);
+    moveCapsules(T, world, dt, ev);
     const live = world.balls.filter(b => !b.dead);
     for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) collideBalls(live[i], live[j], ev);
     for (const b of live) {
@@ -426,5 +461,5 @@ SR.Physics = (function () {
            buildTable, cellRect, validRect, placeStage, addBrick, liveBricks, neighbors, damageBrick,
            paddleSize, paddleDims, paddleRange, movePaddle, landingPoint,
            newBall, ballRadius, flipperRest, flipperUp, flipperDims, ballInLane, updateFlipper,
-           substep, stepFrame, cameraTarget, updateCamera, flippersVisible, predictPath };
+           substep, stepFrame, cameraTarget, updateCamera, flippersVisible, predictPath, spawnCapsule, CAPSULE };
 })();

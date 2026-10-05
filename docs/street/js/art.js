@@ -511,5 +511,18 @@ SR.Art = (function () {
     g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
   }
 
-  return { INK, FONT_TAG, FONT_BLOCK, FONT_CJK, shade, rgba, off, wall, splat, table, sprayCan, brick, boss, pinky, bossPortrait, ball, flipper, paddle, plunger, PULL_PX, fish, tag, roundRect };
+  // 道具膠囊（v3.7.1）：金色圓角膠囊＋道具圖示＋一閃一閃的光暈，往下掉時看得清楚
+  function capsule(g, c, item, t) {
+    const w = 34, h = 16, x = c.x - w / 2, y = c.y - h / 2, pulse = 0.6 + 0.4 * Math.sin(t * 10);
+    g.save();
+    g.shadowColor = "#ffd23f"; g.shadowBlur = 10 + 8 * pulse;
+    g.fillStyle = "#ffd23f"; g.strokeStyle = INK; g.lineWidth = 2.5;
+    roundRect(g, x, y, w, h, h / 2); g.fill(); g.stroke();
+    g.shadowBlur = 0;
+    g.fillStyle = "rgba(255,255,255,0.55)"; roundRect(g, x + 4, y + 3, w - 8, 4, 2); g.fill();
+    g.font = "13px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(item ? item.icon : "★", c.x, c.y + 1);
+    g.restore();
+  }
+  return { INK, FONT_TAG, FONT_BLOCK, FONT_CJK, shade, rgba, off, wall, splat, table, sprayCan, brick, boss, pinky, bossPortrait, ball, flipper, paddle, plunger, PULL_PX, fish, tag, roundRect, capsule };
 })();

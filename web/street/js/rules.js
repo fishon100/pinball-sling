@@ -46,14 +46,7 @@ SR.Rules = (function () {
   }
   function ballSaveTime(T, run, assists) { return T.rules.ball_save_s + 3 * lv(run, "safety") + ((assists && assists.ballSave) || 0); }
 
-  /* ---------- 道具 ---------- */
-  function grantItem(save, id) {
-    save.items = save.items || {};
-    if ((save.items[id] || 0) >= SR.ITEM_MAX) return false;
-    save.items[id] = (save.items[id] || 0) + 1;
-    return true;
-  }
-  function randomItem(rnd) { return SR.ITEMS[Math.floor(rnd() * SR.ITEMS.length)].id; }
+  /* ---------- 道具（v3.7.1：接到膠囊時呼叫；不再有庫存，舊存檔的 save.items 保留但不讀）---------- */
   /* 使用道具：fx 是計時器 {slow, save}，回傳產生的事件（漆彈碎磚等） */
   function useItem(T, world, id, fx) {
     const out = [];
@@ -219,6 +212,6 @@ SR.Rules = (function () {
 
   return { newRun, applyBonuses, ballSaveTime, piercePerLaunch, offerUpgrades, takeUpgrade, lv,
            launch, newPlayState, processEvents, paintBomb, simulatedBuild,
-           assistsFor, grantItem, randomItem, useItem, tickItems, heartOnClear, continueRun, updateFinisher,
+           assistsFor, useItem, tickItems, heartOnClear, continueRun, updateFinisher,
            bossTick, isCleared, stars, MEDALS, medalCount, checkAchievements, totalStars, load, persist, emptySave, districtUnlocked, districtStartStage };
 })();

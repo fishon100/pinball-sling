@@ -375,7 +375,7 @@ SR.Tests = (function () {
       }
       return { pass: worst < 6, value: `4 條軌跡，最大誤差 ${worst.toFixed(2)} px` };
     }},
-    { id: "AC-S14", name: "道具：漆彈、慢動作、球保險、加一顆、寬板，每種最多 3 個", run(T) {
+    { id: "AC-S14", name: "道具效果：漆彈、慢動作、球保險、加一顆、寬板（接到膠囊時生效）", run(T) {
       const problems = [];
       const w = P().buildTable(T, {}); P().placeStage(w, SR.buildStage(1));
       const k = P().liveBricks(w)[0];
@@ -399,9 +399,7 @@ SR.Tests = (function () {
       SR.Rules.useItem(T, wf, "wide", ff); const longer = wf.flipperBonus > 0;
       for (let i = 0; i < 13 * 60; i++) SR.Rules.tickItems(wf, ff, 1 / 60);
       if (!longer || wf.flipperBonus !== 0) problems.push("擋板模式的寬板沒有還原");
-      const save = SR.Rules.emptySave(); for (let i = 0; i < 5; i++) SR.Rules.grantItem(save, "bomb");
-      if (save.items.bomb !== SR.ITEM_MAX) problems.push("道具超過上限");
-      return { pass: problems.length === 0, value: problems.length ? problems.join("；") : `${SR.ITEMS.length} 種道具效果正確、上限 3（寬板：滑板半寬 ${mid}→${big}）` };
+      return { pass: problems.length === 0, value: problems.length ? problems.join("；") : `${SR.ITEMS.length} 種道具效果正確（寬板：滑板半寬 ${mid}→${big}）` };
     }},
     { id: "AC-S16", name: "劇情是童話：很久很久以前開場、從此以後結尾、玩家不是彈珠、反派叫灰先生", run(T) {
       const problems = [], texts = [];
@@ -600,6 +598,54 @@ SR.Tests = (function () {
       if (trails.join() !== "8,8,4,0,0") problems.push(`拖尾 ${trails.join("／")}`);
       return { pass: !problems.length, value: problems.length ? [...new Set(problems)].slice(0, 6).join("；") : "球 12／12／11／10.5／10.5、大罐 2 級 13.5、滑板 M／M／S／S（S 半寬 48）、第 4、5 區磚不再少血、中柱數量、預覽、拖尾 8／8／4／0／0 都對" };
     }}
+  , { id: "AC-S33", name: "道具膠囊：打破道具磚會掉膠囊、每秒 170 px 直直掉、碰到滑板就接住生效、沒接到過 y 1000 消失、不撞球", run(T) {
+      const problems = [];
+      const setup = paddleUnder => {
+        const w = P().buildTable(T, {}, SR.layoutFor(12), "paddle"); P().placeStage(w, SR.buildStage(12)); w.balls = [];
+        const k = w.bricks.find(x => x.type === "gift"); if (!k) return null;
+        const cx = k.x + k.w / 2; w.paddle.x = w.paddle.target = paddleUnder ? P().clamp(cx, 76, 284) : (cx < 180 ? 284 : 76);
+        const ev = []; P().damageBrick(w, k, 99, ev, "ball");
+        return { w, k, cx };
+      };
+      const s = setup(true);
+      if (!s) return { pass: false, value: "第 12 關沒有道具磚" };
+      const cap = (s.w.capsules || [])[0];
+      if (!cap) problems.push("打破道具磚沒有掉膠囊");
+      else {
+        if (!SR.ITEMS.some(i => i.id === cap.item)) problems.push(`膠囊道具不明：${cap.item}`);
+        const y0 = cap.y; frames(s.w, T, 30);
+        if (Math.abs(cap.y - y0 - 85) > 1.5) problems.push(`0.5 秒掉了 ${(cap.y - y0).toFixed(1)} px（應 85）`);
+        let caught = null; frames(s.w, T, 300, ev => { const e = ev.find(x => x.type === "capsule_caught"); if (e && !caught) caught = e; });
+        if (!caught) problems.push("滑板在下面卻沒接到");
+        else if (caught.item !== cap.item || s.w.capsules.length) problems.push("接到後膠囊沒有移除或道具不對");
+      }
+      const m = setup(false);
+      if (m && m.w.capsules && m.w.capsules[0]) {
+        let caught = 0, missed = 0, gone = false;
+        frames(m.w, T, 600, ev => { caught += ev.filter(x => x.type === "capsule_caught").length; missed += ev.filter(x => x.type === "capsule_missed").length; });
+        gone = !m.w.capsules.length;
+        if (caught || !missed || !gone) problems.push(`沒接到：接住 ${caught}、漏接 ${missed}、消失 ${gone ? "是" : "否"}`);
+      }
+      // 球穿過膠囊：跟沒有膠囊時完全一樣
+      const twin = withCap => withGravity(T, 0, () => {
+        const w = P().buildTable(T, {}, SR.layoutFor(12), "paddle"); w.bricks = []; w.circles = []; w.segments = []; w.paddle = null;
+        w.capsules = withCap ? [{ id: 1, item: "bomb", x: 180, y: 500 }] : [];
+        const b = P().newBall(T, w, 120, 500); b.vx = 900; b.vy = 0; w.balls = [b]; frames(w, T, 10);
+        return { vx: b.vx, vy: b.vy, cy: withCap ? w.capsules[0] && w.capsules[0].y : null };
+      });
+      const a = twin(true), b0 = twin(false);
+      if (Math.abs(a.vx - b0.vx) > 1e-6 || Math.abs(a.vy - b0.vy) > 1e-6) problems.push("球碰到膠囊被改變了");
+      if (a.cy == null || Math.abs(a.cy - 500 - 170 / 6) > 1) problems.push("膠囊被球撞歪了");
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : "會掉、170 px/s、接住生效並移除、漏接消失、不撞球" };
+    }}
+  , { id: "AC-S34", name: "道具磚：第 1 關 0 塊、第 2～50 關每關 2～3 塊", run(T) {
+      const bad = [];
+      for (let n = 1; n <= 50; n++) {
+        const g = SR.buildStage(n).cells.filter(c => c.type === "gift").length;
+        if (n === 1 ? g !== 0 : g < 2 || g > 3) bad.push(`第 ${n} 關 ${g} 塊`);
+      }
+      return { pass: !bad.length, value: bad.length ? bad.slice(0, 6).join("、") + (bad.length > 6 ? ` …共 ${bad.length} 關不對` : "") : "第 1 關 0 塊，第 2～50 關都是 2～3 塊" };
+    }}
   , { id: "AC-S25", name: "全破的街區按「從頭再打一次」從第 1 關開始", run() {
       const cases = [[1, 1], [6, 6], [11, 1], [51, 1]];             // 規則書 game-ui 的範例表
       const got = cases.map(([u]) => SR.Rules.districtStartStage({ unlocked: u }, 0));
@@ -683,7 +729,7 @@ SR.Tests = (function () {
       return { pass: pulling && afterDown === 180 && afterMove === 180 && afterRelease !== 180,
         value: `拉桿中 ${pulling ? "是" : "否"}・按下後目標 ${Math.round(afterDown)}・拖動後 ${Math.round(afterMove)}・放開後移動 ${Math.round(afterRelease)}` };
     }}
-    , { id: "AC-S32", name: "手機畫面（390×680）道具欄出現後，台面不會被道具欄或上方資訊列蓋住", async run(frame) {
+    , { id: "AC-S32", name: "手機畫面（390×680）台面不會被下方提示或上方資訊列蓋住（v3.7.1 起沒有道具欄）", async run(frame) {
       const old = [frame.style.width, frame.style.height];
       frame.style.width = "390px"; frame.style.height = "680px";
       try {
@@ -692,11 +738,20 @@ SR.Tests = (function () {
         if (!toLaunch(w)) return { pass: false, value: "沒有進入遊玩" };   // 開場運鏡會傾斜縮放台面，要等開打後才量
         await new Promise(r => setTimeout(r, 250));                 // 等版面重新排好、畫面更新一次
         const box = id => w.document.getElementById(id).getBoundingClientRect();
-        const cv = box("game"), bar = box("itembar"), hud = box("hud");
-        const shown = !w.document.getElementById("itembar").hidden;
-        return { pass: shown && cv.bottom <= bar.top + 0.5 && cv.top >= hud.bottom - 0.5,
-          value: `道具欄 ${shown ? "有" : "沒有"}出現・台面底 ${Math.round(cv.bottom)} vs 道具欄頂 ${Math.round(bar.top)}・台面頂 ${Math.round(cv.top)} vs 資訊列底 ${Math.round(hud.bottom)}` };
+        const cv = box("game"), below = box("hint"), hud = box("hud");
+        return { pass: cv.bottom <= below.top + 0.5 && cv.top >= hud.bottom - 0.5,
+          value: `台面底 ${Math.round(cv.bottom)} vs 提示頂 ${Math.round(below.top)}・台面頂 ${Math.round(cv.top)} vs 資訊列底 ${Math.round(hud.bottom)}` };
       } finally { frame.style.width = old[0]; frame.style.height = old[1]; }
+    }}
+    , { id: "AC-S35", name: "遊玩畫面沒有道具欄；打完一區不再送道具", async run(frame) {
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 12, items: { bomb: 2, slow: 1 } }), g = w.SR_GAME;
+      g.startDistrict(1, 12);
+      if (!toLaunch(w)) return { pass: false, value: "沒有進入遊玩" };
+      const bar = w.document.getElementById("itembar"), barShown = !!bar && !bar.hidden && bar.getBoundingClientRect().height > 0;
+      let rewardText = "（沒測）";
+      if (g.districtCleared) { g.districtCleared(); rewardText = w.document.getElementById("screen").textContent; }
+      const noReward = !/街區獎勵/.test(rewardText) && rewardText !== "（沒測）";
+      return { pass: !barShown && noReward, value: `道具欄 ${barShown ? "還在" : "沒有"}・街區解放畫面 ${rewardText === "（沒測）" ? "沒辦法測" : noReward ? "沒有送道具" : "還在送道具"}` };
     }}
   ];
   async function runGame(frame) {

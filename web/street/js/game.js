@@ -66,36 +66,13 @@
     const hearts = run ? run.hearts : 0, max = Math.max(3, hearts);
     $("hearts").innerHTML = run ? Array.from({ length: max }, (_, i) => `<span class="${i < hearts ? "" : "empty"}">♥</span>`).join("") : "";
     $("score").textContent = run ? run.score.toLocaleString() : "";
-    updateItemBar();
   }
-  /* 道具列：第 2 區起，或身上有道具時才出現 */
-  function updateItemBar() {
-    const bar = $("itembar"), items = save.items || {};
-    const show = G.stage && G.screen !== "title" && G.screen !== "map" && (G.stage.district >= 1 || SR.ITEMS.some(i => items[i.id] > 0));
-    // 道具欄出現／消失：按鈕填好後馬上重算台面大小（之後每幀 tick 也會檢查台面區大小）
-    const toggled = bar.hidden === show;
-    bar.hidden = !show;
-    if (!show) { if (toggled) fit(); return; }
-    if (toggled) bar.dataset.key = "";
-    const key = SR.ITEMS.map(i => (items[i.id] || 0) + (G.itemFx.slow > 0 && i.id === "slow" ? "a" : "") + (G.itemFx.save > 0 && i.id === "save" ? "a" : "") + (itemWide() && i.id === "wide" ? "a" : "")).join(",") + G.screen;
-    if (bar.dataset.key === key) return;
-    bar.dataset.key = key;
-    bar.innerHTML = SR.ITEMS.map(i => {
-      const n = items[i.id] || 0, active = (i.id === "slow" && G.itemFx.slow > 0) || (i.id === "save" && G.itemFx.save > 0) || (i.id === "wide" && itemWide());
-      return `<button class="item-btn ${active ? "active" : ""}" data-item="${i.id}" ${n && G.screen === "play" ? "" : "disabled"} title="${i.desc}"><span class="ico">${i.icon}</span>${i.name}${n ? `<span class="n">${n}</span>` : ""}</button>`;
-    }).join("");
-    bar.querySelectorAll("[data-item]").forEach(b => b.addEventListener("click", () => useItem(b.dataset.item)));
-    if (toggled) fit();
-  }
-  function itemWide() { return !!G.world && ((G.world.paddle && G.world.paddle.wide > 0) || G.itemFx.wide > 0); }
-  function useItem(id) {
-    if (G.screen !== "play" || !(save.items[id] > 0)) return;
-    AU.ensure();
-    save.items[id]--; R.persist(save);
+  /* 道具（v3.7.1 申請單 item-capsules）：打破道具磚掉下膠囊，滑板／擋板接到就立刻生效；遊玩畫面沒有道具欄、也不存庫存 */
+  function catchItem(id, x, y) {
     const extra = R.useItem(T, G.world, id, G.itemFx);
     const it = SR.ITEMS.find(i => i.id === id);
-    popup(185, G.cam.y + 330, `${it.icon} ${it.name}！`, true, pal().b);
-    AU.play(id === "bomb" ? "bucket" : "card");
+    popup(x, y - 30, `${it.icon} ${it.name}！`, true, pal().b);
+    AU.play(id === "bomb" ? "bucket" : "card"); vibrate([20, 30, 20]);
     if (extra.length) handleEvents(extra);
     updateHud();
   }
@@ -265,15 +242,12 @@
     G.screen = "districtDone";
     const d = G.district, i = SR.DISTRICTS.indexOf(d), next = SR.DISTRICTS[i + 1];
     save.best[i] = Math.max(save.best[i] || 0, G.run.score);
-    // 街區獎勵：2 個隨機道具（下一區開始可以用）
-    const reward = [];
-    for (let k = 0; k < 2; k++) { const id = R.randomItem(Math.random); if (R.grantItem(save, id)) reward.push(SR.ITEMS.find(x => x.id === id)); }
+    // v3.7.1：道具改成關卡裡掉落的膠囊，打完一區不再送道具
     R.persist(save);
     achieve({ oneCoin: !G.run.continues });
     show(`<h2 class="tag-title" style="font-size:46px">${d.en}<br><span class="y">FREE!</span></h2>
       <p class="sub">${d.name} 的牆，全都回來了。</p>
       <dl class="stat-grid"><dt>本輪分數</dt><dd>${G.run.score.toLocaleString()}</dd><dt>打碎的磚</dt><dd>${G.run.bricks}</dd><dt>剩下的愛心</dt><dd>${G.run.hearts}</dd><dt>續關次數</dt><dd>${G.run.continues || 0}</dd></dl>
-      ${reward.length ? `<p class="sub">街區獎勵：${reward.map(r => `${r.icon} ${r.name}`).join("、")}（道具列可以用）</p>` : ""}
       ${next ? `<p class="sub">下一區：<b style="color:${next.colors.a}">${next.name}</b> 已經出現在地圖上</p>` : ""}
       <button class="big-btn" id="toMap">回到城市地圖</button>`);
     on("toMap", mapScreen);
@@ -459,15 +433,16 @@
           burstPaint(cx, cy, k.type === "bucket" ? 30 : 14 + k.maxHp * 3);
           popup(cx, cy - 6, "+" + pts);
           if (k.type === "bucket") { AU.play("bucket"); G.shake = Math.max(G.shake, 9); G.hitstop = 0.06; vibrate([40, 30, 60]); }
-          else if (k.type === "gift") {
-            const id = R.randomItem(Math.random), it = SR.ITEMS.find(x => x.id === id);
-            if (R.grantItem(save, id)) { R.persist(save); popup(cx, cy - 26, `得到 ${it.icon} ${it.name}`, true, "#ffe14d"); say(`拿到「${it.name}」！按下面的道具按鈕就能用。`, "happy", 2600); }
-            else popup(cx, cy - 26, `${it.name} 已經滿了`, false, "#ffe14d");
-            AU.play("achievement");
-          }
+          else if (k.type === "gift") AU.play("achievement");   // 膠囊由物理放出（capsule_drop），接到才生效
+
           else { AU.play("brickBreak", Math.min(8, ps.combo / 4)); G.shake = Math.max(G.shake, 3); vibrate(18 + Math.min(20, ps.combo)); }
           break;
         }
+        case "capsule_drop":                                // 道具膠囊掉下來（第一次出現時提醒）
+          if (!save.seenCapsule) { save.seenCapsule = true; R.persist(save); say("道具掉下來了！用滑板接住！", "wow", 2600); }
+          break;
+        case "capsule_caught": catchItem(e.item, e.x, e.y); break;
+        case "capsule_missed": break;
         case "boost":                                       // 加速帶（v3.7）
           AU.play("boost"); vibrate(10);
           if (!G._boostTold) { G._boostTold = true; say("踩到加速帶，球變快了！", "wow", 1600); }
@@ -591,7 +566,6 @@
     }
     if (G.screen === "play" && G.world) { tickKeys(dt); tickTutorial(dt); computePreviews(); }
     else G.previews = [];
-    if (G.screen === "play") updateItemBar();
     updateHintText();
     // 滑板模式遊玩中把滑鼠游標藏起來（滑板就是游標）
     const cur = G.screen === "play" && G.world && G.world.paddle ? "none" : "";
@@ -721,6 +695,7 @@
     g.drawImage(G.paint, 0, 0);
     A.table(g, w, p, G.t);
     for (const k of w.bricks) A.brick(g, k, p, G.t);
+    for (const c of w.capsules || []) A.capsule(g, c, SR.ITEMS.find(i => i.id === c.item), G.t);
     if (w.magnet && G.screen === "play") {
       // 收尾輔助：剩下的磚發光＋目標框
       for (const k of w.bricks) if (k.alive && k.type !== "boss") { g.strokeStyle = A.rgba(p.c, 0.5 + 0.4 * Math.sin(G.t * 8)); g.lineWidth = 4; g.strokeRect(k.x - 4, k.y - 4, k.w + 8, k.h + 8); }
@@ -1099,6 +1074,6 @@
     const res = SR.Tests.run(T); window.SR_TEST_RESULTS = res;
     console.log(res.map(r => `${r.pass ? "PASS" : "FAIL"} ${r.id} ${r.value}`).join("\n"));
   }
-  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper };
+  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, districtCleared, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper };
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 })();
