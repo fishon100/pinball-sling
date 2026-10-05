@@ -1,5 +1,5 @@
 /* 同步關卡表（企劃說「同步關卡表」時 AI 執行）
-   1. AI 用 Google Drive 下載兩份試算表的 CSV（base64），存成 tools/levels/in/stages.b64、layouts.b64（不進 git）
+   1. 企劃把兩份試算表匯出成 .xlsx（或 .csv）放進 tools/levels/in/（檔名：關卡設定表／台面配置表，或 stages／layouts；不進 git）
    2. node tools/levels/sync.js          → 檢查＋列出跟目前 levels.js 的差異（不寫檔）
       node tools/levels/sync.js --write  → 檢查通過才寫出新的 levels.js，並在 Node 裡跑一次會擋的測試
    回傳碼：0＝OK、2＝表格有問題（擋下）、3＝會擋的測試沒過 */
@@ -7,12 +7,21 @@
 const fs = require("fs"), path = require("path"), { load, JS } = require("./load");
 const IN = path.join(__dirname, "in"), write = process.argv.includes("--write");
 
+// 企劃可以直接放試算表匯出的 .xlsx（用中文表名或英文代號），也可以放 .csv／.b64；同一份表有好幾個檔時，用最新的那個
+const SHEET_NAMES = { stages: ["stages", "關卡設定表"], layouts: ["layouts", "台面配置表"] };
 function readInput(name) {
-  for (const ext of [".csv", ".b64"]) {
-    const f = path.join(IN, name + ext);
-    if (fs.existsSync(f)) { const raw = fs.readFileSync(f, "utf8").trim(); return ext === ".csv" ? raw : Buffer.from(raw.replace(/\s+/g, ""), "base64").toString("utf8"); }
-  }
-  throw new Error(`找不到 tools/levels/in/${name}.b64（或 .csv）`);
+  const found = [];
+  for (const base of SHEET_NAMES[name] || [name])
+    for (const ext of [".xlsx", ".csv", ".b64"]) {
+      const f = path.join(IN, base + ext);
+      if (fs.existsSync(f)) found.push({ f, ext, t: fs.statSync(f).mtimeMs });
+    }
+  if (!found.length) throw new Error(`找不到 tools/levels/in/ 的${SHEET_NAMES[name]?.[1] || name}（.xlsx、.csv 或 .b64）`);
+  const { f, ext } = found.sort((a, b) => b.t - a.t)[0];
+  console.log(`讀取 ${path.basename(f)}`);
+  if (ext === ".xlsx") return require("./xlsx.mjs").xlsxToCsv(fs.readFileSync(f)).trim();
+  const raw = fs.readFileSync(f, "utf8").trim();
+  return ext === ".csv" ? raw : Buffer.from(raw.replace(/\s+/g, ""), "base64").toString("utf8");
 }
 function parseCsv(text) {
   text = text.replace(/^﻿/, "");
