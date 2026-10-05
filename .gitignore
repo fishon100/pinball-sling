@@ -15,3 +15,6 @@ tools/levels/in/
 
 # Obsidian vault 的本機路徑（tools/vault-mirror.mjs 用）
 tools/vault.config.json
+
+# 工作台同步的暫存輸出
+workbench-out/

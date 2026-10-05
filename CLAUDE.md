@@ -44,8 +44,10 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 - `彈珠專案/`：`00 主架構規劃書`（遊戲核心）、`01 功能規劃書/F01～F15`、`02 知識庫/`（劇情腳本、角色、街區、數值總表、名詞與命名總表）、`03 媒體庫/`（美術／音樂音效清單、參考圖）、`04 紀錄/`（開發日誌、舊版本規格、舊版文件，只看不改）、`回饋.md`（企劃試玩回饋）
 
 ## 文件規則（企劃要求，2026-10-05）
-- 「看回饋」＝讀 `彈珠專案/回饋.md` 最上面的「第 N 輪」；處理完把標題改成「已處理 → 版本」並開下一輪空段落；回饋裡貼的圖搬到 `03 媒體庫/參考圖/`，改成 `類別-內容.png` 並更新連結
-- **正式規則＝`docs/spectra/specs/<capability>/spec.md`**（2026-10-05 起，英文規則＋每條一行 `> 中文：`）。任何改動（回饋、新功能、bug）都走 Spectra 申請單：`docs/spectra/changes/<name>/`（proposal → specs 差異 → design → tasks）→ 企劃說「開始」才實作（修 bug 且企劃已說要修時可直接做）→ 先寫會失敗的測試再修 → 部署 → 歸檔 `spxa archive <name> -y`（把規則併回 specs）。Obsidian 的主架構規劃書與 F01～F15 改為背景說明，最上面有連到對應規則書的註記
+- **工作台**：https://fishon100.github.io/game-dev-flow-template/workbench/?repo=fishon100/pinball-sling （workbench Action 自動更新；說「更新工作台」＝`gh workflow run workbench`）
+- **企劃同意**＝申請單 `tasks.md` 的 `0.1 企劃確認` 已勾（規則見 `docs/spectra/config.yaml`）。`/spectra-apply` 前先 `git pull` 確認；沒勾就停，請企劃到工作台同意。企劃在對話中說「同意 <名稱>」時才可以由 AI 勾，並註明「（企劃於對話中同意，日期）」。舊規則「企劃說開始」等同於說「同意」
+- 「看回饋」＝先讀 GitHub 未處理的「回饋」Issue（`gh issue list -l 回饋 -s open`；處理完回覆並關閉），再讀 `彈珠專案/回饋.md` 最上面的「第 N 輪」；處理完把標題改成「已處理 → 版本」並開下一輪空段落；回饋裡貼的圖搬到 `03 媒體庫/參考圖/`，改成 `類別-內容.png` 並更新連結
+- **正式規則＝`docs/spectra/specs/<capability>/spec.md`**（2026-10-05 起，英文規則＋每條一行 `> 中文：`）。任何改動（回饋、新功能、bug）都走 Spectra 申請單：`docs/spectra/changes/<name>/`（proposal → specs 差異 → design → tasks）→ 推上去（自動開申請單 Issue）→ 企劃同意（0.1 已勾）才實作（修 bug 且企劃已說要修時可直接做）→ 先寫會失敗的測試再修 → 部署 → 歸檔 `spxa archive <name> -y`（把規則併回 specs）。Obsidian 的主架構規劃書與 F01～F15 改為背景說明，最上面有連到對應規則書的註記
 - 功能規劃書要記背景時，只改那一份（含修改紀錄）；新增功能要新增規則書（capability）並加進名詞與命名總表
 - **單一來源**：劇情＝`02 知識庫/劇情/劇情腳本`（對應 `data.js` 的 `SR.COMICS`）、角色＝角色卡、數值＝`數值總表`（對應 `tuning.js`）、名詞＝`名詞與命名總表`。其他文件用 `![[ ]]` 嵌入，不重抄。企劃說「同步 <檔名>」→ 把文件內容套用到程式並跑相關測試；程式改了這些內容 → 回寫到對應的知識庫文件
 - 「套用調參」＝企劃從遊戲內手感調整面板（`web/street/js/tune.js`，暫停 → 🎚 手感調整）複製的「參數：原 → 新」清單。寫進 `tuning.js` 的 `STREET_TUNING`（**不要改 `data/tuning.json`**，那是 Godot v2 共用、會動到 AC1–AC13），更新 `數值總表`，跑 22 項測試＋擬人玩家難度，數字有變就更新 F15
@@ -98,6 +100,9 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 ## 常用指令
 | 做什麼 | 指令 |
 |---|---|
+| 檢查環境（換電腦後） | `node tools/doctor.mjs` |
+| 更新工作台 | `gh workflow run workbench` |
+| 同步企劃文件（Obsidian → docs/企劃/） | `node tools/vault-mirror.mjs` |
 | 跑測試（約 30 秒，AC13 卡球測試最久） | `godot --headless --path . --script res://tests/run_tests.gd` |
 | 自動遊玩煙霧測試（15 秒） | `godot --headless --path . --quit-after 900 -- --demo` |
 | 錄影驗收畫面 | `godot --path . --write-movie C:\tmp\f.png --fixed-fps 60 --quit-after 420 -- --demo` |

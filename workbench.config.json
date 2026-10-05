@@ -1,0 +1,11 @@
+{
+  "_說明": "工作台的設定。工作台網址：https://fishon100.github.io/game-dev-flow-template/workbench/?repo=fishon100/pinball-sling",
+  "name": "噴漆闖關 SPRAY RUN",
+  "spec_dir": "docs/spectra",
+  "links": [
+    { "label": "▶ 試玩", "url": "https://fishon100.github.io/pinball-sling/street/" },
+    { "label": "🧪 測試頁", "url": "https://fishon100.github.io/pinball-sling/street/test.html" },
+    { "label": "🧱 關卡編輯器", "url": "https://fishon100.github.io/pinball-sling/street/editor.html" },
+    { "label": "📒 企劃文件", "url": "https://github.com/fishon100/pinball-sling/tree/main/docs/企劃" }
+  ]
+}
