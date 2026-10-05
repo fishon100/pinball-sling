@@ -25,6 +25,8 @@ SR.Physics = (function () {
   // 沒給配置時用最早的高台面（兩顆彈跳柱），舊測試都用這個
   const DEFAULT_LAYOUT = { id: "classic", top: 0, bumpers: [[56, 560], [304, 560]], rails: [] };
   const PADDLE_Y = 948;                     // 滑板（新操作）的中心線高度
+  // 加速帶：只有往上走的球經過才加速（往下掉的也加速的話，離滑板太近、新手 0.32 秒反應不及）。數值在 tuning.js 的 boost
+  const BOOST_SIZE = { w: 56, h: 14 };
 
   function buildTable(T, assists = {}, layout = null, control = "flipper") {
     const L = layout || DEFAULT_LAYOUT, top = L.top || 0;
@@ -69,7 +71,9 @@ SR.Physics = (function () {
       { side: "R", px: 270, py: FLIP_Y, angle: 0, omega: 0, pressed: false }
     ];
     for (const f of flippers) f.angle = flipperRest(T, f);
-    return { segments, circles, flippers, bricks: [], grid: new Map(), boss: null, balls: [], time: 0,
+    // 加速帶（v3.7，第 3 區起）：56×14 的長條、箭頭朝上；首領關在 placeStage 拿掉
+    const boosts = (L.boost || []).map(([x, y]) => ({ x, y, w: BOOST_SIZE.w, h: BOOST_SIZE.h, flash: 0 }));
+    return { segments, circles, flippers, bricks: [], grid: new Map(), boss: null, balls: [], time: 0, boosts,
              dmg: 1, flipperBonus: 0, radiusBonus: 0, nextId: 1, top, layout: L, control,
              paddle: paddle ? { x: 180, y: PADDLE_Y, target: 180, vx: 0, kick: 0, size: L.paddle || "M", wide: 0 } : null };
   }
@@ -114,7 +118,7 @@ SR.Physics = (function () {
   /* 球會落在滑板高度的哪裡（給「落點提示」輔助與自動玩家用）：試跑到球往下穿過滑板高度為止 */
   function landingPoint(world, T, ball, maxSec = 2.5) {
     const shadow = { segments: world.segments, circles: world.circles.map(c => ({ ...c })), bricks: world.bricks.filter(k => k.alive), boss: null, balls: [],
-                     flippers: [], paddle: null, time: 0, dry: true, dmg: 0, radiusBonus: world.radiusBonus, nextId: 0, magnet: world.magnet };
+                     flippers: [], paddle: null, time: 0, dry: true, dmg: 0, radiusBonus: world.radiusBonus, ballRadius: world.ballRadius, nextId: 0, magnet: world.magnet };
     const b = { ...ball, hits: {}, pierce: 0, dead: false, dryRun: true };
     const n = Math.max(1, Math.round(T.physics.substeps)), dt = 1 / 60 / n, steps = Math.round(maxSec * 60 * n), ev = [];
     const lineY = PADDLE_Y - T.paddle.radius - b.r;
@@ -141,6 +145,7 @@ SR.Physics = (function () {
   }
   function placeStage(world, stage) {
     world.bricks = []; world.grid = new Map(); world.boss = null;
+    if (stage.isBoss) world.boosts = [];      // 首領關沒有加速帶
     const top = world.top || 0;
     for (const cell of stage.cells) {
       if (cell.type === "boss") {
@@ -191,7 +196,8 @@ SR.Physics = (function () {
   }
 
   /* ---------- 球與擋板 ---------- */
-  function ballRadius(T, world) { return T.ball.radius + (world.radiusBonus || 0); }
+  // 球的半徑＝這一區的基本大小（world.ballRadius，v3.7 第 3 區起變小；沒設定＝12）＋「大罐」加成
+  function ballRadius(T, world) { return (world.ballRadius ?? T.ball.radius) + (world.radiusBonus || 0); }
   function newBall(T, world, x = 360, y) {
     const r = ballRadius(T, world);
     return { id: world.nextId++, x, y: y ?? 1022 - r - 0.5, vx: 0, vy: 0, r, pierce: 0, split: false, dead: false, hits: {} };
@@ -348,6 +354,14 @@ SR.Physics = (function () {
     if (m && b.vy < 0 && b.y < FLIP_Y - 100) { const dx = m.x - b.x; b.vx += Math.sign(dx) * Math.min(1, Math.abs(dx) / 60) * m.strength * dt; }
     b.x += b.vx * dt; b.y += b.vy * dt;
     for (const s of world.segments) collideSegment(T, b, s, ev);
+    for (const p of world.boosts || []) {
+      if (b.vy >= 0 || b.x < p.x || b.x > p.x + p.w || b.y < p.y || b.y > p.y + p.h) continue;
+      const B = T.boost;
+      if (b.boostT != null && world.time - b.boostT < B.cooldown) continue;
+      const sp = Math.hypot(b.vx, b.vy), ns = clamp(sp * B.mult, B.min, B.max);
+      b.vx *= ns / sp; b.vy *= ns / sp; b.boostT = world.time; p.flash = 0.3;
+      if (!b.dryRun) ev.push({ type: "boost", x: b.x, y: b.y, b });
+    }
     for (const c of world.circles) collideCircle(T, b, c, ev);
     for (const k of world.bricks) if (k.alive) collideBrick(T, world, b, k, ev);
     for (const f of world.flippers) collideFlipper(T, world, b, f, ev);
@@ -368,7 +382,7 @@ SR.Physics = (function () {
       segments: world.segments, circles: world.circles, bricks: world.bricks.filter(k => k.alive), boss: null, balls: [],
       flippers: world.flippers.map(f => ({ ...f, pressed: f.pressed, omega: 0 })),
       paddle: world.paddle ? { ...world.paddle, vx: 0 } : null, flipperBonus: world.flipperBonus,
-      time: 0, dry: true, dmg: 0, radiusBonus: world.radiusBonus, flipperPower: world.flipperPower, nextId: 0, magnet: world.magnet
+      time: 0, dry: true, dmg: 0, radiusBonus: world.radiusBonus, ballRadius: world.ballRadius, flipperPower: world.flipperPower, nextId: 0, magnet: world.magnet
     };
     for (const f of shadow.flippers) f.angle = f.pressed ? flipperUp(T, f) : flipperRest(T, f);
     const b = { ...ball, hits: {}, pierce: 0, dead: false, dryRun: true };

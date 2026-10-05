@@ -30,7 +30,10 @@ SR.STREET_TUNING = {
   assist: { finisher_delay: 3, finisher_strength: 1200 },
   // 滑板（第 5 輪：一根手指／滑鼠就能玩的新操作）：半寬、圓角、出球速度、最斜角度、跟手速度上限、移動時帶給球的側向速度比例
   // 第 6 輪：三種尺寸（半寬）S 小／M 中（一般關卡）／L 大（道具「寬板」）；滑板可在整個台面寬度移動
-  paddle: { half_widths: { S: 40, M: 56, L: 76 }, radius: 8, speed: 1550, max_angle_deg: 55, max_speed: 2600, carry: 0.15 },
+  // v3.7：S 半寬 40 → 48（第 4、5 區一般關也用 S，矮台面球回來得快，40 對新手太難：第 5 區每關掉 2.06 顆 → 1.28 顆）
+  paddle: { half_widths: { S: 48, M: 56, L: 76 }, radius: 8, speed: 1550, max_angle_deg: 55, max_speed: 2600, carry: 0.15 },
+  // 加速帶（v3.7，第 3 區起）：往上經過的球速度 ×mult，最少 min、最多 max；同一顆球 cooldown 秒內不重複
+  boost: { mult: 1.35, min: 1000, max: 2000, cooldown: 0.5 },
   items: { bomb_radius: 60, bomb_damage: 2, slow_scale: 0.5, slow_s: 5, save_s: 10, wide_s: 12 },
   run: { hearts: 3, max_hearts: 5, bomb_radius: 52, bomb_every: 15 }
 };

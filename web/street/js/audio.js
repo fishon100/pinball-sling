@@ -47,6 +47,7 @@ SR.Audio = (function () {
     flipper() { noise(sfxBus, ctx.currentTime, 0.035, 0.16, "bandpass", 900); },
     wall(s) { noise(sfxBus, ctx.currentTime, 0.03, Math.min(0.18, s / 9000), "bandpass", 2200); },
     launch() { noise(sfxBus, ctx.currentTime, 0.3, 0.25, "bandpass", 700); },
+    boost() { const t = ctx.currentTime; osc(sfxBus, "sawtooth", 300, 1400, t, 0.18, 0.08); noise(sfxBus, t, 0.12, 0.15, "highpass", 2000); },   // 加速帶：往上衝的「咻」
     drain() { osc(sfxBus, "sawtooth", 330, 70, ctx.currentTime, 0.6, 0.12); },
     save() { const t = ctx.currentTime; osc(sfxBus, "sine", 990, 1480, t, 0.2, 0.15); },
     combo(n) { const t = ctx.currentTime; osc(sfxBus, "square", 660 + Math.min(n, 60) * 12, 660 + Math.min(n, 60) * 12, t, 0.07, 0.07); },

@@ -20,11 +20,11 @@ The table view SHALL show a 400×740 window of the 1060-px-tall table. Because e
 
 ### Requirement: Ball Trail By District
 
-The game SHALL draw a glowing trail behind each ball whose length depends on the district, as a difficulty step: 10 trail points in districts 1 and 2, 5 points in district 3, and no trail in districts 4 and 5.
+The game SHALL draw a glowing trail behind each ball whose length depends on the district, as a difficulty step: 8 trail points in districts 1 and 2, 4 points in district 3, and no trail in districts 4 and 5.
 
 > 中文：球後面的拖尾光越後面越短：第 1、2 區完整、第 3 區剩一半、第 4、5 區沒有，要靠眼睛追球。
 
 #### Scenario: Trail length by district
 
 - **WHEN** stages 5, 15, 25, 35 and 45 are played for 2 seconds with a ball in flight
-- **THEN** the stored trail of the ball SHALL hold at most 10, 10, 5, 0 and 0 points
+- **THEN** the stored trail of the ball SHALL hold at most 8, 8, 4, 0 and 0 points

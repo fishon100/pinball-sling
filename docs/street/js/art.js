@@ -175,11 +175,28 @@ SR.Art = (function () {
       const cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3, cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3;
       neonDoodle(g, "star", cx, cy, 0.5, "#ffffff", 0.8);
     }
+    for (const p of world.boosts || []) boostPad(g, p, t);
     for (const c of world.circles) {
       if (c.kind === "post") { g.beginPath(); g.arc(c.x, c.y, c.r + 1, 0, Math.PI * 2); g.fillStyle = INK; g.fill(); continue; }
       if (c.kind === "fish") { fish(g, c.x, c.y, c.r / 46, c.flash > 0 ? "wow" : "sleepy", t, c.vx < 0 ? -1 : 1); continue; }
       sprayCan(g, c.x, c.y, SR.T.bumper.radius, pal, c.flash > 0, t);
     }
+  }
+  // 加速帶（v3.7）：深色底板＋三個往上的萊姆綠霓虹箭頭，箭頭會由下往上流動；被踩到時整條亮起
+  function boostPad(g, p, t) {
+    const lit = (p.flash || 0) > 0;
+    if (lit) p.flash = Math.max(0, p.flash - 1 / 60);
+    g.save();
+    g.fillStyle = "rgba(10,6,24,0.85)"; g.strokeStyle = lit ? "#ffffff" : "#9dff3a"; g.lineWidth = 2;
+    g.shadowColor = "#9dff3a"; g.shadowBlur = lit ? 18 : 8;
+    g.beginPath(); g.roundRect ? g.roundRect(p.x, p.y, p.w, p.h, 4) : g.rect(p.x, p.y, p.w, p.h); g.fill(); g.stroke();
+    g.lineWidth = 2.5; g.lineCap = "round"; g.lineJoin = "round";
+    for (let i = 0; i < 3; i++) {
+      const cx = p.x + p.w * (i + 0.5) / 3, phase = (t * 2.2 + i * 0.25) % 1, a = lit ? 1 : 0.45 + 0.55 * Math.sin(phase * Math.PI);
+      g.strokeStyle = `rgba(157,255,58,${a.toFixed(2)})`;
+      g.beginPath(); g.moveTo(cx - 6, p.y + p.h - 3); g.lineTo(cx, p.y + 3); g.lineTo(cx + 6, p.y + p.h - 3); g.stroke();
+    }
+    g.restore();
   }
   // 彈跳柱（設計圖：深色金屬底座＋青色霓虹環＋深色中心）
   function sprayCan(g, x, y, r, pal, lit, t) {

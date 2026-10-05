@@ -22,7 +22,7 @@ SR.DISTRICTS = [
     colors: { a: "#3ee0ff", b: "#b25cff", c: "#ffe14d", glow: "#7fe9ff" } },
   { id: "rooftops",  name: "屋頂",     en: "ROOFTOPS",  act: "轉", stages: [21, 30], tempo: 96, root: 41,
     teaser: "從這裡看得到整座城，也看得到整潔局的大樓。",
-    assists: { preview: 0.4, timing: false, ballSave: 0 },
+    assists: { preview: 0, timing: false, ballSave: 0 },          // v3.7：第 3 區起拿掉彈道預覽（企劃：隱藏球的軌跡也是難度）
     colors: { a: "#ff8a1f", b: "#9dff3a", c: "#ff3ea5", glow: "#ffb066" } },
   { id: "riverside", name: "河堤",     en: "RIVERSIDE", act: "轉", stages: [31, 40], tempo: 84, root: 38,
     teaser: "橋墩下藏著被刷掉一半的舊塗鴉。",
@@ -46,19 +46,22 @@ SR.LAYOUTS = {
   a_rubber:  { name: "彈力牆", top: 320, bumpers: M([[96, 664]]), rails: [[23, 610, 23, 730, "rubber"], [337, 610, 337, 730, "rubber"]] },
   a_fish:    { name: "阿鰭",   top: 320, bumpers: M([[70, 716]]), fish: { y: 652, x0: 70, x1: 290, speed: 70 } },
   a_four:    { name: "四柱",   top: 320, bumpers: M([[74, 640], [116, 716]]) },
-  // 第 2 區：中台面
-  b_tri:     { name: "三角柱", top: 160, bumpers: M([[62, 500], [107, 540], [62, 580]]) },
-  b_steps:   { name: "階梯",   top: 160, bumpers: M([[70, 500], [110, 600]]) },
-  b_fish:    { name: "阿鰭",   top: 160, bumpers: M([[62, 600]]), fish: { y: 520, x0: 70, x1: 290, speed: 90 } },
-  // 第 3 區：偏高台面
-  c_pair:    { name: "雙柱",   top: 80, bumpers: M([[62, 440], [107, 480]]) },
-  c_rubber:  { name: "彈力牆", top: 80, bumpers: M([[80, 460]]), rails: [[23, 520, 23, 640, "rubber"], [337, 600, 337, 700, "rubber"]] },
-  c_fish:    { name: "阿鰭",   top: 80, bumpers: M([[62, 520]]), fish: { y: 440, x0: 70, x1: 290, speed: 110 } },
-  // 第 4、5 區：高台面（最早的台面）
-  d_classic: { name: "經典",   top: 0, bumpers: M([[56, 560]]) },
-  d_high:    { name: "高柱",   top: 0, bumpers: M([[105, 400], [56, 560]]) },
-  d_tri:     { name: "三角柱", top: 0, bumpers: M([[105, 400], [60, 440], [56, 560]]) },
-  d_fish:    { name: "阿鰭",   top: 0, bumpers: M([[56, 560]]), fish: { y: 420, x0: 70, x1: 290, speed: 130 } }
+  /* v3.7（企劃：鏡頭上下移動難操作、球落下時來不及反應）：所有區都用矮台面 top 320，鏡頭不捲動。
+     難度改由「中柱變少、球變小、滑板變小、磚變硬、加速帶、軌跡提示變少」負責（申請單 short-tables-all-districts） */
+  // 第 2 區：最多 2 對中柱
+  b_tri:     { name: "四柱",   top: 320, bumpers: M([[74, 650], [116, 700]]) },
+  b_steps:   { name: "階梯",   top: 320, bumpers: M([[70, 640], [110, 720]]) },
+  b_fish:    { name: "阿鰭",   top: 320, bumpers: M([[70, 716]]), fish: { y: 652, x0: 70, x1: 290, speed: 90 } },
+  // 第 3 區：最多 1 對中柱，1 條加速帶（boost＝加速帶的矩形，箭頭朝上）
+  c_pair:    { name: "雙柱",   top: 320, bumpers: M([[78, 690]]), boost: [[152, 763]] },
+  c_rubber:  { name: "彈力牆", top: 320, bumpers: M([[96, 690]]), rails: [[23, 610, 23, 730, "rubber"], [337, 610, 337, 730, "rubber"]], boost: [[152, 763]] },
+  c_fish:    { name: "阿鰭",   top: 320, bumpers: [], fish: { y: 670, x0: 70, x1: 290, speed: 110 }, boost: [[152, 763]] },
+  // 第 4、5 區：最多 1 對中柱，2 條加速帶
+  d_classic: { name: "經典",   top: 320, bumpers: M([[60, 700]]), boost: [[82, 773], [222, 773]] },
+  // 第 5 區的磚最低到 y 634（多 3 排）：中柱與阿鰭的中心要在 y 680 以下（離磚 ≥ 46，AC-S19）
+  d_high:    { name: "高柱",   top: 320, bumpers: M([[100, 690]]), boost: [[82, 773], [222, 773]] },
+  d_tri:     { name: "雙柱",   top: 320, bumpers: M([[80, 700]]), boost: [[82, 773], [222, 773]] },
+  d_fish:    { name: "阿鰭",   top: 320, bumpers: [], fish: { y: 690, x0: 70, x1: 290, speed: 130 }, boost: [[82, 773], [222, 773]] }
 };
 for (const id in SR.LAYOUTS) SR.LAYOUTS[id].id = id;
 SR.DISTRICT_LAYOUTS = [
@@ -70,7 +73,12 @@ SR.DISTRICT_LAYOUTS = [
 ];
 // 首領關（每區第 10 關）不要用阿鰭的配置：阿鰭會擋住打首領的路線（AC-S8b 抓到第 50 關 7 分鐘打不完）
 /* 滑板尺寸（第 6 輪）：一般關卡＝中；首領關＝小（挑戰）；大＝道具「寬板」作用中（見 physics.js 的 paddleSize） */
-SR.paddleSizeFor = n => n % 10 === 0 ? "S" : "M";
+// v3.7：第 4、5 區一般關卡也用小滑板
+SR.paddleSizeFor = n => n % 10 === 0 || n > 30 ? "S" : "M";
+/* v3.7 每區的難度元件：球的半徑（第 3 區起變小，「大罐」強化另外加）、球的拖尾光長度（第 3 區剩一半、第 4、5 區沒有） */
+// 量測定案（擬人新手，AC-S29）：原本規劃 12／12／10.5／9／9，第 5 區每關掉 3.39 顆太難，改成 12／12／11／10.5／10.5
+SR.ballRadiusFor = n => n > 30 ? 10.5 : n > 20 ? 11 : 12;
+SR.trailFor = n => n > 30 ? 0 : n > 20 ? 4 : 8;
 SR.layoutFor = function (n) {
   const d = Math.min(4, Math.floor((n - 1) / 10)), list = SR.DISTRICT_LAYOUTS[d];
   return SR.LAYOUTS[list[(n - 1) % 10 % list.length]];
@@ -217,12 +225,10 @@ SR.buildStage = function (n) {
     if (ch === "B") { cells.push({ r, c, type: "bucket", hp: 1 }); return; }
     let hp = +ch;
     if (rnd() < hpBonusChance) hp++;
-    // 第 4 區起原本還會再 +1 血：滑板模式量測第 5 區一關要 150 秒以上、拖太久，拿掉（難度改由高台面負責）
-    if (d >= 3) rnd();
-    // v3.5.5：第 4、5 區每塊磚少 1 血（最少 1）：第 5 區一關從 165 秒降到約 110 秒；
-    // 擬人新手掉的愛心幾乎不變（第 4 區 1.03、第 5 區 0.81，36 局），難度由高台面負責
-    if (d >= 3 && hp > 1) hp--;
-    cells.push({ r, c, type: "brick", hp: Math.min(5, hp) });
+    if (d >= 3) rnd();                 // 保持亂數取用順序（磚的排列跟以前一樣）
+    // v3.7：拿掉 v3.5.5 的「第 4、5 區少 1 血」（那是高台面一關 165 秒才做的；矮台面一關只要 24～32 秒），
+    // 所以第 4、5 區的磚比 v3.6 硬 1 血。原本規劃第 3～5 區再 +1 血，量測太難（第 5 區每關掉 1.83 顆以上）不採用
+    cells.push({ r, c, type: "brick", hp: Math.min(5, hp), base: +ch });   // base＝圖案上的數字（測試用）
   }));
   // 道具磚★：第 2 區起，每關把 1～2 塊 1 血的磚換成道具磚
   if (d >= 1) {

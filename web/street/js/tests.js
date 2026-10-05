@@ -127,6 +127,7 @@ SR.Tests = (function () {
     const layout = opts.layout === undefined ? SR.layoutFor(n) : opts.layout;
     const st = SR.buildStage(n), w = P().buildTable(T, assists, layout, opts.control || "flipper");
     if (w.paddle) w.paddle.size = opts.paddleSize || SR.paddleSizeFor(n);
+    w.ballRadius = SR.ballRadiusFor ? SR.ballRadiusFor(n) : undefined;
     const rnd = SR.rng(seed), ps = SR.Rules.newPlayState();
     P().placeStage(w, st);
     SR.Rules.applyBonuses(run, w);
@@ -516,6 +517,88 @@ SR.Tests = (function () {
       for (let i = 0; i < 12; i++) { P().stepFrame(g, T, []); best = Math.max(best, Math.hypot(b.vx, b.vy)); }
       const ms = time * 1000;
       return { pass: Math.abs(ms - 35.4) < 0.1 && Math.abs(best - 1901) < 2, value: `全舉 ${ms.toFixed(1)} ms（v2：35.4）・尖端 ${Math.round(best)} px/s（v2：1901）` };
+    }}
+  , { id: "AC-S27", name: "所有關卡都是矮台面（top 320），遊玩時鏡頭固定不捲動", run(T) {
+      const problems = [];
+      for (let n = 1; n <= 50; n++) if (SR.layoutFor(n).top !== 320) problems.push(`第 ${n} 關 top ${SR.layoutFor(n).top}`);
+      for (const n of [5, 15, 25, 35, 45]) {
+        const w = P().buildTable(T, SR.Rules.assistsFor(n), SR.layoutFor(n), "paddle"); P().placeStage(w, SR.buildStage(n));
+        const rnd = SR.rng(n * 31), run = SR.Rules.newRun(T, 0); w.balls = [P().newBall(T, w)];
+        let moved = 0;
+        for (let f = 0; f < 60 * 20; f++) {
+          bot(w, T, rnd, run, HUMAN.novice); P().stepFrame(w, T, []);
+          if (!w.balls.length) w.balls = [P().newBall(T, w)];
+          if (P().cameraTarget(w) !== P().CAM_MAX) moved++;
+        }
+        if (moved) problems.push(`第 ${n} 關鏡頭移動 ${moved} 幀`);
+      }
+      return { pass: !problems.length, value: problems.length ? [...new Set(problems)].slice(0, 4).join("；") : "50 關 top 都是 320；第 5／15／25／35／45 關各玩 20 秒，鏡頭都沒動" };
+    }}
+  , { id: "AC-S28", name: "加速帶：往上經過加速 ×1.35（最少 1000、最多 2000）、往下不加速、0.5 秒內不重複；第 3 區 1 條、第 4、5 區 2 條、首領關與第 1、2 區沒有", run(T) {
+      const problems = [];
+      const count = n => { const w = P().buildTable(T, {}, SR.layoutFor(n), "paddle"); P().placeStage(w, SR.buildStage(n)); return (w.boosts || []).length; };
+      const counts = [25, 35, 45, 30, 15, 5].map(count);
+      if (counts.join() !== "1,2,2,0,0,0") problems.push(`條數（第 25／35／45／30／15／5 關）${counts.join("／")}`);
+      // 速度：拿掉重力與其他東西，只看加速帶
+      // 只看加速帶：拿掉重力、空氣阻力、牆、柱子、磚、滑板；速度在加速那一幀量
+      const trial = (vy, again) => withGravity(T, 0, () => {
+        const oldDamp = T.ball.damping; T.ball.damping = 0;
+        try {
+          const w = P().buildTable(T, {}, SR.layoutFor(35), "paddle"); P().placeStage(w, SR.buildStage(35));
+          w.bricks = []; w.circles = []; w.segments = []; w.paddle = null;
+          const pad = (w.boosts || [])[0]; if (!pad) return null;
+          const cx = pad.x + pad.w / 2, b = P().newBall(T, w, cx, vy < 0 ? pad.y + pad.h + 6 : pad.y - 6); b.vx = 0; b.vy = vy; w.balls = [b];
+          let boosts = 0, sp = null;
+          frames(w, T, 20, ev => { const n = ev.filter(e => e.type === "boost").length; boosts += n; if (n && sp == null) sp = Math.hypot(b.vx, b.vy); });
+          if (sp == null) sp = Math.hypot(b.vx, b.vy);
+          if (again) { b.x = cx; b.y = pad.y + pad.h + 6; b.vx = 0; b.vy = -800; frames(w, T, 6, ev => { boosts += ev.filter(e => e.type === "boost").length; }); }
+          return { sp, boosts };
+        } finally { T.ball.damping = oldDamp; }
+      });
+      for (const [vin, want] of [[-500, 1000], [-800, 1080], [-1700, 2000]]) {
+        const r = trial(vin); if (!r) { problems.push("第 35 關沒有加速帶"); break; }
+        if (Math.abs(r.sp - want) > 6 || r.boosts !== 1) problems.push(`往上 ${-vin} → ${r.sp.toFixed(0)}（應 ${want}）、加速 ${r.boosts} 次`);
+      }
+      const down = trial(800);
+      if (down && (Math.abs(down.sp - 800) > 6 || down.boosts)) problems.push(`往下 800 → ${down.sp.toFixed(0)}、加速 ${down.boosts} 次（應不加速）`);
+      const cd = trial(-800, true);
+      if (cd && cd.boosts !== 1) problems.push(`0.5 秒內加速了 ${cd.boosts} 次`);
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : "條數 1／2／2／0／0／0；500→1000、800→1080、1700→2000；往下不加速；0.5 秒內不重複" };
+    }}
+  , { id: "AC-S29", name: "第 2～5 區難度（擬人新手、滑板）：每區不比前一區簡單超過 0.15、第 5 區每關 0.8～1.4 顆、每區平均一關 ≤ 90 秒（每區 9 關 × 2 局）", run(T) {
+      const rows = [];
+      for (let d = 1; d <= 4; d++) {
+        let h = 0, sec = 0, n = 0;
+        for (let s = 1; s <= 9; s++) for (const k of [3, 21]) {
+          const st = d * 10 + s, seed = st * 1000 + k;
+          const r = playStage(T, st, SR.Rules.simulatedBuild(T, s - 1, seed), seed, 300, { skill: HUMAN.novice, control: "paddle" });
+          h += r.heartsLost; sec += r.seconds; n++;
+        }
+        rows.push({ d: d + 1, hearts: h / n, sec: sec / n });
+      }
+      const problems = [];
+      for (let i = 1; i < rows.length; i++) if (rows[i].hearts < rows[i - 1].hearts - 0.15) problems.push(`第 ${rows[i].d} 區比第 ${rows[i - 1].d} 區簡單`);
+      const d5 = rows[3].hearts; if (d5 < 0.8 || d5 > 1.4) problems.push(`第 5 區每關 ${d5.toFixed(2)} 顆（應 0.8～1.4）`);
+      for (const r of rows) if (r.sec > 90) problems.push(`第 ${r.d} 區平均 ${r.sec.toFixed(0)} 秒`);
+      const txt = rows.map(r => `第 ${r.d} 區 ${r.hearts.toFixed(2)} 顆／${r.sec.toFixed(0)} 秒`).join("、");
+      return { pass: !problems.length, value: (problems.length ? problems.join("；") + "｜" : "") + txt };
+    }}
+  , { id: "AC-S30", name: "每區難度元件：球的大小、滑板大小、磚血、中柱數量、彈道預覽、拖尾長度", run(T) {
+      const problems = [], R = SR.Rules;
+      const radii = [5, 15, 25, 35, 45].map(n => SR.ballRadiusFor ? SR.ballRadiusFor(n) : NaN);
+      if (radii.join() !== "12,12,11,10.5,10.5") problems.push(`球半徑 ${radii.join("／")}`);
+      const w = P().buildTable(T); w.ballRadius = radii[3]; w.radiusBonus = 1.5 * 2;
+      if (P().ballRadius(T, w) !== 13.5) problems.push(`第 35 關大罐 2 級＝${P().ballRadius(T, w)}`);
+      if (T.paddle.half_widths.S !== 48) problems.push(`小滑板半寬 ${T.paddle.half_widths.S}`);
+      const sizes = [3, 25, 35, 10].map(n => SR.paddleSizeFor(n));
+      if (sizes.join() !== "M,M,S,S") problems.push(`滑板 ${sizes.join("／")}`);
+      // 第 4、5 區不再少 1 血：每塊磚 ≥ 圖案數字、≤ 圖案數字 + 1
+      for (let n = 31; n <= 49; n++) if (n % 10) for (const c of SR.buildStage(n).cells) if (c.type === "brick" && (c.base == null || c.hp < c.base || c.hp > c.base + 1)) { problems.push(`第 ${n} 關有磚 ${c.hp} 血（圖案 ${c.base}）`); break; }
+      SR.DISTRICT_LAYOUTS.forEach((list, d) => { if (d) for (const id of list) { const pairs = (SR.LAYOUTS[id].bumpers || []).length / 2; if (pairs > (d === 1 ? 2 : 1)) problems.push(`${id} 有 ${pairs} 對中柱`); } });
+      if (R.assistsFor(25).preview) problems.push(`第 25 關還有 ${R.assistsFor(25).preview} 秒預覽`);
+      const trails = [5, 15, 25, 35, 45].map(n => SR.trailFor ? SR.trailFor(n) : NaN);
+      if (trails.join() !== "8,8,4,0,0") problems.push(`拖尾 ${trails.join("／")}`);
+      return { pass: !problems.length, value: problems.length ? [...new Set(problems)].slice(0, 6).join("；") : "球 12／12／11／10.5／10.5、大罐 2 級 13.5、滑板 M／M／S／S（S 半寬 48）、第 4、5 區磚不再少血、中柱數量、預覽、拖尾 8／8／4／0／0 都對" };
     }}
   , { id: "AC-S25", name: "全破的街區按「從頭再打一次」從第 1 關開始", run() {
       const cases = [[1, 1], [6, 6], [11, 1], [51, 1]];             // 規則書 game-ui 的範例表

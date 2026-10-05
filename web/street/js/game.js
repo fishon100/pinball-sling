@@ -342,10 +342,11 @@
     G.assists = R.assistsFor(n);
     G.world = P.buildTable(T, G.assists, SR.layoutFor(n), control());
     if (G.world.paddle) G.world.paddle.size = SR.paddleSizeFor(n);
+    G.world.ballRadius = SR.ballRadiusFor(n);                 // v3.7：第 3 區起球變小
     P.placeStage(G.world, G.stage); R.applyBonuses(G.run, G.world);
     G.world.balls = [P.newBall(T, G.world)];
     G.run.stage = n; G.ps = R.newPlayState(); G.stageTime = 0; G.heartsLost = 0; G.ballSave = 0;
-    G.continued = !!opts.continued; G.itemFx = { slow: 0, save: 0, wide: 0 }; G.lastBreakT = 0; G._finTold = false; G.fishHits = 0; G.landing = null;
+    G.continued = !!opts.continued; G.itemFx = { slow: 0, save: 0, wide: 0 }; G.lastBreakT = 0; G._finTold = false; G._boostTold = false; G.fishHits = 0; G.landing = null;
     G.particles = []; G.popups = []; G.trails = new Map(); G.lastBreak = null; G.plunger = { holding: false, charge: 0 };
     newPaintLayer(); G.cam.y = Math.min(G.world.top, P.CAM_MAX); G.timeScale = 1; G.screen = "story";
     G.tut = n === 1 && !save.tutorialDone ? { step: "press", t: 0, flips: 0 } : null;
@@ -467,6 +468,10 @@
           else { AU.play("brickBreak", Math.min(8, ps.combo / 4)); G.shake = Math.max(G.shake, 3); vibrate(18 + Math.min(20, ps.combo)); }
           break;
         }
+        case "boost":                                       // 加速帶（v3.7）
+          AU.play("boost"); vibrate(10);
+          if (!G._boostTold) { G._boostTold = true; say("踩到加速帶，球變快了！", "wow", 1600); }
+          break;
         case "bumper":
           e.c.flash = e.c.kind === "fish" ? 0.4 : 0.12; run.score += 5; AU.play("bumper"); vibrate(14);
           if (e.c.kind === "fish") { G.fishHits++; if (G.fishHits === 1) say("阿鰭：「好痛……把球吐回去！」", "wow", 1800); }
@@ -576,7 +581,8 @@
             handleEvents(ev);
           }
           for (const b of G.world.balls) {
-            const tr = G.trails.get(b.id) || []; tr.push({ x: b.x, y: b.y }); if (tr.length > 8) tr.shift(); G.trails.set(b.id, tr);
+            // 拖尾光長度看區（v3.7：第 3 區剩一半、第 4、5 區沒有）
+            const max = SR.trailFor(G.stage.n), tr = G.trails.get(b.id) || []; tr.push({ x: b.x, y: b.y }); while (tr.length > max) tr.shift(); G.trails.set(b.id, tr);
           }
           if (G.hitstop > 0 || G.screen !== "play") { if (G.screen !== "clearing") acc = 0; break; }
         }
