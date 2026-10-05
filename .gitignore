@@ -18,3 +18,4 @@ tools/vault.config.json
 
 # 工作台同步的暫存輸出
 workbench-out/
+docs/spectra/.vector-search.db*
