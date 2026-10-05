@@ -600,6 +600,21 @@ SR.Tests = (function () {
       return { pass: pulling && afterDown === 180 && afterMove === 180 && afterRelease !== 180,
         value: `拉桿中 ${pulling ? "是" : "否"}・按下後目標 ${Math.round(afterDown)}・拖動後 ${Math.round(afterMove)}・放開後移動 ${Math.round(afterRelease)}` };
     }}
+    , { id: "AC-S32", name: "手機畫面（390×680）道具欄出現後，台面不會被道具欄或上方資訊列蓋住", async run(frame) {
+      const old = [frame.style.width, frame.style.height];
+      frame.style.width = "390px"; frame.style.height = "680px";
+      try {
+        const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 12, items: { bomb: 1, slow: 1, save: 1, ball: 1, wide: 1 } }), g = w.SR_GAME;
+        g.startDistrict(1, 12);
+        if (!toLaunch(w)) return { pass: false, value: "沒有進入遊玩" };   // 開場運鏡會傾斜縮放台面，要等開打後才量
+        await new Promise(r => setTimeout(r, 250));                 // 等版面重新排好、畫面更新一次
+        const box = id => w.document.getElementById(id).getBoundingClientRect();
+        const cv = box("game"), bar = box("itembar"), hud = box("hud");
+        const shown = !w.document.getElementById("itembar").hidden;
+        return { pass: shown && cv.bottom <= bar.top + 0.5 && cv.top >= hud.bottom - 0.5,
+          value: `道具欄 ${shown ? "有" : "沒有"}出現・台面底 ${Math.round(cv.bottom)} vs 道具欄頂 ${Math.round(bar.top)}・台面頂 ${Math.round(cv.top)} vs 資訊列底 ${Math.round(hud.bottom)}` };
+      } finally { frame.style.width = old[0]; frame.style.height = old[1]; }
+    }}
   ];
   async function runGame(frame) {
     const out = [];

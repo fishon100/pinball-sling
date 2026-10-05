@@ -72,8 +72,11 @@
   function updateItemBar() {
     const bar = $("itembar"), items = save.items || {};
     const show = G.stage && G.screen !== "title" && G.screen !== "map" && (G.stage.district >= 1 || SR.ITEMS.some(i => items[i.id] > 0));
+    // 道具欄出現／消失：按鈕填好後馬上重算台面大小（之後每幀 tick 也會檢查台面區大小）
+    const toggled = bar.hidden === show;
     bar.hidden = !show;
-    if (!show) return;
+    if (!show) { if (toggled) fit(); return; }
+    if (toggled) bar.dataset.key = "";
     const key = SR.ITEMS.map(i => (items[i.id] || 0) + (G.itemFx.slow > 0 && i.id === "slow" ? "a" : "") + (G.itemFx.save > 0 && i.id === "save" ? "a" : "") + (itemWide() && i.id === "wide" ? "a" : "")).join(",") + G.screen;
     if (bar.dataset.key === key) return;
     bar.dataset.key = key;
@@ -82,6 +85,7 @@
       return `<button class="item-btn ${active ? "active" : ""}" data-item="${i.id}" ${n && G.screen === "play" ? "" : "disabled"} title="${i.desc}"><span class="ico">${i.icon}</span>${i.name}${n ? `<span class="n">${n}</span>` : ""}</button>`;
     }).join("");
     bar.querySelectorAll("[data-item]").forEach(b => b.addEventListener("click", () => useItem(b.dataset.item)));
+    if (toggled) fit();
   }
   function itemWide() { return !!G.world && ((G.world.paddle && G.world.paddle.wide > 0) || G.itemFx.wide > 0); }
   function useItem(id) {
@@ -520,6 +524,9 @@
   /* 一幀的全部邏輯（也給自動驗收手動推進用：SR_GAME.tick(1/60)） */
   function tick(dt) {
     G.t += dt;
+    // 台面區大小變了（道具欄出現、提示文字變兩行…）就重算台面大小，台面永遠不會被蓋住
+    const wh = $("stagewrap").clientHeight;
+    if (wh !== G.wrapH) { G.wrapH = wh; fit(); }
     tickDialog(dt);
     drawPinkyHud(dt);
     // 特效衰減（真實時間）

@@ -2,9 +2,9 @@
 
 ### Requirement: Rising Difficulty Measured At Human Speed
 
-The game SHALL make later districts harder while every table stays short: through fewer pop bumpers, a smaller ball from district 3, a small paddle on district 4–5 normal stages and on every boss stage, harder bricks from district 3, boost pads from district 3, and fewer assists. District 1 SHALL stay beatable for a beginner, and difficulty SHALL be measured by a human-like player model (reaction 0.32 s, aim error 22 px) rather than machine-speed play.
+The game SHALL make later districts harder while every table stays short: through fewer pop bumpers, a smaller ball from district 3, a small paddle on district 4–5 normal stages and on every boss stage, harder bricks from district 3, boost pads from district 3, fewer ball guides (no trajectory preview or landing ring from district 3, a shorter ball trail in district 3 and none in districts 4–5), and fewer assists. District 1 SHALL stay beatable for a beginner, and difficulty SHALL be measured by a human-like player model (reaction 0.32 s, aim error 22 px) rather than machine-speed play.
 
-> 中文：越後面越難，但台面都一樣矮：中柱變少、球變小、滑板變小、磚變硬、多了加速帶、輔助變少；第 1 區要讓新手打得過，難度一定用「模擬真人手速」的自動玩家量。
+> 中文：越後面越難，但台面都一樣矮：中柱變少、球變小、滑板變小、磚變硬、多了加速帶、球的軌跡提示（預覽線、落點圈、拖尾光）越來越少、輔助變少；第 1 區要讓新手打得過，難度一定用「模擬真人手速」的自動玩家量。
 
 #### Scenario: Every table is short
 
@@ -14,7 +14,7 @@ The game SHALL make later districts harder while every table stays short: throug
 #### Scenario: Assists shrink by district
 
 - **WHEN** a stage of each district starts
-- **THEN** trajectory preview SHALL be 1.0 / 0.7 / 0.4 / 0 / 0 seconds, the timing or landing hint SHALL be on only in districts 1–2, extra ball save SHALL be 3 / 1.5 / 0 / 0 / 0 seconds, and the finisher assist SHALL be on only in districts 1–2
+- **THEN** trajectory preview SHALL be 1.0 / 0.7 / 0 / 0 / 0 seconds, the timing or landing hint SHALL be on only in districts 1–2, extra ball save SHALL be 3 / 1.5 / 0 / 0 / 0 seconds, and the finisher assist SHALL be on only in districts 1–2
 
 #### Scenario: Paddle shrinks in late districts
 
