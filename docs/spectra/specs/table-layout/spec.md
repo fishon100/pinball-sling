@@ -20,45 +20,26 @@ The game SHALL use the short table in every stage: every layout's `top` value SH
 ---
 ### Requirement: Layout Rotation Per Stage
 
-The game SHALL pick each stage's layout with `SR.layoutFor(n)`: district index `d = min(4, floor((n-1)/10))`, and layout `SR.DISTRICT_LAYOUTS[d][((n-1) mod 10) mod listLength]`. District 1 SHALL use the fixed 10-entry list a_pair, a_tri, a_rubber, a_four, a_fish, a_tri, a_rubber, a_fish, a_four, a_pair; district 2 SHALL cycle b_tri, b_steps, b_fish; district 3 SHALL cycle c_pair, c_rubber, c_fish; district 4 SHALL cycle d_tri, d_high, d_fish; district 5 SHALL cycle d_high, d_tri, d_classic, d_fish, d_tri. Two consecutive stages inside the same district SHALL NOT use the same layout. The stage intro SHALL display the text "台面：<layout name>".
+The game SHALL use for each stage the layout named in its 「台面配置」 column of the level table, and SHALL build that layout's geometry from the layout table 「台面配置表」 (pop bumpers, fish, rubber rails, boost pads; every layout uses the short table, top 320). The stage intro SHALL display the text "台面：<layout name>". The first level table keeps the v3.7.1 rotation; a stage using the same layout as the previous stage SHALL only be reported, not blocked.
 
-> 中文：每一關換一種台面配置，同一區相鄰兩關一定不一樣，開場會顯示「台面：○○」。
+> 中文：每關用哪個台面看關卡表的「台面配置」欄，台面長什麼樣看「台面配置表」；開場會顯示「台面：○○」；相鄰兩關一樣只報告、不擋。
 
-#### Scenario: Adjacent stages differ
+#### Scenario: Layout from the table
 
-- **WHEN** stage n (2 to 50, not the first stage of a district) and stage n-1 are compared
-- **THEN** `SR.layoutFor(n)` and `SR.layoutFor(n-1)` are different layouts
-
-##### Example: Layout picks
-
-| Stage | Layout |
-|---|---|
-| 1 | a_pair (雙柱) |
-| 5 | a_fish (阿鰭) |
-| 11 | b_tri (三角柱) |
-| 13 | b_fish (阿鰭) |
-| 23 | c_fish (阿鰭) |
-| 44 | d_fish (阿鰭) |
+- **WHEN** row 15 sets 台面配置 to d_high and the table is synced
+- **THEN** stage 15 is built with the d_high bumpers, boost pads and name "高柱"
 
 #### Scenario: Intro shows the layout name
 
 - **WHEN** a stage intro plays
 - **THEN** the intro shows "台面：" followed by the layout's Chinese name, for example "台面：雙柱" on stage 1
 
-
-<!-- @trace
-source: baseline-specs
-updated: 2026-10-05
-code:
-  - CLAUDE.md
--->
-
 ---
 ### Requirement: Pop Bumpers
 
-The game SHALL place each layout's pop bumpers (planner term 「中柱」) as left-right mirrored pairs at (x, y) and (360 - x, y). Later districts SHALL have fewer bumpers: a district 1 layout SHALL have 1 to 3 pairs, a district 2 layout at most 2 pairs, and a district 3, 4 or 5 layout at most 1 pair. A ball touching a bumper (bumper radius 22 px) SHALL be pushed away with a normal speed of at least 950 px/s, add 5 points to the score and count as one combo hit. Every bumper, and every point on the fish's swim path, SHALL stay at least 46 px (bumper radius + 2 × ball radius) away from every brick and the boss in all 50 stages.
+The game SHALL place each layout's pop bumpers (planner term 「中柱」) at the coordinates listed in the layout table. A ball touching a bumper (bumper radius 22 px) SHALL be pushed away with a normal speed of at least 950 px/s, add 5 points to the score and count as one combo hit. Every bumper, and every point on the fish's swim path, SHALL stay at least 46 px (bumper radius + 2 × ball radius) away from every brick and the boss in all 50 stages; a sync that breaks this SHALL be blocked. The first layout table keeps the v3.7.1 bumpers (fewer in later districts).
 
-> 中文：中柱左右對稱成對擺放，越後面的區越少（第 2 區最多 2 對、第 3～5 區最多 1 對）；球打到會被用力彈開、加 5 分、算一次連擊；中柱和阿鰭的路線不會貼著磚塊。
+> 中文：中柱的位置照台面配置表；球打到會被用力彈開（至少 950）、加 5 分、算一次連擊；中柱和阿鰭的路線一定離磚 46 px 以上，否則同步會擋下。
 
 #### Scenario: Bumper kicks the ball
 
@@ -70,21 +51,16 @@ The game SHALL place each layout's pop bumpers (planner term 「中柱」) as le
 - **WHEN** any of the 50 stages is built with its own layout
 - **THEN** no bumper center and no sampled fish-path point is closer than 46 px to any brick or the boss
 
-#### Scenario: Fewer bumpers in later districts
-
-- **WHEN** the bumper pairs of every layout used by each district are counted
-- **THEN** every district 2 layout has at most 2 pairs and every district 3, 4 and 5 layout has at most 1 pair
-
 ---
 ### Requirement: Fish Bumper A-Fin
 
-The layouts a_fish, b_fish, c_fish and d_fish SHALL add one swimming fish bumper (阿鰭) with radius 20 px that starts at x = 180 and moves horizontally between x = 70 and x = 290, reversing direction at each end. Its speed SHALL be 70 px/s (a_fish), 90 px/s (b_fish), 110 px/s (c_fish) and 130 px/s (d_fish), and its swim line SHALL lie on the short table at least 46 px from every brick. A ball touching the fish SHALL be kicked like a pop bumper (at least 950 px/s) and SHALL add 1 to the stage's fish-hit count. The first stage with a fish (stage 5) SHALL be preceded by the "d1_fish" comic.
+A layout whose 「阿鰭」 column is filled (y, left bound, right bound, speed) SHALL add one swimming fish bumper (阿鰭) with radius 20 px that starts midway between the bounds at that y and moves horizontally between the bounds at that speed, reversing direction at each end. A ball touching the fish SHALL be kicked like a pop bumper (at least 950 px/s) and SHALL add 1 to the stage's fish-hit count. The first stage with a fish SHALL be preceded by the "d1_fish" comic.
 
-> 中文：阿鰭會在台面上左右游，越後面的區游越快；打到它跟打中柱一樣會彈開，並記一次「打到阿鰭」。
+> 中文：台面配置表有填「阿鰭」的台面，阿鰭會照填的高度、左右界和速度游來游去；打到它跟打中柱一樣會彈開，並記一次「打到阿鰭」。
 
 #### Scenario: Fish turns around at the edge
 
-- **WHEN** the fish on a d_fish table, moving right at 130 px/s, would pass x = 290 in a physics step
+- **WHEN** the fish on a layout with 阿鰭 "690,70,290,130", moving right at 130 px/s, would pass x = 290 in a physics step
 - **THEN** its position is set to x = 290 and its velocity becomes -130 px/s (moving left)
 
 #### Scenario: Fish hit is counted
@@ -94,7 +70,7 @@ The layouts a_fish, b_fish, c_fish and d_fish SHALL add one swimming fish bumper
 
 #### Scenario: Fish is introduced by a comic first
 
-- **WHEN** the first stage whose layout has a fish is found (stage 5)
+- **WHEN** the first stage whose layout has a fish is found
 - **THEN** `SR.storyBefore` of that stage or an earlier one contains "d1_fish"
 
 ---
@@ -120,9 +96,9 @@ code:
 ---
 ### Requirement: Rubber Rails
 
-The a_rubber and c_rubber layouts SHALL add rubber rail segments 3 px inside the side walls (at x = 23 and x = 337) on the lower half of the short table. A ball hitting a rubber rail with a normal speed above 40 px/s SHALL bounce off with a normal speed of at least 640 px/s (sling kick 800 × 0.8).
+A layout's 「彈力牆」 column SHALL add rubber rail segments at the listed endpoints. A ball hitting a rubber rail with a normal speed above 40 px/s SHALL bounce off with a normal speed of at least 640 px/s (sling kick 800 × 0.8).
 
-> 中文：彈力牆貼在左右牆內側 3px，球撞上去會被彈回（至少 640）。
+> 中文：台面配置表的「彈力牆」會在填的位置加上彈力牆，球撞上去會被彈回（至少 640）。
 
 #### Scenario: Rubber rail kicks the ball
 
@@ -156,9 +132,9 @@ code:
 ---
 ### Requirement: Boost Pads
 
-Starting in district 3, normal (non-boss) stages SHALL have boost pads (加速帶): 1 pad in district 3 and 2 pads in districts 4 and 5; districts 1 and 2 and all boss stages SHALL have none. A boost pad is an upward-pointing strip on the table. When a ball's center enters a pad while the ball is moving upward (vertical speed below 0), the game SHALL multiply the ball's speed by 1.35 keeping its direction, raise it to at least 1000 px/s, cap it at 2000 px/s, emit a "boost" event (sound and flash), and SHALL NOT boost the same ball again within 0.5 s. A ball moving downward across a pad SHALL NOT be boosted. Pads SHALL stay at least 46 px away from every brick and bumper.
+A layout's 「加速帶左上角」 column SHALL add one 56 × 14 boost pad (加速帶, arrow pointing up) per listed point; boss stages SHALL have none. When a ball's center enters a pad while the ball is moving upward (vertical speed below 0), the game SHALL multiply the ball's speed by 1.35 keeping its direction, raise it to at least 1000 px/s, cap it at 2000 px/s, emit a "boost" event (sound and flash), and SHALL NOT boost the same ball again within 0.5 s. A ball moving downward across a pad SHALL NOT be boosted. Pads SHALL stay at least 46 px away from every brick and bumper. The first layout table keeps the v3.7.1 pads (1 per district 3 layout, 2 per district 4–5 layout).
 
-> 中文：第 3 區起台面上有「加速帶」（第 3 區 1 條、第 4、5 區 2 條，首領關沒有），像瑪利歐賽車那樣：球往上經過時會被加速 1.35 倍（最多 2000）；球往下掉經過時不加速，免得來不及接。
+> 中文：台面配置表填的位置會出現加速帶（首領關沒有）：球往上經過加速 1.35 倍（最少 1000、最多 2000）、往下不加速、0.5 秒內不重複。
 
 #### Scenario: Upward ball is boosted
 
@@ -183,7 +159,7 @@ Starting in district 3, normal (non-boss) stages SHALL have boost pads (加速�
 - **WHEN** a boosted ball touches the same or another pad again within 0.5 s
 - **THEN** it is not boosted a second time
 
-#### Scenario: Pad count by district
+#### Scenario: No pads on boss stages
 
-- **WHEN** stages 25, 35, 45, 30 and 15 are built
-- **THEN** they have 1, 2, 2, 0 and 0 boost pads respectively
+- **WHEN** a boss stage uses a layout that lists boost pads
+- **THEN** the stage has no boost pads

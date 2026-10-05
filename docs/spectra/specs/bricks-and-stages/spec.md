@@ -8,63 +8,19 @@ Bricks and stages turn walls of grey bricks shaped like letters and pictures int
 
 ### Requirement: Fifty Stages In Five Districts
 
-The game SHALL have 50 stages numbered 1 to 50, grouped into 5 districts of 10 stages each (alley 1–10, subway 11–20, rooftops 21–30, riverside 31–40, downtown 41–50). The 10th stage of every district (stages 10, 20, 30, 40, 50) SHALL be a boss stage and every other stage SHALL NOT contain a boss. Every stage SHALL be generated deterministically by `SR.buildStage(n)` from the fixed seed `n × 7919 + 13`, so the same stage number always yields the same bricks.
+The game SHALL have 50 stages numbered 1 to 50, grouped into 5 districts of 10 stages each (alley 1–10, subway 11–20, rooftops 21–30, riverside 31–40, downtown 41–50). The 10th stage of every district (stages 10, 20, 30, 40, 50) SHALL be a boss stage and every other stage SHALL NOT contain a boss. Every stage SHALL be built from its row of the level table (see level-config), so the same table always yields the same bricks.
 
-> 中文：遊戲有 5 區 × 10 關共 50 關，每區第 10 關是首領關；同一關每次產生的磚都一樣。
+> 中文：遊戲有 5 區 × 10 關共 50 關，每區第 10 關是首領關；每一關照關卡設定表建立，表不變磚就不變。
 
 #### Scenario: Boss only on every 10th stage
 
 - **WHEN** stages 1 to 50 are built and placed on their tables
 - **THEN** a boss exists on stage n exactly when n mod 10 = 0, and every stage has at least one brick or a boss
 
-#### Scenario: Stage generation is repeatable
+#### Scenario: Stage building is repeatable
 
-- **WHEN** `SR.buildStage(n)` is called twice for the same n
+- **WHEN** `SR.buildStage(n)` is called twice for the same n with the same level table
 - **THEN** both results have identical cells (row, column, type and HP)
-
-
-<!-- @trace
-source: baseline-specs
-updated: 2026-10-05
-code:
-  - CLAUDE.md
--->
-
----
-### Requirement: Text-Shaped Brick Patterns
-
-Each non-boss stage SHALL use pattern `SR.PATTERNS[(local + d × 3) mod 13]`, where `d` is the 0-based district index and `local` is `(n-1) mod 10`. The 13 patterns SHALL be HI, 愛心, 笑臉, 箭頭, 條紋, 金字塔, 棋盤, 鑽石, 堡壘, GO, YO, OK and :). From district 2 on (d ≥ 1) the pattern SHALL be mirrored left-right with 50% chance; from district 3 on (d ≥ 2) the game SHALL append `min(3, d - 1)` extra rows copied from the last rows. Boss stages SHALL use the 灰先生 boss pattern without mirroring or extra rows. Each pattern character SHALL map to a cell: `.` empty, `1`–`3` a brick with that base HP, `B` a paint bucket, `X` the boss.
-
-> 中文：關卡是用 13 種文字／圖案排成的磚牆；第 2 區起會隨機左右翻轉，第 3 區起多加 1～3 排。
-
-#### Scenario: Pattern choice by stage
-
-- **WHEN** stages are generated
-- **THEN** the stage name equals the chosen pattern's name
-
-##### Example: Pattern per stage
-
-| Stage | d | local | Pattern |
-|---|---|---|---|
-| 1 | 0 | 0 | HI |
-| 9 | 0 | 8 | 堡壘 |
-| 11 | 1 | 0 | 箭頭 |
-| 21 | 2 | 0 | 棋盤 |
-| 41 | 4 | 0 | :) |
-| 30 | 2 | 9 | 首領：灰先生 |
-
-#### Scenario: Extra rows in later districts
-
-- **WHEN** a non-boss stage of district 3, 4 or 5 is generated
-- **THEN** its row count is the pattern's row count plus 1, 2 or 3 respectively
-
-
-<!-- @trace
-source: baseline-specs
-updated: 2026-10-05
-code:
-  - CLAUDE.md
--->
 
 ---
 ### Requirement: Brick Grid Placement
@@ -89,29 +45,14 @@ code:
 ---
 ### Requirement: Brick Hit Points
 
-The game SHALL give each `1`–`3` brick its digit as base HP, then add 1 HP with probability `min(0.65, 0.14 × d + 0.025 × local)`. Brick HP SHALL NOT be reduced in any district (the former district 4–5 reduction of 1 HP is removed, which makes district 4–5 bricks harder than before). Brick HP SHALL be capped at 5. Paint buckets and gift bricks SHALL always have 1 HP.
+Each brick's HP SHALL be the digit written in its level-table wall cell (1–5). Paint buckets (`B`) and gift bricks (`G`) SHALL always have 1 HP. The first level table keeps the v3.7.1 values (pattern digit, a district- and stage-dependent chance of +1 HP, no district 4–5 reduction).
 
-> 中文：磚血從圖案的數字開始，越後面的區與關越容易多 1 血（最多 65% 機率），最多 5 血；第 4、5 區不再「每塊少 1 血」，所以比以前硬。
+> 中文：每塊磚的血就是關卡表磚牆上寫的數字（1～5）；油漆桶和道具磚一律 1 血。
 
-#### Scenario: No bonus HP on the first stage
+#### Scenario: HP comes from the table
 
-- **WHEN** stage 1 is generated
-- **THEN** every brick's HP equals its pattern digit (bonus chance 0)
-
-##### Example: Bonus HP chance
-
-| Stage | d | local | Bonus chance |
-|---|---|---|---|
-| 1 | 0 | 0 | 0 |
-| 9 | 0 | 8 | 0.20 |
-| 15 | 1 | 4 | 0.24 |
-| 35 | 3 | 4 | 0.52 |
-| 49 | 4 | 8 | 0.65 (capped from 0.76) |
-
-#### Scenario: Late districts are no longer reduced
-
-- **WHEN** any normal brick in stages 31–49 (excluding boss stages) is generated
-- **THEN** its HP is at least its pattern digit and at most its pattern digit + 1
+- **WHEN** a stage's wall row is "123451234"
+- **THEN** its bricks have 1, 2, 3, 4, 5, 1, 2, 3 and 4 HP from left to right
 
 ---
 ### Requirement: Brick Damage And Bounce
@@ -146,19 +87,14 @@ code:
 ---
 ### Requirement: Gift Bricks
 
-From stage 2 on (stages 2–50), the game SHALL turn plain bricks into gold gift bricks with 1 HP: 2 or 3 per stage (50% chance each), including boss stages. It SHALL pick among the plain bricks with the lowest HP first (normally 1 HP bricks), so every stage from 2 to 50 gets its full count. Stage 1 (the tutorial stage) SHALL NOT have gift bricks. Destroying a gift brick SHALL release an item capsule (see power-ups-and-items, Item Capsules).
+Gift bricks SHALL be exactly the cells marked `G` in the level table, each with 1 HP; destroying one SHALL release an item capsule (see power-ups-and-items, Item Capsules). The first level table has 2 or 3 gift bricks on every stage from 2 to 50, including boss stages, and none on stage 1.
 
-> 中文：第 2 關起每關一定有 2～3 塊金色道具磚（首領關也有，第 1 關教學關沒有）；先挑 1 血的磚，不夠就挑血最少的磚改成 1 血；打碎會掉下一顆道具膠囊。
+> 中文：道具磚就是關卡表上標 G 的格子（1 血），打碎掉下一顆道具膠囊；第一版表是第 2 關起每關 2～3 塊、第 1 關沒有。
 
-#### Scenario: Gift count by stage
+#### Scenario: Gift bricks follow the table
 
-- **WHEN** stages 1–50 are generated
-- **THEN** stage 1 has 0 gift bricks and every stage from 2 to 50 has 2 or 3 gift bricks, each with 1 HP
-
-#### Scenario: Not enough 1 HP bricks
-
-- **WHEN** stage 23 is generated (it has only one plain 1 HP brick)
-- **THEN** it still has 2 or 3 gift bricks, the extra ones taken from the lowest-HP plain bricks and set to 1 HP
+- **WHEN** a stage's wall has G in two cells
+- **THEN** the stage has exactly two gift bricks, at those cells
 
 ---
 ### Requirement: Stage Clear

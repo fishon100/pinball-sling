@@ -8,28 +8,26 @@ Newbie assist lets a first-time player clear the first district while losing at 
 
 ### Requirement: Per-District Assist Schedule
 
-The game SHALL take the active assists of a stage from the district that contains the stage (stages 1-10 district 1, 11-20 district 2, 21-30 district 3, 31-40 district 4, 41-50 district 5), and SHALL apply exactly the values in the table below. The map card of every unlocked district SHALL list that district's preview seconds, landing hint (paddle) or flipper timing hint (flipper), and extra ball-save seconds, and SHALL show "沒有輔助：全靠你的手感" when none of those three is active.
+The game SHALL take the active assists of each stage from its row in the level table: trajectory preview seconds (「彈道預覽秒」), landing or flipper timing hint (「落點提示」 是／否), extra ball-save seconds (「加長球保險秒」) and finisher assist (「收尾輔助」 是／否). The map card of every unlocked district SHALL list the assists of the district's first stage, and SHALL show "沒有輔助：全靠你的手感" when none of preview, hint and extra ball save is active there. The first level table keeps the v3.7.1 values.
 
-> 中文：輔助跟著街區走，只有第 1、2 區有彈道預覽線和落點圈；第 3 區起全部關掉，地圖卡片上會寫出這一區有哪些輔助。
+> 中文：每關的輔助看關卡表（預覽秒數、落點提示、加長球保險、收尾輔助）；地圖卡片寫出這一區第一關的輔助，都沒有就顯示「沒有輔助：全靠你的手感」。
 
-#### Scenario: Assists come from the stage's district
+#### Scenario: Assists come from the table
 
 - **WHEN** a stage starts
-- **THEN** the trajectory preview, landing/timing hint, extra ball save and finisher assist SHALL match the row of the stage's district
+- **THEN** the trajectory preview, landing/timing hint, extra ball save and finisher assist SHALL match the stage's row
 
-##### Example: Assist values per district
+##### Example: Assist values in the first table
 
-| District | Stages | Preview (s) | Landing / timing hint | Extra ball save (s) | Finisher |
-|---|---|---|---|---|---|
-| 1 巷口 | 1-10 | 1.0 | on | 3 | on |
-| 2 地鐵站 | 11-20 | 0.7 | on | 1.5 | on |
-| 3 屋頂 | 21-30 | 0 | off | 0 | off |
-| 4 河堤 | 31-40 | 0 | off | 0 | off |
-| 5 市中心大牆 | 41-50 | 0 | off | 0 | off |
+| Stages | Preview (s) | Landing / timing hint | Extra ball save (s) | Finisher |
+|---|---|---|---|---|
+| 1-10 | 1.0 | 是 | 3 | 是 |
+| 11-20 | 0.7 | 是 | 1.5 | 是 |
+| 21-50 | 0 | 否 | 0 | 否 |
 
 #### Scenario: Map card shows no-assist line
 
-- **WHEN** the player opens the map and district 3 is unlocked
+- **WHEN** the player opens the map, district 3 is unlocked and stage 21 has no preview, no hint and no extra ball save
 - **THEN** the district 3 card SHALL show "沒有輔助：全靠你的手感"
 
 #### Scenario: Assist announcement on the first stage of a district
