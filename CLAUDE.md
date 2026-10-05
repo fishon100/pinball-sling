@@ -39,7 +39,8 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 
 ## 文件規則（企劃要求，2026-10-05）
 - 「看回饋」＝讀 `彈珠專案/回饋.md` 最上面的「第 N 輪」；處理完把標題改成「已處理 → 版本」並開下一輪空段落；回饋裡貼的圖搬到 `03 媒體庫/參考圖/`，改成 `類別-內容.png` 並更新連結
-- **改一個功能只改那份功能規劃書**（含修改紀錄）；新增功能要新增規劃書並加進主架構規劃書的索引與名詞與命名總表
+- **正式規則＝`docs/spectra/specs/<capability>/spec.md`**（2026-10-05 起，英文規則＋每條一行 `> 中文：`）。任何改動（回饋、新功能、bug）都走 Spectra 申請單：`docs/spectra/changes/<name>/`（proposal → specs 差異 → design → tasks）→ 企劃說「開始」才實作（修 bug 且企劃已說要修時可直接做）→ 先寫會失敗的測試再修 → 部署 → 歸檔 `spxa archive <name> -y`（把規則併回 specs）。Obsidian 的主架構規劃書與 F01～F15 改為背景說明，最上面有連到對應規則書的註記
+- 功能規劃書要記背景時，只改那一份（含修改紀錄）；新增功能要新增規則書（capability）並加進名詞與命名總表
 - **單一來源**：劇情＝`02 知識庫/劇情/劇情腳本`（對應 `data.js` 的 `SR.COMICS`）、角色＝角色卡、數值＝`數值總表`（對應 `tuning.js`）、名詞＝`名詞與命名總表`。其他文件用 `![[ ]]` 嵌入，不重抄。企劃說「同步 <檔名>」→ 把文件內容套用到程式並跑相關測試；程式改了這些內容 → 回寫到對應的知識庫文件
 - 「套用調參」＝企劃從遊戲內手感調整面板（`web/street/js/tune.js`，暫停 → 🎚 手感調整）複製的「參數：原 → 新」清單。寫進 `tuning.js` 的 `STREET_TUNING`（**不要改 `data/tuning.json`**，那是 Godot v2 共用、會動到 AC1–AC13），更新 `數值總表`，跑 22 項測試＋擬人玩家難度，數字有變就更新 F15
 - Spectra（`spxa`，在 `D:\tools\node`）：Windows PowerShell 5.1 用管線餵 `spxa new artifact … --stdin` 會在檔頭加 BOM，Spectra 就讀不到第一個標題（例如 `## Purpose`）。做法：先用 Write 工具把內容寫成檔案，再用 `cmd /c "D:\tools\node\spxa.cmd new artifact … --stdin < 檔案"` 餵進去（`$OutputEncoding` 改了也沒用，npm 的 spxa.ps1 還是會加）
@@ -66,7 +67,7 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 - 改了規格要同步更新 Obsidian 的對應文件
 
 ## v3 噴漆闖關（`web/street/`，網頁版，部署在 `/street/`）
-- **完整設計以 Obsidian `彈珠專案/00 主架構規劃書` ＋ `01 功能規劃書/` 為準**（見上方「文件規則」）
+- **正式規則以 `docs/spectra/specs/` 為準**；Obsidian `彈珠專案/00 主架構規劃書` ＋ `01 功能規劃書/` 是背景說明（見上方「文件規則」）
 - 舊的版本規格在 `04 紀錄/版本規格/`（02、06、07、08、10、11、12）；素材提示詞已併入 `03 媒體庫/` 的素材清單
 - v3.5：滑板三種尺寸（`tuning.js` paddle.half_widths S/M/L；一般關卡 M、首領關 S、道具「寬板」L，`SR.paddleSizeFor`），可移動整個台面寬（x 20～340），滑板模式沒有彈弓與漏斗；發射桿是「按住往下拉」（`setPlunger／pullPlunger`，拉不到 8% 不發射）；第一次進遊戲播開場動畫（`save.seenOpening`）
 - 只有網頁版（設計驗證階段），Godot 版仍是 v2 台面；移植要等設計定案
