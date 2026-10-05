@@ -44,7 +44,8 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 - `彈珠專案/`：`00 主架構規劃書`（遊戲核心）、`01 功能規劃書/F01～F15`、`02 知識庫/`（劇情腳本、角色、街區、數值總表、名詞與命名總表）、`03 媒體庫/`（美術／音樂音效清單、參考圖）、`04 紀錄/`（開發日誌、舊版本規格、舊版文件，只看不改）、`回饋.md`（企劃試玩回饋）
 
 ## 文件規則（企劃要求，2026-10-05）
-- **工作台**：https://fishon100.github.io/game-dev-flow-template/workbench/?repo=fishon100/pinball-sling （workbench Action 自動更新；說「更新工作台」＝`gh workflow run workbench`）
+- **管理台（電腦）**：https://fishon100.github.io/game-dev-flow-template/console/?repo=fishon100/pinball-sling （流程樹、申請單進度鏈、規則書、內容庫、素材庫；內容來自 `docs/企劃/`）
+- **工作台（手機）**：https://fishon100.github.io/game-dev-flow-template/workbench/?repo=fishon100/pinball-sling （workbench Action 自動更新；說「更新工作台」＝`gh workflow run workbench`）
 - **企劃同意**＝申請單 `tasks.md` 的 `0.1 企劃確認` 已勾（規則見 `docs/spectra/config.yaml`）。`/spectra-apply` 前先 `git pull` 確認；沒勾就停，請企劃到工作台同意。企劃在對話中說「同意 <名稱>」時才可以由 AI 勾，並註明「（企劃於對話中同意，日期）」。舊規則「企劃說開始」等同於說「同意」
 - 「看回饋」＝先讀 GitHub 未處理的「回饋」Issue（`gh issue list -l 回饋 -s open`；處理完回覆並關閉），再讀 `彈珠專案/回饋.md` 最上面的「第 N 輪」；處理完把標題改成「已處理 → 版本」並開下一輪空段落；回饋裡貼的圖搬到 `03 媒體庫/參考圖/`，改成 `類別-內容.png` 並更新連結
 - **正式規則＝`docs/spectra/specs/<capability>/spec.md`**（2026-10-05 起，英文規則＋每條一行 `> 中文：`）。任何改動（回饋、新功能、bug）都走 Spectra 申請單：`docs/spectra/changes/<name>/`（proposal → specs 差異 → design → tasks）→ 推上去（自動開申請單 Issue）→ 企劃同意（0.1 已勾）才實作（修 bug 且企劃已說要修時可直接做）→ 先寫會失敗的測試再修 → 部署 → 歸檔 `spxa archive <name> -y`（把規則併回 specs）。Obsidian 的主架構規劃書與 F01～F15 改為背景說明，最上面有連到對應規則書的註記
