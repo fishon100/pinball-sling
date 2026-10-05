@@ -1,0 +1,28 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+context: |
+  Game: 噴漆闖關 SPRAY RUN — pinball × brick breaker web game (test project for the team's AI dev-flow framework).
+  Tech: plain JS canvas in web/street/js (data/tuning/physics/rules/art/comic/audio/game/tests.js); Godot 4.7 v2 table in project root.
+  Tests: web/street/test.html (browser, 22 tests) + godot tests/run_tests.gd; difficulty MUST be measured with human-like bots (SR.Tests.HUMAN), never machine reaction speed.
+  Every JS change bumps ?v= in web/street/index.html and test.html. Deploy with tools/deploy.ps1.
+  Readers are game planners new to programming: write proposal/design/tasks in plain Traditional Chinese.
+  Hard rules from the planner: never add a drain-blocking center post; 「中柱」 means pop bumper; story is a fairy tale, never slapstick; never show 起承轉合 in UI.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
