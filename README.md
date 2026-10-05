@@ -1,5 +1,7 @@
 # Pinball Sling｜彈射感原型
 
+> **開發管理台**（進度、提案、規則書、企劃內容、素材、交給 AI）：[💻 電腦版](https://fishon100.github.io/game-dev-flow-template/console/?repo=fishon100/pinball-sling)・[📱 手機版](https://fishon100.github.io/game-dev-flow-template/workbench/?repo=fishon100/pinball-sling)
+
 Godot 4.7 彈珠台。物理自製、手感參數全在 `data/tuning.json`。
 
 | 版本 | 網址 | 原始碼 |
