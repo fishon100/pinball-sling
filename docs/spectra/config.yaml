@@ -15,7 +15,24 @@ context: |
   Tests: web/street/test.html (browser, 22 tests) + godot tests/run_tests.gd; difficulty MUST be measured with human-like bots (SR.Tests.HUMAN), never machine reaction speed.
   Every JS change bumps ?v= in web/street/index.html and test.html. Deploy with tools/deploy.ps1.
   Readers are game planners new to programming: write proposal/design/tasks in plain Traditional Chinese.
-  Hard rules from the planner: never add a drain-blocking center post; 「中柱」 means pop bumper; story is a fairy tale, never slapstick; never show 起承轉合 in UI.
+  # ↓ 以下抄自 docs/企劃/規劃書/00 主架構規劃書.md（正本在 Obsidian）；規劃書改了這裡要跟著改
+  One-liner (一句話): 把灰城砸回彩色——在一台老彈珠台裡，把鋼珠打上去、打碎灰色磚牆；每打開一面牆，城裡真的那面牆就會開出顏色。
+  Core aim: 彈射感要到位（擊球那一下要爽、可預期）。
+  Design pillars (設計支柱，every proposal must serve at least one):
+    彈射感｜擊球、發射、彈開都要有力、可預期
+    人人都能玩｜第 1 區新手每關 0～1 顆愛心（用人的手速量）
+    每關都新鮮｜台面配置、磚塊圖案、阿鰭輪流出現
+    有故事的街頭｜童話＋格漫畫，打開的牆＝城裡開花
+    大膽的噴漆美術｜粗描邊、霓虹、高彩度
+  Core loop: 選關（地圖）→ 漫畫轉場 → 拉發射桿 → 用滑板接球、打碎灰磚 → 過關：獎牌（依愛心）＋抽一罐強化 → 重玩／下一關／回地圖 → 第 10 關打倒灰先生 → 解放這一區 → 下一區（共 5 區 50 關）
+  Hard rules from the planner (核心規則，不能改，改了就不是這款遊戲):
+    1. 彈珠物理：鋼珠受重力、會反彈；台面、牆、彈跳柱都是真的物理碰撞
+    2. 掉球是正常的風險：球從底部掉下去就扣愛心；不加「擋在出口的救球柱」這類違反彈珠基本架構的東西（「中柱」指的是彈跳柱 pop bumper，不是擋出口的柱子）
+    3. 打碎灰磚＝把顏色帶回城裡：過關條件是打碎所有灰磚（首領關打倒灰先生）
+    4. 一輪 3 顆愛心，過關回 1 顆（最多 5），用完可投幣續關
+    5. 越後面越難：台面越高、輔助越少、首領關滑板變小；第 1 區必須讓新手打得過
+    6. 難度一定用擬人玩家（人的手速）量，不用機器速度
+    7. 故事是童話：不搞笑；畫面上不顯示「起承轉合」
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
@@ -32,6 +49,7 @@ rules:
     - 「Why」用企劃看得懂的話寫：玩家遇到什麼問題、這次要解決什麼
     - 最後一節固定是「## 需要企劃確認的事」：數值、文字、取捨條列出來（沒有就寫「無」）
     - 有拿掉或改變玩家已經習慣的東西時，標 **BREAKING** 並說明影響
+    - 「Why」寫出這張提案服務哪一個設計支柱；會碰到核心規則（1～7）的，在「需要企劃確認的事」第一條寫「⚠️ 會改到核心規則第 N 條：…」，企劃沒同意前不能做
   specs:
     - 每條規則下面至少一個「情境：當…，則…」，之後會一對一變成自動測試
     - 規則後面附一行中文說明（> 中文：…）
