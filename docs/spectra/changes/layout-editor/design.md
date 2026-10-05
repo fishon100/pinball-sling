@@ -42,6 +42,10 @@
 
 複製內容＝台面配置表一列，用 tab 分隔，欄位順序跟試算表一樣；座標格式沿用 `SR.LevelCheck.toRows` 的寫法，貼回後同步會原樣讀回（測試會驗證「複製 → 讀回」一致）。
 
+### Stuck Check Uses The Layout Table
+
+實作時發現：AC-S7（卡球檢查）一直檢查的是原本公式的 `SR.LAYOUTS`，不是企劃「台面配置表」裡的台面，所以企劃新增的台面在同步時不會被檢查到（上一張申請單 level-config-table 的漏洞）。這張單一起修：AC-S7 改成檢查 `SR.LEVELS.layouts` 的每一種台面；`stuckProbe` 多一個操作模式參數，編輯器的「檢查卡球」兩種模式都跑。
+
 ## Implementation Contract
 
 - 行為：台面模式能新增、拖曳、刪除中柱（對稱可關）、彈力牆、加速帶，調整阿鰭；即時提醒與檢查卡球；共用台面可另存；複製出可貼回台面配置表的一列
