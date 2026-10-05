@@ -1,0 +1,214 @@
+{
+ "files": {
+  "回饋.md": {
+   "src": "回饋.md",
+   "vault": "132fe4e53d0d9be0",
+   "repo": "a21d72a108b64307"
+  },
+  "開發日誌.md": {
+   "src": "04 紀錄/開發日誌.md",
+   "vault": "442af1d26d083dad",
+   "repo": "efb4f1ca99ad6692"
+  },
+  "規劃書/00 主架構規劃書.md": {
+   "src": "00 主架構規劃書.md",
+   "vault": "de0405a2b5bbc74c",
+   "repo": "b3269179dc1acc6e"
+  },
+  "規劃書/F01 開場動畫.md": {
+   "src": "01 功能規劃書/F01 開場動畫.md",
+   "vault": "77a458bb065ea5d0",
+   "repo": "6ac0fc9978b187da"
+  },
+  "規劃書/F02 滑板操作.md": {
+   "src": "01 功能規劃書/F02 滑板操作.md",
+   "vault": "f1075b7e2f800a8b",
+   "repo": "3c1627a823b76124"
+  },
+  "規劃書/F03 經典擋板操作.md": {
+   "src": "01 功能規劃書/F03 經典擋板操作.md",
+   "vault": "966c6dfd26e7d10a",
+   "repo": "163f1fd439df14b4"
+  },
+  "規劃書/F04 發射桿.md": {
+   "src": "01 功能規劃書/F04 發射桿.md",
+   "vault": "6da34a3489ab45b0",
+   "repo": "5551873b3ef94579"
+  },
+  "規劃書/F05 台面配置.md": {
+   "src": "01 功能規劃書/F05 台面配置.md",
+   "vault": "2f18da355e3eb83e",
+   "repo": "be18f23de14ce23c"
+  },
+  "規劃書/F06 磚塊與關卡.md": {
+   "src": "01 功能規劃書/F06 磚塊與關卡.md",
+   "vault": "5714ac15a0751b59",
+   "repo": "72884465757416e6"
+  },
+  "規劃書/F07 首領灰先生.md": {
+   "src": "01 功能規劃書/F07 首領灰先生.md",
+   "vault": "9b9527715ce209fd",
+   "repo": "25a618b3af3f37ae"
+  },
+  "規劃書/F08 強化罐與道具.md": {
+   "src": "01 功能規劃書/F08 強化罐與道具.md",
+   "vault": "effcd8352c8ff835",
+   "repo": "d2984097f683c0ff"
+  },
+  "規劃書/F09 獎牌與成就.md": {
+   "src": "01 功能規劃書/F09 獎牌與成就.md",
+   "vault": "92db4a6ad9660380",
+   "repo": "accfbeb496d5760b"
+  },
+  "規劃書/F10 新手輔助與教學.md": {
+   "src": "01 功能規劃書/F10 新手輔助與教學.md",
+   "vault": "60921d39453b397a",
+   "repo": "8eb305d081c59160"
+  },
+  "規劃書/F11 漫畫系統與劇情回放.md": {
+   "src": "01 功能規劃書/F11 漫畫系統與劇情回放.md",
+   "vault": "1b80b84ae3e39114",
+   "repo": "7f6921b570e71060"
+  },
+  "規劃書/F12 介面.md": {
+   "src": "01 功能規劃書/F12 介面.md",
+   "vault": "af845f0fee19fdd3",
+   "repo": "3c6b352429a989cd"
+  },
+  "規劃書/F13 美術呈現.md": {
+   "src": "01 功能規劃書/F13 美術呈現.md",
+   "vault": "4b3ff24ce3d1cb29",
+   "repo": "dc2285999004725d"
+  },
+  "規劃書/F14 聲音與震動.md": {
+   "src": "01 功能規劃書/F14 聲音與震動.md",
+   "vault": "7c6383b91ba90570",
+   "repo": "59ad86afff8a1a5f"
+  },
+  "規劃書/F15 難度與平衡.md": {
+   "src": "01 功能規劃書/F15 難度與平衡.md",
+   "vault": "22eaf4e51b6333e9",
+   "repo": "11a0c52e1ffc018d"
+  },
+  "知識庫/00 知識庫總覽.md": {
+   "src": "02 知識庫/00 知識庫總覽.md",
+   "vault": "0b49d4189ae78ed0",
+   "repo": "d98c7b1aba6ba034"
+  },
+  "知識庫/世界/五個街區.md": {
+   "src": "02 知識庫/世界/五個街區.md",
+   "vault": "204b2100fbe77551",
+   "repo": "0e01b2ecca8f089a"
+  },
+  "知識庫/劇情/世界觀.md": {
+   "src": "02 知識庫/劇情/世界觀.md",
+   "vault": "ce2d826a6f28a33d",
+   "repo": "11c78ae36790518e"
+  },
+  "知識庫/劇情/劇情大綱.md": {
+   "src": "02 知識庫/劇情/劇情大綱.md",
+   "vault": "e23de6ea6b1c738c",
+   "repo": "3c50bd747f42c9d3"
+  },
+  "知識庫/劇情/劇情腳本.md": {
+   "src": "02 知識庫/劇情/劇情腳本.md",
+   "vault": "6a2debac0b47f6e4",
+   "repo": "df6112a1e7a6d8f2"
+  },
+  "知識庫/名詞與命名總表.md": {
+   "src": "02 知識庫/名詞與命名總表.md",
+   "vault": "02e0cf06c7dd3e8b",
+   "repo": "9e02aec82acded3e"
+  },
+  "知識庫/數值總表.md": {
+   "src": "02 知識庫/數值總表.md",
+   "vault": "75739065366423ba",
+   "repo": "ad5926ea2183f651"
+  },
+  "知識庫/角色/噴噴.md": {
+   "src": "02 知識庫/角色/噴噴.md",
+   "vault": "a229f761779cf09e",
+   "repo": "8e5b4465322425cc"
+  },
+  "知識庫/角色/小葵.md": {
+   "src": "02 知識庫/角色/小葵.md",
+   "vault": "0c022d6464d0112f",
+   "repo": "6d6b19538bd850d7"
+  },
+  "知識庫/角色/灰先生.md": {
+   "src": "02 知識庫/角色/灰先生.md",
+   "vault": "6b1bddfd883b120a",
+   "repo": "b3ea61f873203f48"
+  },
+  "知識庫/角色/配角.md": {
+   "src": "02 知識庫/角色/配角.md",
+   "vault": "4061d81f981a9b93",
+   "repo": "a62d2edb96d711cb"
+  },
+  "知識庫/角色/阿鰭.md": {
+   "src": "02 知識庫/角色/阿鰭.md",
+   "vault": "94318df57a41fb95",
+   "repo": "e92319446f93f1bd"
+  },
+  "媒體庫/00 媒體庫總覽.md": {
+   "src": "03 媒體庫/00 媒體庫總覽.md",
+   "vault": "e6f586d2809e4e83",
+   "repo": "200b72aefa12d55e"
+  },
+  "媒體庫/美術/美術素材清單.md": {
+   "src": "03 媒體庫/美術/美術素材清單.md",
+   "vault": "7c4ce1240ae5e856",
+   "repo": "d309dca72c829401"
+  },
+  "媒體庫/美術/美術風格指南.md": {
+   "src": "03 媒體庫/美術/美術風格指南.md",
+   "vault": "63d561913a36ff88",
+   "repo": "4837bc4bc1c44175"
+  },
+  "媒體庫/音樂音效/音效素材清單.md": {
+   "src": "03 媒體庫/音樂音效/音效素材清單.md",
+   "vault": "29daa55f1976aa9a",
+   "repo": "718921e5e3f3a70c"
+  },
+  "媒體庫/音樂音效/音樂素材清單.md": {
+   "src": "03 媒體庫/音樂音效/音樂素材清單.md",
+   "vault": "63aac1176336483e",
+   "repo": "2d550fbb2b9e4a3c"
+  },
+  "notion-import/回饋.csv": {
+   "src": "Notion 匯入/回饋.csv",
+   "vault": "b8cfe6e1d8149e39",
+   "repo": "b8cfe6e1d8149e39"
+  },
+  "notion-import/怎麼匯入.md": {
+   "src": "Notion 匯入/怎麼匯入.md",
+   "vault": "9b0ef84ec8cbe7a5",
+   "repo": "1bec4600784bd5a4"
+  },
+  "notion-import/申請單確認.csv": {
+   "src": "Notion 匯入/申請單確認.csv",
+   "vault": "4e5319f840ce334f",
+   "repo": "4e5319f840ce334f"
+  },
+  "notion-import/知識庫.csv": {
+   "src": "Notion 匯入/知識庫.csv",
+   "vault": "43b2720b61a9f0ca",
+   "repo": "43b2720b61a9f0ca"
+  },
+  "notion-import/素材.csv": {
+   "src": "Notion 匯入/素材.csv",
+   "vault": "bf73fa10af37b4b0",
+   "repo": "bf73fa10af37b4b0"
+  },
+  "notion-import/開發日誌.csv": {
+   "src": "Notion 匯入/開發日誌.csv",
+   "vault": "b725a9e31f31ef5c",
+   "repo": "bd192e8c39f837cb"
+  },
+  "notion-import/需求池.csv": {
+   "src": "Notion 匯入/需求池.csv",
+   "vault": "39f205be855554fe",
+   "repo": "39f205be855554fe"
+  }
+ }
+}

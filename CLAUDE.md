@@ -34,7 +34,7 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 > 📋 **使用者換回自己的 Claude 帳號後，先讀並執行 [`docs/同步計劃－回到自己帳號.md`](docs/同步計劃－回到自己帳號.md)**（狀態不是「✅ 已完成」就照做）。
 > **開發流程依 [game-dev-flow-template](https://github.com/fishon100/game-dev-flow-template)**（`docs/flow/` 00～07：一輪開發、角色分工、Notion 與 GitHub、品質把關、工具與帳號、對 AI 說的話）。本專案是它的實戰範例；下面是本專案特有的規則。
 > Notion 工作區尚未建立：建好前，需求／回饋／開發日誌／知識庫的**正本是 Obsidian**（`彈珠專案/`），**GitHub `docs/企劃/` 是鏡像**（任何 Claude 帳號都讀得到；讀不到 Obsidian MCP 時就讀這裡）。
-> 「同步企劃文件」＝`node tools/vault-mirror.mjs`（Obsidian → `docs/企劃/`，再 commit、push）。處理完回饋、寫完開發日誌後也要跑一次。不要直接改 `docs/企劃/`。
+> 「同步企劃文件」＝**雙向**：`git pull` → `node tools/vault-mirror.mjs` → commit、push。Obsidian 改的寫到 `docs/企劃/`；管理台改的（編輯、新文件）寫回 Obsidian；管理台上傳的圖備份到 Obsidian `03 媒體庫/管理台上傳/`。回傳碼 2＝有衝突（兩邊都改過）：把清單告訴企劃，請他決定保留哪一邊，**不要自己選**。處理完回饋、寫完開發日誌後也要跑一次。AI 不要直接改 `docs/企劃/`（改 Obsidian 再同步）。
 > Notion 建好後 ID 寫進 `docs/notion.json`，改以 Notion 為正本、Obsidian 為備份。
 
 ## 這是什麼
@@ -103,7 +103,7 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 |---|---|
 | 檢查環境（換電腦後） | `node tools/doctor.mjs` |
 | 更新工作台 | `gh workflow run workbench` |
-| 同步企劃文件（Obsidian → docs/企劃/） | `node tools/vault-mirror.mjs` |
+| 同步企劃文件（Obsidian ⇄ docs/企劃/） | `git pull && node tools/vault-mirror.mjs` |
 | 跑測試（約 30 秒，AC13 卡球測試最久） | `godot --headless --path . --script res://tests/run_tests.gd` |
 | 自動遊玩煙霧測試（15 秒） | `godot --headless --path . --quit-after 900 -- --demo` |
 | 錄影驗收畫面 | `godot --path . --write-movie C:\tmp\f.png --fixed-fps 60 --quit-after 420 -- --demo` |
