@@ -42,7 +42,8 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 - **改一個功能只改那份功能規劃書**（含修改紀錄）；新增功能要新增規劃書並加進主架構規劃書的索引與名詞與命名總表
 - **單一來源**：劇情＝`02 知識庫/劇情/劇情腳本`（對應 `data.js` 的 `SR.COMICS`）、角色＝角色卡、數值＝`數值總表`（對應 `tuning.js`）、名詞＝`名詞與命名總表`。其他文件用 `![[ ]]` 嵌入，不重抄。企劃說「同步 <檔名>」→ 把文件內容套用到程式並跑相關測試；程式改了這些內容 → 回寫到對應的知識庫文件
 - 「套用調參」＝企劃從遊戲內手感調整面板（`web/street/js/tune.js`，暫停 → 🎚 手感調整）複製的「參數：原 → 新」清單。寫進 `tuning.js` 的 `STREET_TUNING`（**不要改 `data/tuning.json`**，那是 Godot v2 共用、會動到 AC1–AC13），更新 `數值總表`，跑 22 項測試＋擬人玩家難度，數字有變就更新 F15
-- Spectra（`spxa`，在 `D:\tools\node`）：Windows PowerShell 5.1 用管線餵 `spxa new artifact … --stdin` 會在檔頭加 BOM，Spectra 就讀不到第一個標題（例如 `## Purpose`）。寫完後要把 `docs/spectra/**/*.md` 檔頭的 EF BB BF 去掉再跑 `spxa analyze`
+- Spectra（`spxa`，在 `D:\tools\node`）：Windows PowerShell 5.1 用管線餵 `spxa new artifact … --stdin` 會在檔頭加 BOM，Spectra 就讀不到第一個標題（例如 `## Purpose`）。做法：先用 Write 工具把內容寫成檔案，再用 `cmd /c "D:\tools\node\spxa.cmd new artifact … --stdin < 檔案"` 餵進去（`$OutputEncoding` 改了也沒用，npm 的 spxa.ps1 還是會加）
+- 遊戲流程測試：`web/street/test.html` 會在看不見的框架開 `index.html?test=1`（另一份存檔 `sprayrun.save.test`、不套用手感面板），測試寫在 `tests.js` 的 `GAME_TESTS`。注意 `SR_GAME.closeDialog()` 和 `SR.Comic.finish()` 都等於「按跳過」；要模擬看完漫畫得一直 `SR.Comic.tap()`。本機測試若用同一個 `?v=` 版號重跑，框架可能吃到舊快取，要先 `fetch(…, {cache:'reload'})`
 - 知識庫／媒體庫要列出產出工具與管理工具（例：美術 ChatGPT／GPT Image 產出 → Figma 管理）
 - 完成後在 `彈珠專案/04 紀錄/開發日誌.md` 最上面記一筆，再把有改的文件複製到 `specs/` 對應位置
 
