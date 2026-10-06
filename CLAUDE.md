@@ -46,7 +46,7 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 ## 文件規則（企劃要求，2026-10-05）
 - **管理台（電腦）**：https://fishon100.github.io/game-dev-flow-template/console/?repo=fishon100/pinball-sling （流程樹、提案進度鏈、規則書、內容庫、素材庫；內容來自 `docs/企劃/`）
 - **工作台（手機）**：https://fishon100.github.io/game-dev-flow-template/workbench/?repo=fishon100/pinball-sling （workbench Action 自動更新；說「更新工作台」＝`gh workflow run workbench`）
-- **企劃同意**＝提案 `tasks.md` 的 `0.1 企劃確認` 已勾（規則見 `docs/spectra/config.yaml`）。`/spectra-apply` 前先 `git pull` 確認；沒勾就停，請企劃到工作台同意。企劃在對話中說「同意 <名稱>」時才可以由 AI 勾，並註明「（企劃於對話中同意，日期）」。舊規則「企劃說開始」等同於說「同意」
+- **企劃同意**＝提案 `tasks.md` 的 `0.1 企劃確認` 已勾（規則見 `docs/spectra/config.yaml`）。`/spectra-apply` 前先 `git pull` 確認；沒勾就停：企劃在對話中就直接用選項問要不要同意（見「對話一條龍」），不在才請他到工作台同意。企劃在對話中說「同意 <名稱>」時才可以由 AI 勾，並註明「（企劃於對話中同意，日期）」。舊規則「企劃說開始」等同於說「同意」
 - 「看回饋」＝先讀 GitHub 未處理的「回饋」Issue（`gh issue list -l 回饋 -s open`；處理完回覆並關閉），再讀 `彈珠專案/回饋.md` 最上面的「第 N 輪」；處理完把標題改成「已處理 → 版本」並開下一輪空段落；回饋裡貼的圖搬到 `03 媒體庫/參考圖/`，改成 `類別-內容.png` 並更新連結
 - **正式規則＝`docs/spectra/specs/<capability>/spec.md`**（2026-10-05 起，英文規則＋每條一行 `> 中文：`）。任何改動（回饋、新功能、bug）都走 Spectra 提案：`docs/spectra/changes/<name>/`（proposal → specs 差異 → design → tasks）→ 推上去（自動開提案 Issue）→ 企劃同意（0.1 已勾）才實作（修 bug 且企劃已說要修時可直接做）→ 先寫會失敗的測試再修 → 部署 → 歸檔 `spxa archive <name> -y`（把規則併回 specs）。Obsidian 的主架構規劃書與 F01～F15 改為背景說明，最上面有連到對應規則書的註記
 - 功能規劃書要記背景時，只改那一份（含修改紀錄）；新增功能要新增規則書（capability）並加進名詞與命名總表
@@ -99,6 +99,14 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 - 改台面幾何後 AC-S7（卡球）與 AC-S9c（最大顆的球）一定要過；改數值後看 AC-S8／AC-S8b（自動遊玩清關時間）
 - **改了 street 的 JS 要把 `index.html`、`test.html` 裡的 `?v=` 版本號一起加 1**，否則手機會拿到快取的舊檔（新舊檔混用會出錯）
 - 測試用的自動玩家要「按一下就放開」，一直按住會把球卡在接球位置，誤判成遊戲問題
+
+## 對話一條龍：企劃在對話裡時，提案從頭到尾在對話中完成（2026-10-07 企劃要求）
+企劃反映「管理台和對話兩邊跑很麻煩」。企劃正在跟你對話時，**不要叫企劃去管理台**：
+1. 寫好提案、推上去後，**直接在對話中**用選項問「需要企劃確認的事」（每題附建議選項），最後一題問「同意並開始製作／先不要」
+2. 企劃選「同意」＝對話中同意：勾 0.1 並註明「企劃於對話中同意，日期」，**接著直接製作到上線**（不用等企劃再說「做 X」）
+3. 上線後請企劃試玩，企劃說「X 驗收通過」再歸檔
+4. 管理台只用來**看進度**；企劃不在電腦前、或其他人（主管、另一位企劃）要同意時，才請他們到管理台或 GitHub 討論串勾同意
+5. 不改規則的事（關卡修改「套用關卡修改」、小修）不用開提案；有疑慮（共用台面、碰到核心規則）也是直接在對話中用選項問
 
 ## AI 協助管理台（管理台不呼叫 AI）
 管理台／工作台是給人**看進度、做決定**的（同意、回饋、編輯、上傳）；**AI 只由人在 Claude 裡下指令啟動**（電腦，或手機 Claude App 的 Remote Control）。管理台上的「對 AI 說…」按鈕只是複製一句指令給人貼。AI 的責任是讓管理台**永遠反映真實進度**：
