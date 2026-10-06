@@ -1,0 +1,25 @@
+{
+ "version": 1,
+ "at": "2026-10-06T16:57:04.467Z",
+ "note": "",
+ "stages": {
+  "6": {
+   "paddle": "L"
+  },
+  "9": {
+   "paddle": "M"
+  },
+  "10": {
+   "paddle": "L"
+  }
+ },
+ "layouts": {
+  "a_pair": {
+   "name": "雙柱",
+   "bumpers": [],
+   "fish": null,
+   "rails": [],
+   "boost": []
+  }
+ }
+}
