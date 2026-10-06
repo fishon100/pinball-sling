@@ -696,7 +696,7 @@ SR.Tests = (function () {
       row(5)["球半徑"] = 7;
       row(6)["道具池"] = "bomb,lazer";
       row(8)["台面配置"] = "z_new";
-      row(10)["第3排"] = row(10)["第3排"].replace("X", ".");
+      for (const c of L.WALL_COLS) row(10)[c] = String(row(10)[c] || "").replace("X", ".");   // 拿掉首領（不管企劃把首領放在第幾排）
       row(11)["第1排"] = "....X....";
       row(12)["第2排"] = "22223223";
       const r = L.validate(bad.stages, bad.layouts), has = (n, col) => r.problems.some(p => p.stage === n && p.column === col);
