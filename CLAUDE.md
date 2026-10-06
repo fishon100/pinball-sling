@@ -98,14 +98,15 @@ Changes can be parked（暫存）— temporarily moved out of `docs/spectra/chan
 - **改了 street 的 JS 要把 `index.html`、`test.html` 裡的 `?v=` 版本號一起加 1**，否則手機會拿到快取的舊檔（新舊檔混用會出錯）
 - 測試用的自動玩家要「按一下就放開」，一直按住會把球卡在接球位置，誤判成遊戲問題
 
-## 在 GitHub 上被 @claude 呼叫時（`.github/workflows/ai.yml`）
-留言的人多半不是程式人員（管理台的「交給 AI」按鈕會幫他留言）。先看留言在哪種 Issue 上：
-- **提案 Issue**（內文有 `<!-- spectra-change: 名稱 -->`）＋「開工／做」：先確認 `tasks.md` 的 0.1 已勾（或這個 Issue 內文的「- [x] 企劃同意」已勾——表示 workbench 正在寫回 0.1），兩個都沒勾就回覆「企劃還沒同意」並停止。已勾就照 `/spectra-apply` 做（沒有 skill 時照 tasks.md 逐項做、勾任務）。網頁版（`web/street/`）的 Node 測試要全過；GitHub 上沒有 Godot 與瀏覽器，只能在瀏覽器跑的測試在 PR 裡寫明「請在本機開 test.html 確認」。做完在 Issue 回覆：做了什麼、怎麼試玩、還有哪些任務要人做（例如【美術】的素材）
-- **提案 Issue**＋其他意見：照意見改提案，0.1 改回未勾，回覆改了什麼、請企劃重新同意
-- **回饋／需求 Issue**＋「寫成提案」：照 `/spectra-propose` 寫提案（遵守 `docs/spectra/config.yaml`），`spxa validate` 通過後直接推上 main（只改 `docs/spectra/changes/` 的提案文件可以直接推），workbench 會自動開提案 Issue；在原本的 Issue 回覆提案連結。只是小修就不用寫提案，直接修（一樣開 PR）
-- **PR**＋意見：照審查意見改
-- 改到程式或遊戲內容的，一律在新分支工作、開 PR 給程式審查，**不要直接推 main**（只有提案文件例外）；PR 說明寫白話：改了什麼、怎麼驗收、對應哪張提案或哪則回饋。**不要改 `docs/企劃/`**（那是 Obsidian 的鏡像，由「同步企劃文件」處理）
-- 絕不自己勾 0.1；需要企劃決定的事，在 Issue 列出來問
+## AI 協助管理台（管理台不呼叫 AI）
+管理台／工作台是給人**看進度、做決定**的（同意、回饋、編輯、上傳）；**AI 只由人在 Claude 裡下指令啟動**（電腦，或手機 Claude App 的 Remote Control）。管理台上的「對 AI 說…」按鈕只是複製一句指令給人貼。AI 的責任是讓管理台**永遠反映真實進度**：
+- 寫提案、勾任務、改提案、驗收歸檔後**都要 commit＋push**（workbench Action 約 1 分鐘更新管理台）；改到 `web/street/` 的要跑 `tools/deploy.ps1` 才會上線；只在本機做完不推＝管理台看不到
+- 提案照 `docs/spectra/config.yaml` 寫：中文標題、需要企劃確認的事、需要人做的任務標【美術】【劇本】【數值】【企劃】【程式】（會出現在該角色的「我的待辦」）
+- 做任務時每完成一項就勾 `tasks.md`（管理台的進度條、下一步就是讀這個）
+- 處理完回饋／需求：在那個 Issue 回覆「改了什麼、哪張提案或哪個版本」並關閉，管理台的「未處理回饋」才會減少
+- 企劃在管理台編輯的企劃文件（`docs/企劃/`）是 Obsidian 的鏡像：先 `git pull`，再跑 `node tools/vault-mirror.mjs` 雙向同步
+- 使用者問「管理台上 X 為什麼沒更新」：先 `gh run list -w workbench -L 3` 看同步有沒有失敗，必要時 `gh workflow run workbench`
+- 不要建立讓管理台、Issue 留言或排程自動叫 AI 開工的機制（團隊決定：AI 一律由人下指令）
 
 ## 常用指令
 | 做什麼 | 指令 |
