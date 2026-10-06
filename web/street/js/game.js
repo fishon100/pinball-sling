@@ -121,6 +121,20 @@
     updateHud();
   }
 
+  /* 地圖的街道路線底圖（提案 stage-select-map 2.4）：程式畫的柏油路，路緣、車道線、噴漆塗鴉用各區的配色。
+     座標系 500×110：上排關卡中心 y=24、下排 y=86、左右兩端 x=50／450（＝5 欄的第 1、5 欄中心）；寬度隨卡片伸縮，線條粗細不變 */
+  function routeArt(d) {
+    const c = d.colors, road = "M14 24 H450 A31 31 0 0 1 450 86 H50";
+    const s = (dPath, color, w, extra = "") => `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" ${extra}/>`;
+    const tags = [[130, 50, 162, 45], [290, 52, 318, 58], [370, 2, 400, 6], [205, 104, 236, 100], [60, 60, 30, 64]]
+      .map(([x1, y1, x2, y2], i) => s(`M${x1} ${y1} Q${(x1 + x2) / 2} ${(y1 + y2) / 2 + (i % 2 ? 6 : -6)} ${x2} ${y2}`, i % 2 ? c.c : c.b, 3, 'opacity=".55"')).join("");
+    return `<svg class="route-art" viewBox="0 0 500 110" preserveAspectRatio="none" aria-hidden="true">
+      ${s(road, "#111114", 40)}${s(road, c.a, 36, 'opacity=".85"')}${s(road, "#2b2b34", 30)}
+      ${s(road, c.b, 2, 'stroke-dasharray="9 10" opacity=".8"')}
+      ${tags}
+    </svg>`;
+  }
+
   function mapScreen() {
     G.screen = "map"; G.run = null; G.stage = null;
     startAttract();
@@ -138,7 +152,7 @@
       }
       const best = save.best[i] ? `最佳 ${save.best[i].toLocaleString()} 分` : "";
       const nextN = R.districtStartStage(save, i);
-      const nodes = [`<div class="route-path" aria-hidden="true"></div>`, ...stops];
+      const nodes = [routeArt(d), ...stops];
       return `<article class="district ${unlocked ? "" : "locked"}">
         <div class="bg" style="background:linear-gradient(120deg, ${d.colors.a}, ${d.colors.b} 55%, ${d.colors.c})"></div>
         <span class="act">第 ${i + 1} 區</span>
