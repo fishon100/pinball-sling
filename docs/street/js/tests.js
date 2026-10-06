@@ -899,20 +899,22 @@ SR.Tests = (function () {
       const problems = [];
       if (!/沒有要送出的修改/.test(E.submitMessage())) problems.push(`沒改東西時是「${E.submitMessage()}」`);
       E.load(3); E.grid.splice(0, 1, "333333333");
-      E.load(1); E.setMode("layout"); E.setMirror(true);
-      const [bx, by] = E.layout.bumpers[0]; E.moveObject("bumper", 0, bx + 4, by);
+      E.load(1); E.setMode("layout"); E.setMirror(false);
+      E.addBumper(180, 900);                                        // 加一顆中柱＝改了第 1 關用的台面（不管企劃把台面改成怎樣都成立）
+      const lay = w.SR.LEVELS.stages[0].layout;
       const ch = E.changes(), p = E.payload("測試");
       const list = ch.stages.map(s => `${s.n}:${s.parts.join("+")}`).join(",") + "|" + ch.layouts.join(",");
-      if (list !== "3:磚牆|a_pair") problems.push(`清單是「${list}」`);
+      if (list !== `3:磚牆|${lay}`) problems.push(`清單是「${list}」（應該是 3:磚牆|${lay}）`);
       if (JSON.stringify(Object.keys(p.stages)) !== '["3"]' || JSON.stringify(Object.keys(p.stages[3])) !== '["grid"]' || p.stages[3].grid[0] !== "333333333") problems.push(`修改檔的關卡是 ${JSON.stringify(p.stages)}`);
-      if (JSON.stringify(Object.keys(p.layouts)) !== '["a_pair"]' || p.note !== "測試") problems.push(`修改檔的台面／備註是 ${JSON.stringify(Object.keys(p.layouts))}／${p.note}`);
+      if (JSON.stringify(Object.keys(p.layouts)) !== JSON.stringify([lay]) || p.note !== "測試") problems.push(`修改檔的台面／備註是 ${JSON.stringify(Object.keys(p.layouts))}／${p.note}`);
       E.discardDraft();
-      return { pass: !problems.length, value: problems.length ? problems.join("；") : "清單「第 3 關（磚牆）＋台面 a_pair」，修改檔只有這兩項；沒改時說沒有要送出的修改" };
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : `清單「第 3 關（磚牆）＋台面 ${lay}」，修改檔只有這兩項；沒改時說沒有要送出的修改` };
     }}
     , { id: "AC-S48", name: "編輯器自動暫存：沒送出就重新整理，會問要不要接著改，接著改後修改還在", async run(frame) {
       try { localStorage.removeItem("sprayrun.editor.draft.test"); } catch (e) {}
       let w = await bootEditor(frame), E = w.SR_EDITOR;
       if (!E || !E.saveDraft) return { pass: false, value: "編輯器沒有暫存功能（SR_EDITOR.saveDraft）" };
+      if (E.draftPending) E.discardDraft();                         // 上一個測試留下的暫存（例如中途出錯）先清掉
       E.load(5); E.grid.splice(0, 1, "5.......5"); E.saveDraft();
       w = await bootEditor(frame); E = w.SR_EDITOR;
       const asked = E.draftPending;
