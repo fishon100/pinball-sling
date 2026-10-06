@@ -1,20 +1,20 @@
-/* 關卡設定（自動產生，不要手改）：企劃在 Google Drive「噴漆闖關 關卡設定」改表後，跟 AI 說「同步關卡表」。
-   source＝sheet  syncedAt＝2026-10-05 18:46（台北） */
+/* 關卡設定（自動產生，不要手改）：企劃在關卡編輯器改完按「送出修改」，跟 AI 說「套用關卡修改」（想用試算表大量改時：改表後說「同步關卡表」）。
+   source＝editor  syncedAt＝2026-10-07 00:51（台北） */
 "use strict";
 var SR = window.SR || (window.SR = {});
 SR.LEVELS = {
-  version: 1, source: "sheet", syncedAt: "2026-10-05 18:46（台北）",
+  version: 1, source: "editor", syncedAt: "2026-10-07 00:51（台北）",
   stages: [
-    {"n":1,"name":"HI","items":"random","layout":"a_pair","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":79,"landing":true,"finisher":true,"boss":null,"grid":[".........",".1.1.111.",".1.1..1..",".111..1..",".1.1..1..",".1.1.111."]},
-    {"n":2,"name":"愛心","items":"random","layout":"a_tri","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":116,"landing":true,"finisher":true,"boss":null,"grid":[".........",".12...11.","1111.1111","121112111",".1111111.","..21111..","...1G1...","....G...."]},
-    {"n":3,"name":"笑臉","items":"random","layout":"a_rubber","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":136,"landing":true,"finisher":true,"boss":null,"grid":[".........","..11111..",".1111111.","21B111B11","111111121","11.111.G1",".11...11.","..111G1.."]},
-    {"n":4,"name":"箭頭","items":"random","layout":"a_four","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":97,"landing":true,"finisher":true,"boss":null,"grid":["....2....","...222...","..22222..",".2222222.","...2G2...","...1G1...","...111...","...112..."]},
-    {"n":5,"name":"條紋","items":"random","layout":"a_fish","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":114,"landing":true,"finisher":true,"boss":null,"grid":[".........","223222222",".........","112B11B11",".........","222222222",".........","111GBG111"]},
-    {"n":6,"name":"金字塔","items":"random","layout":"a_tri","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":110,"landing":true,"finisher":true,"boss":null,"grid":[".........","....3....","...222...","..11B11..",".1111121.","322222222","1111G111G"]},
-    {"n":7,"name":"棋盤","items":"random","layout":"a_rubber","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":94,"landing":true,"finisher":true,"boss":null,"grid":[".........","1.G.1.G.1",".2.B.2.2.","1.1.1.G.1",".2.2.B.2.","1.1.1.2.1",".2.2.2.2."]},
+    {"n":1,"name":"HI","items":["ball"],"layout":"a_pair","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":79,"landing":true,"finisher":true,"boss":null,"grid":[".........",".1.1.111.",".1.1..1..",".1.1..1..",".1.1..1..",".1.1..1..",".111..1..",".1.1..1..",".1.1..1..",".1.1..1..",".1.1.111."]},
+    {"n":2,"name":"愛心","items":["bomb"],"layout":"a_tri","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":116,"landing":true,"finisher":true,"boss":null,"grid":[".........","..2...1..","1111.111.","12111211.","21111111.","22211112.",".221G122.","..22222..","...212...","....1....","....1...."]},
+    {"n":3,"name":"笑臉","items":"random","layout":"a_rubber","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":136,"landing":true,"finisher":true,"boss":null,"grid":[".........","..11111..",".1111111.","25555554.","15G55G54.","15555554.",".4444444.",".4333..4.",".3....33.","..33331..","...111..."]},
+    {"n":4,"name":"箭頭","items":"random","layout":"a_fish_4","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":97,"landing":true,"finisher":true,"boss":null,"grid":[".........","....2....","...222...","..22222..","..12G21..","1111G111.","111111111","...112...","...333...","...111...","...111..."]},
+    {"n":5,"name":"條紋","items":"random","layout":"c_fish_5","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":114,"landing":true,"finisher":true,"boss":null,"grid":[".........","223222222",".........","112B11B11",".........","222222222",".........","111GBG111",".........","545555.55","444444444"]},
+    {"n":6,"name":"金字塔","items":"random","layout":"d_classic","paddle":"M","ball":12,"trail":3,"preview":0.5,"ballSave":3,"par":110,"landing":true,"finisher":true,"boss":null,"grid":[".........","....3....","...222...","..11B11..",".1111121.","322222222","1111G111G","111111114","414441411","444444111","111111111"]},
+    {"n":7,"name":"棋盤","items":"random","layout":"a_rubber","paddle":"S","ball":12,"trail":8,"preview":1,"ballSave":3,"par":94,"landing":true,"finisher":true,"boss":null,"grid":[".........","1.G.1.G.1",".2.B.2.2.","1.1.1.G.1",".2.2.B.2.","1.1.1.2.1",".2.2.2.2.","..5.5.5..","...4.4.4.","..3.3.3..",".2.2.2.2."]},
     {"n":8,"name":"鑽石","items":"random","layout":"a_fish","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":90,"landing":true,"finisher":true,"boss":null,"grid":["....1....","...121...","..G2321..",".123B42G.","..12331..","...G21...","....2...."]},
-    {"n":9,"name":"堡壘","items":"random","layout":"a_four","paddle":"M","ball":12,"trail":8,"preview":1,"ballSave":3,"par":114,"landing":true,"finisher":true,"boss":null,"grid":[".........","3.3.3.3.3","334333433","3.......4","3.GBBB1.3","4.11G2G.3","343...333"]},
-    {"n":10,"name":"首領：灰先生","items":"random","layout":"a_pair","paddle":"S","ball":12,"trail":8,"preview":1,"ballSave":3,"par":97,"landing":true,"finisher":true,"boss":{"hp":18,"speed":45,"regen":7},"grid":[".........",".........","....X....",".........",".........",".1.3.3.G.","12.2.2.1G"]},
+    {"n":9,"name":"堡壘","items":"random","layout":"a_four","paddle":"L","ball":12,"trail":3,"preview":0.5,"ballSave":3,"par":114,"landing":true,"finisher":true,"boss":null,"grid":[".........","3.3.3.3.3","334333433","3.......4","3.GBBB1.3","4.11G2G.3","343...333"]},
+    {"n":10,"name":"首領：灰先生","items":"random","layout":"a_pair","paddle":"S","ball":12,"trail":3,"preview":0.3,"ballSave":3,"par":97,"landing":true,"finisher":true,"boss":{"hp":18,"speed":45,"regen":7},"grid":[".........",".........",".........","....X....",".........",".1.3.3...","B2.2.2.1B","....G....","333333333","444444444",".3333333."]},
     {"n":11,"name":"箭頭","items":"random","layout":"b_tri","paddle":"M","ball":12,"trail":8,"preview":0.7,"ballSave":1.5,"par":103,"landing":true,"finisher":true,"boss":null,"grid":["....2....","...222...","..22322..",".2222222.","...1G1...","...12G...","...112...","...11G..."]},
     {"n":12,"name":"條紋","items":"random","layout":"b_steps","paddle":"M","ball":12,"trail":8,"preview":0.7,"ballSave":1.5,"par":120,"landing":true,"finisher":true,"boss":null,"grid":[".........","222232233",".........","111B12B11",".........","222222222",".........","G2G1B1212"]},
     {"n":13,"name":"金字塔","items":"random","layout":"b_fish","paddle":"M","ball":12,"trail":8,"preview":0.7,"ballSave":1.5,"par":116,"landing":true,"finisher":true,"boss":null,"grid":[".........","....4....","...322...","..21B11..",".11211G1.","222323322","11111112G"]},
@@ -57,9 +57,9 @@ SR.LEVELS = {
     {"n":50,"name":"首領：灰先生","items":"random","layout":"d_tri","paddle":"S","ball":10.5,"trail":0,"preview":0,"ballSave":0,"par":121,"landing":false,"finisher":false,"boss":{"hp":54,"speed":117,"regen":5},"grid":[".........",".........","....X....",".........",".........",".2.2.3.G.","22.2.G.22"]}
   ],
   layouts: {
-    "a_pair": {"name":"雙柱","bumpers":[[78,664],[282,664]],"fish":null,"rails":[],"boost":[]},
-    "a_tri": {"name":"三角柱","bumpers":[[78,640],[282,640],[124,688],[236,688],[78,736],[282,736]],"fish":null,"rails":[],"boost":[]},
-    "a_rubber": {"name":"彈力牆","bumpers":[[96,664],[264,664]],"fish":null,"rails":[[23,610,23,730,"rubber"],[337,610,337,730,"rubber"]],"boost":[]},
+    "a_pair": {"name":"雙柱","bumpers":[[113,743],[279,839]],"fish":null,"rails":[],"boost":[]},
+    "a_tri": {"name":"三角柱","bumpers":[],"fish":null,"rails":[[330,603,330,723,"rubber"]],"boost":[]},
+    "a_rubber": {"name":"彈力牆","bumpers":[],"fish":null,"rails":[],"boost":[[284,745],[284,744],[55,846]]},
     "a_fish": {"name":"阿鰭","bumpers":[[70,716],[290,716]],"fish":{"y":652,"x0":70,"x1":290,"speed":70},"rails":[],"boost":[]},
     "a_four": {"name":"四柱","bumpers":[[74,640],[286,640],[116,716],[244,716]],"fish":null,"rails":[],"boost":[]},
     "b_tri": {"name":"四柱","bumpers":[[74,650],[286,650],[116,700],[244,700]],"fish":null,"rails":[],"boost":[]},
@@ -71,6 +71,8 @@ SR.LEVELS = {
     "d_classic": {"name":"經典","bumpers":[[60,700],[300,700]],"fish":null,"rails":[],"boost":[[82,773],[222,773]]},
     "d_high": {"name":"高柱","bumpers":[[100,690],[260,690]],"fish":null,"rails":[],"boost":[[82,773],[222,773]]},
     "d_tri": {"name":"雙柱","bumpers":[[80,700],[280,700]],"fish":null,"rails":[],"boost":[[82,773],[222,773]]},
-    "d_fish": {"name":"阿鰭","bumpers":[],"fish":{"y":690,"x0":70,"x1":290,"speed":130},"rails":[],"boost":[[82,773],[222,773]]}
+    "d_fish": {"name":"阿鰭","bumpers":[],"fish":{"y":690,"x0":70,"x1":290,"speed":130},"rails":[],"boost":[[82,773],[222,773]]},
+    "a_fish_4": {"name":"阿鰭（第 4 關）","bumpers":[],"fish":null,"rails":[[31,756,31,876,"rubber"],[329,750,329,870,"rubber"]],"boost":[[153,692]]},
+    "c_fish_5": {"name":"阿鰭（第 5 關）","bumpers":[],"fish":{"y":738,"x0":20,"x1":340,"speed":110},"rails":[],"boost":[]}
   }
 };
