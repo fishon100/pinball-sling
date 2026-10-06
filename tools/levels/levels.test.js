@@ -61,9 +61,10 @@ test("產生的兩份關卡表拿去同步，跟遊戲沒有任何差異", async
 test("同步舊表：遊戲是編輯器改過的，差異都標「⚠ 會蓋掉編輯器的修改」", async () => {
   const sb = sandbox([{ version: 1, stages: { 3: { grid: ["333333333"] } }, layouts: {} }]);   // 第 12 關有「一定要有道具磚」的測試，改用第 3 關
   await applyEdits({ ...sb, write: true, ...quiet });
-  const edited = levelsOf(fs.readFileSync(sb.levelsJsPath, "utf8")).LEVELS, before = levelsOf(LEVELS_JS).LEVELS;
+  const edited = levelsOf(fs.readFileSync(sb.levelsJsPath, "utf8")).LEVELS, before = { ...JSON.parse(JSON.stringify(levelsOf(LEVELS_JS).LEVELS)), source: "editor" };   // 遊戲是編輯器版本
   const lines = diffLines(edited, before);
   assert.ok(lines.some(l => /第 3 關/.test(l) && /⚠ 會蓋掉編輯器的修改/.test(l)), lines.join("\n"));
-  // 遊戲本來就是從表同步來的：不標
-  assert.ok(diffLines(before, edited).every(l => !/⚠/.test(l)));
+  // 遊戲是從表同步來的（source＝sheet）：不標。自己做一份 sheet 版，不靠目前 levels.js 剛好是哪一種
+  const fromSheet = { ...JSON.parse(JSON.stringify(before)), source: "sheet" };
+  assert.ok(diffLines(fromSheet, edited).every(l => !/⚠/.test(l)));
 });
