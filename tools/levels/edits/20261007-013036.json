@@ -1,0 +1,48 @@
+{
+ "version": 1,
+ "at": "2026-10-06T17:30:36.930Z",
+ "note": "",
+ "stages": {
+  "3": {
+   "trail": 5,
+   "preview": 0.5,
+   "landing": false
+  },
+  "4": {
+   "trail": 3,
+   "preview": 0.5,
+   "landing": false
+  },
+  "5": {
+   "trail": 5,
+   "preview": 0.3,
+   "landing": false,
+   "finisher": false
+  },
+  "6": {
+   "landing": false,
+   "finisher": false
+  },
+  "7": {
+   "trail": 3,
+   "preview": 0.2,
+   "landing": false,
+   "finisher": false
+  },
+  "8": {
+   "trail": 3,
+   "preview": 0.2,
+   "landing": false,
+   "finisher": false
+  },
+  "9": {
+   "landing": false,
+   "finisher": false
+  },
+  "10": {
+   "landing": false,
+   "finisher": false
+  }
+ },
+ "layouts": {}
+}
