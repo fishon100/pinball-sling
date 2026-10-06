@@ -10,5 +10,7 @@
   "tools": [
     { "label": "關卡編輯器", "url": "https://fishon100.github.io/pinball-sling/street/editor.html", "icon": "wrench", "desc": "畫磚塊圖案與台面（中柱、彈力牆、加速帶、阿鰭），複製回關卡設定表" },
     { "label": "測試頁與難度報告", "url": "https://fishon100.github.io/pinball-sling/street/test.html", "icon": "flask", "desc": "自動測試、擬人玩家難度報告" }
-  ]
+  ],
+  "_qa_always說明": "試玩清單每次都要試的項目（提案做完上線後自動開的試玩清單，最後會加上這幾項）",
+  "qa_always": ["在手機上從頭玩到這次改的地方，沒有卡頓、跑版或錯字"]
 }
