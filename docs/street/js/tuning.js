@@ -23,8 +23,12 @@ SR.STREET_TUNING = {
   // 摩擦只在「撞擊」時用 ball.friction；滾動接觸用很小的 rolling_friction。
   // 原因：v2 的摩擦在滾動時每個子步都套用，球在長斜坡上只剩 50 px/s，
   // 會在兩支擋板之間無限慢滾循環（AC-S8 抓到）。擋板擊球屬於撞擊，手感不變（AC-S10 保護）。
-  ball: { rolling_friction: 0.002, impact_threshold: 50 },
-  brick: { restitution: 0.85, min_bounce: 180, min_hit_speed: 60, score: 10 },
+  // 2026-10-07 企劃「套用調參」（手感調整面板）：球變輕飄、慢一點、不那麼彈；撞磚彈開力道下限提高；彈跳柱稍強
+  //   重力 1400→820、最高速 2600→1900、撞牆反彈 0.45→0.24、撞擊摩擦 0.04→0.02、滾動摩擦 0.002→0.012、空氣阻力 0.05→0.19
+  ball: { gravity: 820, max_speed: 1900, restitution_wall: 0.24, friction: 0.02, damping: 0.19, rolling_friction: 0.012, impact_threshold: 50 },
+  //   撞磚反彈 0.85→0.50、撞磚最低彈開速度 180→300
+  brick: { restitution: 0.5, min_bounce: 300, min_hit_speed: 60, score: 10 },
+  bumper: { kick_speed: 1050 },   // 彈開力道 950→1050（2026-10-07 套用調參）
   // 收尾輔助：幾秒沒碎磚後啟動、吸力（v3.1 擋板新手：卡在最後幾塊 30.2s → 20.5s；
   // v3.4 滑板可以瞄準，擬人新手本來就只卡 7.7s，延遲 5→3 秒後 6.7s）
   assist: { finisher_delay: 3, finisher_strength: 1200 },
@@ -33,7 +37,8 @@ SR.STREET_TUNING = {
   // v3.7：S 半寬 40 → 48（第 4、5 區一般關也用 S，矮台面球回來得快，40 對新手太難：第 5 區每關掉 2.06 顆 → 1.28 顆）
   paddle: { half_widths: { S: 48, M: 56, L: 76 }, radius: 8, speed: 1550, max_angle_deg: 55, max_speed: 2600, carry: 0.15 },
   // 加速帶（v3.7，第 3 區起）：往上經過的球速度 ×mult，最少 min、最多 max；同一顆球 cooldown 秒內不重複
-  boost: { mult: 1.35, min: 1000, max: 2000, cooldown: 0.5 },
+  // 2026-10-07 套用調參：上限 2000→1900（跟著球的最高速，企劃選的）
+  boost: { mult: 1.35, min: 1000, max: 1900, cooldown: 0.5 },
   // capsule_speed＝道具膠囊直直往下掉的速度（px/s，v3.7.1）
   items: { capsule_speed: 170, bomb_radius: 60, bomb_damage: 2, slow_scale: 0.5, slow_s: 5, save_s: 10, wide_s: 12 },
   run: { hearts: 3, max_hearts: 5, bomb_radius: 52, bomb_every: 15 }

@@ -500,7 +500,7 @@ SR.Tests = (function () {
       if (dup(SR.ACHIEVEMENTS.map(a => a.id))) problems.push("成就 id 重複");
       return { pass: problems.length === 0, value: problems.length ? problems.slice(0, 3).join("；") : `劇情 ${Object.keys(SR.COMICS).length} 段、強化卡 ${SR.UPGRADES.length} 種、成就 ${SR.ACHIEVEMENTS.length} 個` };
     }},
-    { id: "AC-S10", name: "手感沿用 v2：擋板全舉時間、尖端擊球速度相同", run(T) {
+    { id: "AC-S10", name: "擋板手感：全舉時間同 v2（35.4 ms）、尖端擊球速度 1884（2026-10-07 套用調參後）", run(T) {
       const w = emptyWorld(T), f = P().buildTable(T).flippers[0];
       w.flippers = [f];
       const n = Math.max(1, Math.round(T.physics.substeps)), dt = 1 / 60 / n;
@@ -517,7 +517,7 @@ SR.Tests = (function () {
       let best = 0;
       for (let i = 0; i < 12; i++) { P().stepFrame(g, T, []); best = Math.max(best, Math.hypot(b.vx, b.vy)); }
       const ms = time * 1000;
-      return { pass: Math.abs(ms - 35.4) < 0.1 && Math.abs(best - 1901) < 2, value: `全舉 ${ms.toFixed(1)} ms（v2：35.4）・尖端 ${Math.round(best)} px/s（v2：1901）` };
+      return { pass: Math.abs(ms - 35.4) < 0.1 && Math.abs(best - 1884) < 2, value: `全舉 ${ms.toFixed(1)} ms（v2：35.4）・尖端 ${Math.round(best)} px/s（應 1884）` };
     }}
   , { id: "AC-S27", name: "所有關卡都是矮台面（top 320），遊玩時鏡頭固定不捲動", run(T) {
       const problems = [];
@@ -535,7 +535,7 @@ SR.Tests = (function () {
       }
       return { pass: !problems.length, value: problems.length ? [...new Set(problems)].slice(0, 4).join("；") : "50 關 top 都是 320；第 5／15／25／35／45 關各玩 20 秒，鏡頭都沒動" };
     }}
-  , { id: "AC-S28", name: "加速帶：往上經過加速 ×1.35（最少 1000、最多 2000）、往下不加速、0.5 秒內不重複；首領關沒有加速帶", run(T) {
+  , { id: "AC-S28", name: "加速帶：往上經過加速 ×1.35（最少 1000、最多 1900＝球的最高速）、往下不加速、0.5 秒內不重複；首領關沒有加速帶", run(T) {
       const problems = [];
       // 首領關：台面配置有加速帶也不放（v3.7.2 起台面由企劃的表決定，這裡自己造一個有加速帶的台面）
       const padLayout = { id: "test_pad", name: "測試", top: 320, bumpers: [], boost: [[152, 763]] };
@@ -556,7 +556,7 @@ SR.Tests = (function () {
           return { sp, boosts };
         } finally { T.ball.damping = oldDamp; }
       });
-      for (const [vin, want] of [[-500, 1000], [-800, 1080], [-1700, 2000]]) {
+      for (const [vin, want] of [[-500, 1000], [-800, 1080], [-1700, 1900]]) {   // 上限 2000→1900（2026-10-07 套用調參，tuning-2026-10-07）
         const r = trial(vin); if (!r) { problems.push("測試台面沒有加速帶"); break; }
         if (Math.abs(r.sp - want) > 6 || r.boosts !== 1) problems.push(`往上 ${-vin} → ${r.sp.toFixed(0)}（應 ${want}）、加速 ${r.boosts} 次`);
       }
