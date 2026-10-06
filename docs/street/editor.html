@@ -27,7 +27,24 @@ select, input[type=number], input[type=text] { padding: 8px; border-radius: 10px
 .btn.pink { background: var(--pink); color: #fff; }
 .btn.on { background: var(--cyan); color: var(--ink); }
 .btn:disabled { opacity: .4; cursor: default; }
-.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+/* 設定模式（數值欄位）、送出修改、暫存提示 */
+.sets { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sets label { font-size: 13px; gap: 3px; }
+.sets .wide { grid-column: 1 / -1; }
+.sets .chk { display: flex; flex-wrap: wrap; gap: 6px 12px; font-weight: 700; }
+.sets .chk label { display: flex; align-items: center; gap: 4px; }
+.sets input.bad { outline: 3px solid var(--warn); }
+.sets .err { color: var(--warn); font-size: 12px; font-weight: 700; min-height: 0; }
+.submit { display: grid; gap: 6px; background: #18181d; border-radius: 10px; padding: 10px; }
+.submit .btn.go { background: var(--lime); }
+.pending { font-size: 13px; color: var(--muted); }
+.draftbar { background: var(--cyan); color: var(--ink); border-radius: 10px; padding: 8px 10px; font-weight: 900; font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.draftbar span { flex: 1 1 180px; }
+dialog { border: 3px solid var(--ink); border-radius: 14px; background: var(--panel); color: var(--text); max-width: min(440px, 92vw); padding: 16px; }
+dialog::backdrop { background: rgba(0,0,0,.6); }
+dialog ul { margin: 6px 0 10px; padding-left: 20px; }
+dialog .row { justify-content: flex-end; }
 .brushes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .brush { appearance: none; border: 2px solid var(--ink); border-radius: 8px; padding: 6px 0; font-weight: 900; background: #3a3a44; color: var(--text); cursor: pointer; font-family: "Bungee", "Noto Sans TC", sans-serif; }
 .brush.on { background: var(--cyan); color: var(--ink); box-shadow: 0 0 0 2px var(--cyan); }
@@ -71,7 +88,8 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
   </section>
   <section class="panel">
     <label>關卡<select id="stage"></select></label>
-    <div class="tabs"><button class="btn on" id="modeWall">磚牆</button><button class="btn ghost" id="modeLayout">台面</button></div>
+    <div class="draftbar" id="draftBar" hidden><span id="draftText"></span><button class="btn" id="draftResume">接著改</button><button class="btn ghost" id="draftDrop">不要了</button></div>
+    <div class="tabs"><button class="btn on" id="modeWall">磚牆</button><button class="btn ghost" id="modeLayout">台面</button><button class="btn ghost" id="modeSettings">設定</button></div>
 
     <!-- 磚牆模式 -->
     <div id="wallPanel" class="box">
@@ -116,21 +134,35 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
       <button class="btn ghost" id="resetLayout">還原這個台面</button>
     </div>
 
+    <!-- 設定模式 -->
+    <div id="settingsPanel" class="box" hidden>
+      <div style="font-weight:700" id="settingsTitle"></div>
+      <div class="sets" id="sets"></div>
+    </div>
+
+    <div class="submit">
+      <button class="btn go" id="submitBtn">送出修改</button>
+      <div class="pending" id="pending"></div>
+      <div class="msg" id="submitMsg"></div>
+    </div>
+    <details><summary class="help" style="cursor:pointer">備用：複製文字貼回試算表</summary>
     <pre id="text" aria-label="要貼回試算表的文字"></pre>
     <button class="btn pink" id="copy">複製</button>
     <div class="msg" id="msg"></div>
-    <p class="help" id="helpWall">貼回「關卡設定表」：點這一關的 <code>第1排</code> 格子 → 貼上，會自動排到第1排～第N排；後面多的排要清空。字元：<code>.</code> 空格、<code>1</code>～<code>5</code> 磚血、<code>B</code> 油漆桶、<code>G</code> 道具磚、<code>X</code> 首領（只有首領關）。</p>
-    <p class="help" id="helpLayout" hidden>貼回「台面配置表」：直接改＝點這個台面那一列的 <code>代號</code> 格子 → 貼上（整列覆蓋）；另存新台面＝貼在最下面的空白列，再到「關卡設定表」把這一關的 <code>台面配置</code> 改成新代號。改完跟 AI 說「同步關卡表」。</p>
+    </details>
+    <p class="help" id="helpFlow">改好（可以連改好幾關，磚牆、台面、設定都算）→ 按「<b>送出修改</b>」→ 跟 AI 說「<b>套用關卡修改</b>」。AI 會檢查、上線，再給你最新版的關卡表。還沒送出的修改會暫存在這台電腦的瀏覽器。</p>
+    <p class="help" id="helpWall">備用做法（不用送出、手動貼回試算表）：貼回「關卡設定表」：點這一關的 <code>第1排</code> 格子 → 貼上，會自動排到第1排～第N排；後面多的排要清空。字元：<code>.</code> 空格、<code>1</code>～<code>5</code> 磚血、<code>B</code> 油漆桶、<code>G</code> 道具磚、<code>X</code> 首領（只有首領關）。</p>
+    <p class="help" id="helpLayout" hidden>備用做法（不用送出、手動貼回試算表）：貼回「台面配置表」：直接改＝點這個台面那一列的 <code>代號</code> 格子 → 貼上（整列覆蓋）；另存新台面＝貼在最下面的空白列，再到「關卡設定表」把這一關的 <code>台面配置</code> 改成新代號。改完跟 AI 說「同步關卡表」。</p>
   </section>
 </div>
-<script src="js/data.js?v=3.8.2"></script>
-<script src="js/levels.js?v=3.8.2"></script>
-<script src="js/levelcheck.js?v=3.8.2"></script>
-<script src="js/tuning.js?v=3.8.2"></script>
-<script src="js/physics.js?v=3.8.2"></script>
-<script src="js/rules.js?v=3.8.2"></script>
-<script src="js/art.js?v=3.8.2"></script>
-<script src="js/tests.js?v=3.8.2"></script>
+<script src="js/data.js?v=3.9.0"></script>
+<script src="js/levels.js?v=3.9.0"></script>
+<script src="js/levelcheck.js?v=3.9.0"></script>
+<script src="js/tuning.js?v=3.9.0"></script>
+<script src="js/physics.js?v=3.9.0"></script>
+<script src="js/rules.js?v=3.9.0"></script>
+<script src="js/art.js?v=3.9.0"></script>
+<script src="js/tests.js?v=3.9.0"></script>
 <script>
 (async () => {
   const T = await SR.loadTuning(); SR.T = T;
@@ -140,6 +172,15 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
   const clone = o => JSON.parse(JSON.stringify(o));
   // 編輯中的關卡表（只在這個頁面裡改，複製貼回試算表才會生效）
   const work = clone(SR.LEVELS);
+  // 送出修改（提案 level-editor-submit）：base＝上次送出後的狀態；跟 base 不一樣的就是「還沒送出的修改」
+  let base = clone(SR.LEVELS);
+  const TEST = /[?&]test=1/.test(location.search), DRAFT = TEST ? "sprayrun.editor.draft.test" : "sprayrun.editor.draft";
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: k => { try { localStorage.removeItem(k); } catch (e) {} } };
+  const PART = { grid: "磚牆", name: "名稱", items: "道具池", layout: "台面配置", paddle: "滑板", ball: "球半徑", trail: "拖尾", preview: "彈道預覽秒", landing: "落點提示", ballSave: "加長球保險秒", finisher: "收尾輔助", boss: "首領", par: "標準時間秒" };
+  // 數值範圍跟「同步關卡表」的檢查一樣（levelcheck.js）
+  const NUM = { ball: [8, 16, "球半徑"], trail: [0, 20, "拖尾"], preview: [0, 2, "彈道預覽秒"], ballSave: [0, 10, "加長球保險秒"], par: [10, 600, "標準時間秒"], "boss.hp": [1, 200, "首領血量"], "boss.speed": [0, 300, "首領速度"], "boss.regen": [1, 30, "首領補磚秒"] };
+  const errors = {};                                                // { 關卡: { 欄位: "允許範圍" } }
+  let draftPending = false, lastDraft = "";
   let n = 1, mode = "wall", brush = "1", tool = "select", mirror = true, sel = null, drag = null, reminder = "", t0 = performance.now();
 
   /* ---------- 共用 ---------- */
@@ -155,17 +196,151 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
   function load(stage) {
     n = stage; $("stage").value = String(n); sel = null; reminder = "";
     if (!isBoss() && brush === "X") brush = "1";
-    drawBrushes(); render();
+    drawBrushes(); if (mode === "settings") renderSettings(); render();
   }
   function setMode(m) {
     mode = m; sel = null;
-    $("modeWall").className = "btn " + (m === "wall" ? "on" : "ghost"); $("modeLayout").className = "btn " + (m === "layout" ? "on" : "ghost");
-    $("wallPanel").hidden = m !== "wall"; $("layoutPanel").hidden = m !== "layout"; $("brushes").hidden = m !== "wall"; $("tools").hidden = m !== "layout";
+    $("modeWall").className = "btn " + (m === "wall" ? "on" : "ghost"); $("modeLayout").className = "btn " + (m === "layout" ? "on" : "ghost"); $("modeSettings").className = "btn " + (m === "settings" ? "on" : "ghost");
+    $("wallPanel").hidden = m !== "wall"; $("layoutPanel").hidden = m !== "layout"; $("settingsPanel").hidden = m !== "settings"; $("brushes").hidden = m !== "wall"; $("tools").hidden = m !== "layout";
     cv.style.touchAction = m === "wall" ? "pan-y" : "none"; $("helpWall").hidden = m !== "wall"; $("helpLayout").hidden = m !== "layout";
     $("hintTop").textContent = m === "wall" ? "點格子換成選好的筆刷；再點一次同一格會變回空格。灰色斜線＝被台面切掉、放不了磚的格子。"
+      : m === "settings" ? "在下面改這一關的設定：道具池、滑板、球、輔助、標準時間（首領關多首領數值）。超出範圍會標黃色。"
       : "選工具後點台面新增；用「選取／拖曳」拖動物件（彈力牆可以拖兩端或中間、阿鰭可以拖路線和左右界）。";
+    if (m === "settings") renderSettings();
     render();
   }
+
+  /* ---------- 設定模式（數值欄位） ---------- */
+  function getVal(k) { const s = row(); return k.startsWith("boss.") ? (s.boss ? s.boss[k.slice(5)] : undefined) : s[k]; }
+  function setSetting(k, v) {
+    const s = row(), errs = errors[n] || (errors[n] = {});
+    if (k in NUM) {
+      const [lo, hi] = NUM[k], x = typeof v === "number" ? v : String(v).trim() === "" ? NaN : Number(v);
+      if (!Number.isFinite(x) || x < lo || x > hi) errs[k] = `${lo}–${hi}`; else delete errs[k];
+      v = Number.isFinite(x) ? x : v;
+    }
+    if (k === "landing" || k === "finisher") v = !!v;
+    if (k.startsWith("boss.")) { if (s.boss) s.boss[k.slice(5)] = v; } else s[k] = v;
+    if (!Object.keys(errs).length) delete errors[n];
+    render();
+  }
+  const fieldError = k => (errors[n] && errors[n][k]) ? `只能 ${errors[n][k]}` : "";
+  function renderSettings() {
+    const s = row(), items = s.items === "random" ? null : s.items;
+    const num = (k, step = 1) => `<label>${NUM[k][2]}<input type="number" step="${step}" data-set="${k}" value="${getVal(k)}" class="${fieldError(k) ? "bad" : ""}"><span class="err" data-err="${k}">${fieldError(k)}</span></label>`;
+    const sel = (k, label, opts) => `<label>${label}<select data-set="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(getVal(k)) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
+    const yes = (k, label) => `<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-set="${k}" ${getVal(k) ? "checked" : ""}> ${label}</label>`;
+    $("settingsTitle").textContent = `第 ${n} 關的設定`;
+    $("sets").innerHTML = `<label class="wide">名稱<input type="text" data-set="name" value="${String(s.name).replace(/"/g, "&quot;")}"></label>
+      <div class="wide"><div style="font-weight:700;font-size:13px;margin-bottom:4px">道具池</div><div class="chk">
+        <label><input type="checkbox" data-items="random" ${items ? "" : "checked"}> 隨機（5 種都有可能）</label>
+        ${SR.ITEMS.map(it => `<label><input type="checkbox" data-items="${it.id}" ${items && items.includes(it.id) ? "checked" : ""} ${items ? "" : "disabled"}> ${it.icon} ${it.name}</label>`).join("")}</div></div>
+      ${sel("layout", "台面配置", Object.keys(work.layouts).map(id => [id, `${work.layouts[id].name}（${id}）`]))}
+      ${sel("paddle", "滑板", [["S", "S 小"], ["M", "M 中"], ["L", "L 大"]])}
+      ${num("ball", 0.5)}${num("trail")}${num("preview", 0.1)}${num("ballSave", 0.5)}${num("par")}
+      <div class="wide" style="display:flex;gap:14px;flex-wrap:wrap">${yes("landing", "落點提示")}${yes("finisher", "收尾輔助")}</div>
+      ${s.boss ? `<div class="wide" style="font-weight:700;font-size:13px">首領</div>${num("boss.hp")}${num("boss.speed")}${num("boss.regen")}` : ""}`;
+  }
+  $("sets").addEventListener("input", e => {
+    const el = e.target, k = el.dataset.set;
+    if (k) {
+      setSetting(k, el.type === "checkbox" ? el.checked : el.type === "number" ? el.value : el.value);
+      if (el.type === "number") { el.classList.toggle("bad", !!fieldError(k)); const er = $("sets").querySelector(`[data-err="${k}"]`); if (er) er.textContent = fieldError(k); }
+      return;
+    }
+    if (el.dataset.items) {
+      const boxes = [...$("sets").querySelectorAll("[data-items]")];
+      if (el.dataset.items === "random") { row().items = el.checked ? "random" : SR.ITEMS.map(i => i.id); renderSettings(); }
+      else { const ids = boxes.filter(b => b.dataset.items !== "random" && b.checked).map(b => b.dataset.items); row().items = ids.length ? ids : "random"; if (!ids.length) renderSettings(); }
+      render();
+    }
+  });
+  $("sets").addEventListener("change", e => { if (e.target.tagName === "SELECT") { setSetting(e.target.dataset.set, e.target.value); } });
+
+  /* ---------- 送出修改：清單、修改檔、暫存 ---------- */
+  function changes() {
+    const stages = [];
+    work.stages.forEach((s, i) => {
+      const b = base.stages[i], parts = Object.keys(PART).filter(k => JSON.stringify(s[k]) !== JSON.stringify(b[k])).map(k => PART[k]);
+      if (parts.length) stages.push({ n: s.n, parts });
+    });
+    const layouts = Object.keys(work.layouts).filter(id => JSON.stringify(work.layouts[id]) !== JSON.stringify(base.layouts[id]));
+    return { stages, layouts };
+  }
+  function payload(note = "") {
+    const out = { version: 1, at: new Date().toISOString(), note, stages: {}, layouts: {} };
+    work.stages.forEach((s, i) => {
+      const b = base.stages[i], ch = {};
+      for (const k of Object.keys(PART)) if (JSON.stringify(s[k]) !== JSON.stringify(b[k])) ch[k] = clone(s[k]);
+      if (Object.keys(ch).length) out.stages[s.n] = ch;
+    });
+    for (const id of changes().layouts) out.layouts[id] = clone(work.layouts[id]);
+    return out;
+  }
+  const hasErrors = () => Object.keys(errors).length > 0;
+  const summary = c => [...c.stages.map(s => `第 ${s.n} 關（${s.parts.join("、")}）`), ...c.layouts.map(id => `台面 ${id}`)];
+  function submitMessage() {
+    if (hasErrors()) return `有數字超出範圍（第 ${Object.keys(errors).join("、")} 關），改好才能送出`;
+    const c = changes(), list = summary(c);
+    return list.length ? `還沒送出：${list.join("、")}` : "沒有要送出的修改";
+  }
+  function saveDraft() {
+    if (draftPending) return;                                     // 還沒決定要不要接著改上次的，不要蓋掉
+    const p = payload(), has = Object.keys(p.stages).length || Object.keys(p.layouts).length, s = has ? JSON.stringify(p) : "";
+    if (s === lastDraft) return;
+    lastDraft = s;
+    if (has) store.set(DRAFT, s); else store.del(DRAFT);
+  }
+  function mergeInto(target, p) {
+    for (const [k, ch] of Object.entries(p.stages || {})) Object.assign(target.stages[+k - 1], clone(ch));
+    for (const [id, L] of Object.entries(p.layouts || {})) target.layouts[id] = clone(L);
+  }
+  function resumeDraft() { const raw = store.get(DRAFT); draftPending = false; $("draftBar").hidden = true; if (raw) { try { mergeInto(work, JSON.parse(raw)); } catch (e) {} } lastDraft = ""; load(n); }
+  // 不要了＝丟掉還沒送出的修改（也回到上次送出後的狀態），之後關掉網頁也不會再暫存回去
+  function discardDraft() { work.stages = clone(base.stages); work.layouts = clone(base.layouts); for (const k in errors) delete errors[k]; store.del(DRAFT); draftPending = false; lastDraft = ""; $("draftBar").hidden = true; if (window.SR_EDITOR) load(n); }
+  { // 打開時：有上次沒送出的修改 → 問要不要接著改
+    const raw = store.get(DRAFT);
+    if (raw) try {
+      const p = JSON.parse(raw), list = [...Object.keys(p.stages || {}).map(k => `第 ${k} 關`), ...Object.keys(p.layouts || {}).map(id => `台面 ${id}`)];
+      if (list.length) { draftPending = true; $("draftText").textContent = `有上次沒送出的修改：${list.join("、")}`; $("draftBar").hidden = false; }
+    } catch (e) { store.del(DRAFT); }
+  }
+  $("draftResume").onclick = resumeDraft;
+  $("draftDrop").onclick = () => { if (confirm("確定不要上次沒送出的修改？")) discardDraft(); };
+  addEventListener("beforeunload", saveDraft);
+
+  // 送出：瀏覽器有管理台的登入碼（同一個網站）→ 直接存到 GitHub；沒有 → 打開填好的 GitHub「新增檔案」頁
+  const REPO = location.hostname.endsWith(".github.io") ? `${location.hostname.split(".")[0]}/${location.pathname.split("/")[1]}` : "fishon100/pinball-sling";
+  const token = () => { try { return sessionStorage.getItem("console:auth") || localStorage.getItem("console:auth") || ""; } catch (e) { return ""; } };
+  const b64 = s => { const bytes = new TextEncoder().encode(s); let x = ""; for (let i = 0; i < bytes.length; i += 0x8000) x += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(x); };
+  function stampName() { const d = new Date(), p = v => String(v).padStart(2, "0"); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.json`; }
+  function submitted(text) { base = clone(work); discardDraft(); $("submitMsg").textContent = text; render(); }
+  async function submit(note) {
+    const p = payload(note), name = stampName(), body = JSON.stringify(p, null, 1), tk = token();
+    if (tk) {
+      try {
+        const r = await fetch(`https://api.github.com/repos/${REPO}/contents/tools/levels/edits/${name}`, { method: "PUT",
+          headers: { Authorization: `Bearer ${tk}`, Accept: "application/vnd.github+json", "Content-Type": "application/json" },
+          body: JSON.stringify({ message: `關卡修改：${note || summary(changes()).join("、")}（編輯器）`, content: b64(body) }) });
+        if (r.ok) { submitted("✅ 已送出。接著跟 AI 說「套用關卡修改」"); return; }
+      } catch (e) {}
+    }
+    const url = `https://github.com/${REPO}/new/main/tools/levels/edits?filename=${encodeURIComponent(name)}&value=${encodeURIComponent(body)}`;
+    if (url.length > 7500) { try { await navigator.clipboard.writeText(body); } catch (e) {} window.open(`https://github.com/${REPO}/new/main/tools/levels/edits?filename=${encodeURIComponent(name)}`, "_blank"); }
+    else window.open(url, "_blank");
+    $("submitMsg").innerHTML = `已打開 GitHub${url.length > 7500 ? "（內容太長，已複製，請貼到內容框）" : ""}：按綠色的 <b>Commit changes</b> 就完成，然後跟 AI 說「套用關卡修改」。<br><button class="btn ghost" id="doneWeb" style="margin-top:6px">我已經在 GitHub 按了，清掉暫存</button>`;
+    $("doneWeb").onclick = () => submitted("✅ 已送出。接著跟 AI 說「套用關卡修改」");
+  }
+  $("submitBtn").onclick = () => {
+    if (!canSubmit()) { $("submitMsg").textContent = submitMessage(); return; }
+    $("submitList").innerHTML = summary(changes()).map(x => `<li>${x}</li>`).join("");
+    $("submitHow").textContent = token() ? "會直接存到 GitHub（用這台電腦管理台的登入碼）。" : "會打開 GitHub 的頁面，按綠色的 Commit changes 就完成（瀏覽器要登入 GitHub）。";
+    $("submitNote").value = "";
+    $("submitDlg").showModal();
+  };
+  // 用表單的 submit（按下當下就觸發）；dialog 的 close 事件在背景分頁可能會延遲
+  $("submitDlg").querySelector("form").addEventListener("submit", e => { if (e.submitter && e.submitter.value === "ok") submit($("submitNote").value.trim()); });
+  const canSubmit = () => !hasErrors() && summary(changes()).length > 0;
 
   /* ---------- 磚牆模式 ---------- */
   function drawBrushes() {
@@ -277,7 +452,11 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
       } else drawHandles();
       g.restore();
     });
+    // 送出區（每次畫面更新都算一次；順便自動暫存，最多每秒一次）
+    $("pending").textContent = submitMessage(); $("submitBtn").disabled = !canSubmit();
+    if (!render.saved || performance.now() - render.saved > 1000) { render.saved = performance.now(); saveDraft(); }
     // 側欄
+    if (mode === "settings") { $("text").textContent = row().grid.join("\n") || "（沒有磚）"; return; }
     if (mode === "wall") {
       const all = row().grid.join(""), hp = [...all].reduce((s, ch) => s + (/[1-5]/.test(ch) ? +ch : /[BG]/.test(ch) ? 1 : 0), 0);
       $("sBricks").textContent = (all.match(/[1-5BG]/g) || []).length; $("sHp").textContent = hp; $("sGifts").textContent = (all.match(/G/g) || []).length;
@@ -377,6 +556,7 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
   $("stage").onchange = e => load(+e.target.value);
   $("modeWall").onclick = () => setMode("wall");
   $("modeLayout").onclick = () => setMode("layout");
+  $("modeSettings").onclick = () => setMode("settings");
   $("addRow").onclick = () => { if (row().grid.length < MAX) row().grid.push("........."); render(); };
   $("delRow").onclick = () => { row().grid.pop(); render(); };
   $("reset").onclick = () => { row().grid = clone(SR.LEVELS.stages[n - 1].grid); render(); };
@@ -395,6 +575,9 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
 
   window.SR_EDITOR = {
     load, setMode, addBumper, addRail, addBoost, setFish, moveObject, remove, saveAs, warnings, copyText, stuck,
+    changes, payload, submitMessage, saveDraft, resumeDraft, discardDraft, fieldError,
+    setSetting: (k, v) => { setSetting(k, v); if (mode === "settings") renderSettings(); },
+    get canSubmit() { return canSubmit(); }, get draftPending() { return draftPending; },
     setMirror: v => { mirror = !!v; $("mirror").checked = mirror; },
     get mode() { return mode; }, get n() { return n; }, get grid() { return row().grid; }, get layout() { return layout(); }, get reminder() { return reminder; },
     ready: true
@@ -403,5 +586,12 @@ pre { margin: 0; background: #18181d; border-radius: 10px; padding: 10px; font: 
   (function loop() { if (!drag) render(); setTimeout(() => requestAnimationFrame(loop), 150); })();
 })();
 </script>
+<dialog id="submitDlg"><form method="dialog">
+  <b>送出這些修改？</b>
+  <ul id="submitList"></ul>
+  <label>這次改了什麼（選填）<input type="text" id="submitNote" placeholder="例：第 3 關磚牆改成笑臉"></label>
+  <p class="help" id="submitHow"></p>
+  <div class="row"><button class="btn ghost" value="">取消</button><button class="btn pink" value="ok" id="submitOk">送出</button></div>
+</form></dialog>
 </body>
 </html>

@@ -116,7 +116,7 @@ SR.LevelCheck = (function () {
 
   /* levels.js 的內容（一關一行，方便看 git 差異） */
   function toLevelsJs(levels) {
-    const head = "/* 關卡設定（自動產生，不要手改）：企劃在 Google Drive「噴漆闖關 關卡設定」改表後，跟 AI 說「同步關卡表」。\n   source＝" + levels.source + "  syncedAt＝" + (levels.syncedAt || "") + " */\n\"use strict\";\nvar SR = window.SR || (window.SR = {});\n";
+    const head = "/* 關卡設定（自動產生，不要手改）：企劃在關卡編輯器改完按「送出修改」，跟 AI 說「套用關卡修改」（想用試算表大量改時：改表後說「同步關卡表」）。\n   source＝" + levels.source + "  syncedAt＝" + (levels.syncedAt || "") + " */\n\"use strict\";\nvar SR = window.SR || (window.SR = {});\n";
     const st = levels.stages.map(s => "    " + JSON.stringify(s)).join(",\n");
     const ly = Object.entries(levels.layouts).map(([id, L]) => "    " + JSON.stringify(id) + ": " + JSON.stringify(L)).join(",\n");
     return head + "SR.LEVELS = {\n  version: " + levels.version + ", source: " + JSON.stringify(levels.source) + ", syncedAt: " + JSON.stringify(levels.syncedAt || "") +

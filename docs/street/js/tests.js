@@ -891,6 +891,53 @@ SR.Tests = (function () {
       }
       return { pass: !problems.length, value: problems.length ? problems.join("；") : "複製格式正確，加了中柱、彈力牆、加速帶、阿鰭後讀回完全相同" };
     }}
+    // v3.9 提案 level-editor-submit：編輯器改完直接送出（測試模式的暫存用另一個 key，不會動到企劃的暫存）
+    , { id: "AC-S47", name: "編輯器「送出修改」只列出改過的關卡與台面；沒改就說沒有要送出的", async run(frame) {
+      try { localStorage.removeItem("sprayrun.editor.draft.test"); } catch (e) {}
+      let w = await bootEditor(frame), E = w.SR_EDITOR;
+      if (!E || !E.changes) return { pass: false, value: "編輯器沒有送出功能（SR_EDITOR.changes）" };
+      const problems = [];
+      if (!/沒有要送出的修改/.test(E.submitMessage())) problems.push(`沒改東西時是「${E.submitMessage()}」`);
+      E.load(3); E.grid.splice(0, 1, "333333333");
+      E.load(1); E.setMode("layout"); E.setMirror(true);
+      const [bx, by] = E.layout.bumpers[0]; E.moveObject("bumper", 0, bx + 4, by);
+      const ch = E.changes(), p = E.payload("測試");
+      const list = ch.stages.map(s => `${s.n}:${s.parts.join("+")}`).join(",") + "|" + ch.layouts.join(",");
+      if (list !== "3:磚牆|a_pair") problems.push(`清單是「${list}」`);
+      if (JSON.stringify(Object.keys(p.stages)) !== '["3"]' || JSON.stringify(Object.keys(p.stages[3])) !== '["grid"]' || p.stages[3].grid[0] !== "333333333") problems.push(`修改檔的關卡是 ${JSON.stringify(p.stages)}`);
+      if (JSON.stringify(Object.keys(p.layouts)) !== '["a_pair"]' || p.note !== "測試") problems.push(`修改檔的台面／備註是 ${JSON.stringify(Object.keys(p.layouts))}／${p.note}`);
+      E.discardDraft();
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : "清單「第 3 關（磚牆）＋台面 a_pair」，修改檔只有這兩項；沒改時說沒有要送出的修改" };
+    }}
+    , { id: "AC-S48", name: "編輯器自動暫存：沒送出就重新整理，會問要不要接著改，接著改後修改還在", async run(frame) {
+      try { localStorage.removeItem("sprayrun.editor.draft.test"); } catch (e) {}
+      let w = await bootEditor(frame), E = w.SR_EDITOR;
+      if (!E || !E.saveDraft) return { pass: false, value: "編輯器沒有暫存功能（SR_EDITOR.saveDraft）" };
+      E.load(5); E.grid.splice(0, 1, "5.......5"); E.saveDraft();
+      w = await bootEditor(frame); E = w.SR_EDITOR;
+      const asked = E.draftPending;
+      E.resumeDraft(); E.load(5);
+      const row0 = E.grid[0], kept = row0 === "5.......5";
+      E.discardDraft();
+      return { pass: asked && kept, value: `重新整理後有問 ${asked ? "是" : "否"}・接著改後第 5 關第 1 排是「${row0}」` };
+    }}
+    , { id: "AC-S49", name: "編輯器「設定」模式：改滑板、球半徑會列進送出清單；超出範圍標出允許範圍、不能送出", async run(frame) {
+      try { localStorage.removeItem("sprayrun.editor.draft.test"); } catch (e) {}
+      const w = await bootEditor(frame), E = w.SR_EDITOR;
+      if (!E || !E.setSetting) return { pass: false, value: "編輯器沒有設定模式（SR_EDITOR.setSetting）" };
+      const problems = [];
+      E.load(12); E.setMode("settings"); E.setSetting("paddle", "L"); E.setSetting("ball", 14);
+      const s12 = E.changes().stages.find(s => s.n === 12);
+      if (!s12 || s12.parts.join("+") !== "滑板+球半徑") problems.push(`清單是「${s12 ? s12.parts.join("+") : "沒有第 12 關"}」`);
+      const p = E.payload();
+      if (p.stages[12]?.paddle !== "L" || p.stages[12]?.ball !== 14) problems.push(`修改檔是 ${JSON.stringify(p.stages[12])}`);
+      if (!E.canSubmit) problems.push("數值正確卻不能送出");
+      E.setSetting("ball", 20);
+      if (!/8.16/.test(E.fieldError("ball"))) problems.push(`球半徑 20 的提示是「${E.fieldError("ball")}」`);
+      if (E.canSubmit) problems.push("球半徑 20 還能送出");
+      E.discardDraft();
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : "改滑板、球半徑列進清單與修改檔；球半徑 20 顯示 8–16、不能送出" };
+    }}
     // v3.8 提案 stage-select-map：地圖上每一關都有自己的入口按鈕
     , { id: "AC-S43", name: "地圖每區 10 顆有編號的關卡按鈕；打過的和下一關能直接點來玩，其他鎖住", async run(frame) {
       let w = await bootGame(frame, { ...BASE_SAVE, unlocked: 1 }), g = w.SR_GAME;
