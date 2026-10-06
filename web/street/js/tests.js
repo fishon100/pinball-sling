@@ -940,6 +940,39 @@ SR.Tests = (function () {
       E.discardDraft();
       return { pass: !problems.length, value: problems.length ? problems.join("；") : "改滑板、球半徑列進清單與修改檔；球半徑 20 顯示 8–16、不能送出" };
     }}
+    // v3.10 提案 stage-intro-closeup：開場鏡頭特寫磚牆 → 一路往下 → 回定點。畫面中心＝鏡頭看著的點（台面座標）
+    , { id: "AC-S50", name: "開場運鏡：先拉近 2 倍特寫最上排磚，一路往下帶到滑板，最後回到平常的固定畫面", async run(frame) {
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 12 }), g = w.SR_GAME, G = g.G;
+      g.startDistrict(0, 3); g.closeDialog();
+      if (G.screen !== "intro") return { pass: false, value: `沒有進入開場（${G.screen}）` };
+      const centre = () => G.view.ty == null ? null : G.view.ty + G.cam.y, at = s => { runTicks(w, s - G.cine.t); return { z: G.view.zoom, y: centre() }; };
+      const topRow = Math.min(...G.world.bricks.map(b => b.y + b.h / 2)), paddle = 948, problems = [];
+      const a = at(0.5);
+      if (!(a.z > 1.9) || a.y == null || Math.abs(a.y - topRow) > 40) problems.push(`0.5 秒：zoom ${a.z.toFixed(2)}、中心 ${a.y == null ? "沒有" : Math.round(a.y)}（最上排磚 ${Math.round(topRow)}）`);
+      const ys = [0.9, 1.5, 2.2].map(s => at(s).y);
+      if (ys.some(y => y == null) || !(ys[0] < ys[1] && ys[1] < ys[2])) problems.push(`往下帶：中心 ${ys.map(y => y == null ? "—" : Math.round(y)).join("→")}`);
+      else if (Math.abs(ys[2] - paddle) > 60) problems.push(`2.2 秒中心 ${Math.round(ys[2])}，離滑板線 ${paddle} 太遠`);
+      runTicks(w, 1.2);
+      const v = G.view;
+      if (G.screen !== "play" || v.zoom !== 1 || G.cam.y !== 320 || Math.abs(v.tilt) > 0.01 || Math.abs(v.rz) > 0.01) problems.push(`結束：${G.screen}、zoom ${v.zoom}、鏡頭 ${G.cam.y}、傾斜 ${v.tilt.toFixed(1)}`);
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : `0.5 秒 2 倍特寫最上排磚 → ${ys.map(Math.round).join("→")} 往下到滑板 → 回定點開始遊玩` };
+    }}
+    , { id: "AC-S51", name: "開場運鏡：首領關從首領開始；同一關重打播 1.2 秒短版；點一下可以快轉", async run(frame) {
+      let w = await bootGame(frame, { ...BASE_SAVE, unlocked: 12 }), g = w.SR_GAME, G = g.G;
+      const problems = [];
+      g.startDistrict(0, 10); g.closeDialog();
+      runTicks(w, 0.5);
+      const boss = G.world.boss, by = boss ? boss.y + (boss.h || 0) / 2 : null, cy = G.view.ty == null ? null : G.view.ty + G.cam.y;
+      if (!boss || cy == null || Math.abs(cy - by) > 40) problems.push(`首領關 0.5 秒中心 ${cy == null ? "沒有" : Math.round(cy)}（首領 ${by == null ? "?" : Math.round(by)}）`);
+      g.goStage(3, { replay: true }); g.closeDialog();
+      if (!G.cine || Math.abs(G.cine.dur - 1.2) > 0.01) problems.push(`重打的開場 ${G.cine ? G.cine.dur : "?"} 秒`);
+      g.goStage(3); g.closeDialog();
+      runTicks(w, 0.5);
+      w.dispatchEvent(new w.KeyboardEvent("keydown", { code: "KeyX", key: "x" }));
+      runTicks(w, 0.35);
+      if (G.screen !== "play") problems.push(`點一下 0.35 秒後還是 ${G.screen}`);
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : "首領關從首領開始；重打 1.2 秒；按一下快轉後開始遊玩" };
+    }}
     // v3.8 提案 stage-select-map：地圖上每一關都有自己的入口按鈕
     , { id: "AC-S43", name: "地圖每區 10 顆有編號的關卡按鈕；打過的和下一關能直接點來玩，其他鎖住", async run(frame) {
       let w = await bootGame(frame, { ...BASE_SAVE, unlocked: 1 }), g = w.SR_GAME;

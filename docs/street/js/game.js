@@ -342,6 +342,7 @@
     P.placeStage(G.world, G.stage); R.applyBonuses(G.run, G.world);
     G.world.balls = [P.newBall(T, G.world)];
     G.run.stage = n; G.ps = R.newPlayState(); G.stageTime = 0; G.heartsLost = 0; G.ballSave = 0;
+    G.introShort = !!(opts.continued || opts.replay);          // v3.10：同一關重打播 1.2 秒短版開場
     G.continued = !!opts.continued; G.itemFx = { slow: 0, save: 0, wide: 0 }; G.lastBreakT = 0; G._finTold = false; G._boostTold = false; G.fishHits = 0; G.landing = null;
     G.particles = []; G.popups = []; G.trails = new Map(); G.lastBreak = null; G.plunger = { holding: false, charge: 0 };
     newPaintLayer(); G.cam.y = Math.min(G.world.top, P.CAM_MAX); G.timeScale = 1; G.screen = "story";
@@ -354,7 +355,7 @@
   }
   function startIntro() {
     G.screen = "intro";
-    G.cine = { type: "intro", t: 0, dur: 2.3 };
+    G.cine = { type: "intro", t: 0, dur: G.introShort ? 1.2 : 3.0 };
     AU.play("spray", 0.3);
     if (G.tut) return;                                    // 教學會自己帶
     const local = (G.stage.n - 1) % 10;
@@ -362,7 +363,7 @@
     else if (G.stage.isBoss) setTimeout(() => say("灰先生會補磚，先打掉他身下那排！", "wow", 3500), 2400);
     else say(["上吧！", "這面牆交給你了！", "畫就在磚底下！", "慢慢來，看準了再打！"][G.stage.n % 4], "happy", 1800);
   }
-  function beginPlay() { G.cine = null; G.screen = "play"; G.view.zoom = 1; G.view.tilt = 0; G.view.rz = 0; G.view.scale = 1; }
+  function beginPlay() { G.cine = null; G.screen = "play"; G.view.zoom = 1; G.view.tilt = 0; G.view.rz = 0; G.view.scale = 1; G.view.tx = G.view.ty = null; G.cam.y = P.CAM_MAX; }
 
   function launchIfReady() {
     const b = G.world.balls.find(x => P.ballInLane(x));
@@ -674,10 +675,21 @@
     c.t += dt;
     const k = c.t / c.dur;
     if (c.type === "intro") {
-      // 3D 俯衝：從牆頂（傾斜 38°）降到擋板（平面 2D）
-      G.cam.y = lerp(Math.min(G.world.top, P.CAM_MAX), P.CAM_MAX, ease(k * 1.1 - 0.1));
-      v.tilt = 38 * (1 - ease(k)); v.scale = lerp(0.88, 1, ease(k)); v.rz = -3 * (1 - ease(k)); v.zoom = 1;
-      if (G.stage.isBoss && k > 0.15 && k < 0.5) { v.zoom = 1 + 0.35 * Math.sin((k - 0.15) / 0.35 * Math.PI); v.fx = 200; v.fy = 160; G.shake = Math.max(G.shake, 4); }
+      // v3.10 開場運鏡（提案 stage-intro-closeup）：① 0–0.8 秒拉近 2 倍特寫最上排磚（首領關特寫首領＋震動）
+      // ② 0.8–2.3 秒維持 2 倍一路往下帶到滑板 ③ 2.3–3.0 秒拉遠回平常畫面。重打的短版（1.2 秒）只有 ③。
+      // v.tx／v.ty＝鏡頭看著的點（畫面座標）：畫在畫面正中央（200, 370）
+      G.cam.y = P.CAM_MAX; v.tilt = 0; v.rz = 0; v.scale = 1;
+      const cy = G.cam.y, boss = G.world.boss, endY = 900 - cy;     // 往下帶的終點：看得到滑板（948），又不露出台面底下
+      const startX = boss ? boss.x + (boss.w || 0) / 2 : 200;
+      const startY = (boss ? boss.y + (boss.h || 0) / 2 : Math.min(...G.world.bricks.map(b => b.y + b.h / 2), 600)) - cy;
+      let z, tx, ty;
+      if (c.dur < 2) { const k3 = ease(c.t / c.dur); z = lerp(2, 1, k3); tx = 200; ty = lerp(endY, 370, k3); }
+      else if (c.t < 0.8) {
+        const k1 = ease(Math.min(1, c.t / 0.4)); z = lerp(1, 2, k1); tx = lerp(200, startX, k1); ty = lerp(370, startY, k1);
+        if (boss && c.t > 0.2) G.shake = Math.max(G.shake, 4);
+      } else if (c.t < 2.3) { const k2 = ease((c.t - 0.8) / 1.5); z = 2; tx = lerp(startX, 200, k2); ty = lerp(startY, endY, k2); }
+      else { const k3 = ease(Math.min(1, (c.t - 2.3) / 0.7)); z = lerp(2, 1, k3); tx = 200; ty = lerp(endY, 370, k3); }
+      v.zoom = z; v.tx = tx; v.ty = ty;
       if (c.t >= c.dur) beginPlay();
     } else if (c.type === "clear") {
       // 慢動作特寫 → 定格 → 3D 傾斜展示整面彩色牆
@@ -711,7 +723,8 @@
     const v = G.view, p = pal();
     g.save();
     if (G.shake > 0.2) g.translate((Math.random() - 0.5) * G.shake * 2, (Math.random() - 0.5) * G.shake * 2);
-    g.translate(v.fx, v.fy); g.scale(v.zoom, v.zoom); g.translate(-v.fx, -v.fy);
+    if (v.ty != null) { g.translate(VW / 2, 370); g.scale(v.zoom, v.zoom); g.translate(-v.tx, -v.ty); }
+    else { g.translate(v.fx, v.fy); g.scale(v.zoom, v.zoom); g.translate(-v.fx, -v.fy); }
     g.translate(0, -G.cam.y);
     g.drawImage(A.wall(G.district, VW, P.H, w.top || 0), 0, 0);
     g.drawImage(G.paint, 0, 0);
@@ -797,10 +810,11 @@
     if (G.cine && G.cine.type === "intro") {
       const k = G.cine.t;
       const slam = k < 0.35 ? 1 + (0.35 - k) * 3 : 1;
-      g.save(); g.globalAlpha = Math.min(1, (G.cine.dur - k) * 2);
-      A.tag(g, `STAGE ${G.stage.n}`, 200, 300, 44 * slam, [p.a, p.b]);
-      A.tag(g, G.stage.name, 200, 352, 26, [p.c], { cjk: true, drips: false, rot: 0.04 });
-      A.tag(g, `台面：${w.layout.name}`, 200, 396, 17, ["#ffffff"], { cjk: true, drips: false, rot: 0.02 });
+      g.save(); g.globalAlpha = Math.max(0, Math.min(1, ((G.cine.dur < 2 ? G.cine.dur : 1.4) - k) * 2));
+      const ty0 = G.cine.dur < 2 ? 300 : 120;                       // 完整版：字放在上方空的牆面，不擋住特寫的磚
+      A.tag(g, `STAGE ${G.stage.n}`, 200, ty0, 44 * slam, [p.a, p.b]);
+      A.tag(g, G.stage.name, 200, ty0 + 52, 26, [p.c], { cjk: true, drips: false, rot: 0.04 });
+      A.tag(g, `台面：${w.layout.name}`, 200, ty0 + 96, 17, ["#ffffff"], { cjk: true, drips: false, rot: 0.02 });
       g.restore();
     }
     if (G.cine && G.cine.type === "clear" && G.cine.t > 0.9) {
