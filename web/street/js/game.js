@@ -122,9 +122,10 @@
   }
 
   /* 地圖的街道路線底圖（提案 stage-select-map 2.4）：程式畫的柏油路，路緣、車道線、噴漆塗鴉用各區的配色。
-     座標系 500×110：上排關卡中心 y=24、下排 y=86、左右兩端 x=50／450（＝5 欄的第 1、5 欄中心）；寬度隨卡片伸縮，線條粗細不變 */
-  function routeArt(d) {
-    const c = d.colors, road = "M14 24 H450 A31 31 0 0 1 450 86 H50";
+     座標系 500×110：上排關卡中心 y=24、下排 y=86、左右兩端 x=50／450（＝5 欄的第 1、5 欄中心）；寬度隨卡片伸縮，線條粗細不變
+     2.6：5 區連成一條街——第 1 區的路從左邊起點開始，其他區從上方接進來（.lane-in），第 10 關往下接到下一區（.lane-out） */
+  function routeArt(d, first) {
+    const c = d.colors, road = `M${first ? 14 : 50} 24 H450 A31 31 0 0 1 450 86 H50`;
     const s = (dPath, color, w, extra = "") => `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" ${extra}/>`;
     const tags = [[130, 50, 162, 45], [290, 52, 318, 58], [370, 2, 400, 6], [205, 104, 236, 100], [60, 60, 30, 64]]
       .map(([x1, y1, x2, y2], i) => s(`M${x1} ${y1} Q${(x1 + x2) / 2} ${(y1 + y2) / 2 + (i % 2 ? 6 : -6)} ${x2} ${y2}`, i % 2 ? c.c : c.b, 3, 'opacity=".55"')).join("");
@@ -152,23 +153,26 @@
       }
       const best = save.best[i] ? `最佳 ${save.best[i].toLocaleString()} 分` : "";
       const nextN = R.districtStartStage(save, i);
-      const nodes = [routeArt(d), ...stops];
-      return `<article class="district ${unlocked ? "" : "locked"}">
+      const nodes = [routeArt(d, i === 0), ...stops];
+      const last = i === SR.DISTRICTS.length - 1;
+      // 介紹在路線上方、往右縮排；路從左邊經過（上一區第 10 關 → 這一區第 1 關）
+      return `<article class="district ${unlocked ? "" : "locked"}" style="--curb:${d.colors.a};--lane:${d.colors.b}">
         <div class="bg" style="background:linear-gradient(120deg, ${d.colors.a}, ${d.colors.b} 55%, ${d.colors.c})"></div>
+        ${i ? `<div class="lane lane-in" aria-hidden="true"></div>` : ""}${last ? "" : `<div class="lane lane-out" aria-hidden="true"></div>`}
         <span class="act">第 ${i + 1} 區</span>
         <h3>${unlocked ? d.name : "？？？"}<small>${unlocked ? d.en : "LOCKED"} · ${s0}–${s1}</small></h3>
         <p class="story">${unlocked ? d.teaser : "在上一區打倒灰先生才會解鎖。"}</p>
-        ${unlocked ? `<p class="assist-line">${assistText(R.assistsFor(s0)) || "沒有輔助：全靠你的手感"}</p>` : ""}
-        <div class="route">${nodes.join("")}</div>
-        ${unlocked ? `<p class="nextname">▶ 第 ${nextN} 關・${SR.buildStage(nextN).name}</p>
+        ${unlocked ? `<p class="assist-line">${assistText(R.assistsFor(s0)) || "沒有輔助：全靠你的手感"}</p>
+        <p class="nextname">▶ 第 ${nextN} 關・${SR.buildStage(nextN).name}</p>
         <div class="row"><button class="big-btn small ${i % 2 ? "alt" : ""}" data-n="${nextN}">${save.unlocked > s1 ? "從頭再打一次" : save.unlocked > s0 ? `繼續：第 ${nextN} 關` : "出發"}</button></div><p class="sub" style="text-align:left;margin-top:6px;font-size:12px">點關卡按鈕可以直接選關${best ? `・${best}` : ""}</p>` : `<p class="lockmsg">🔒 尚未解鎖</p>`}
+        <div class="route">${nodes.join("")}</div>
       </article>`;
     }).join("");
     const gold = R.medalCount(save, 3), silver = R.medalCount(save, 2), bronze = R.medalCount(save, 1);
     show(`
       <div class="progress"><h2 class="h2">灰城地圖</h2><span>已解放 <b>${cleared}</b>/50・<i class="mc m3">金</i>${gold} <i class="mc m2">銀</i>${silver} <i class="mc m1">銅</i>${bronze}</span></div>
       <p class="sub" style="text-align:left">3 顆愛心、每過一關回 1 顆。一顆都沒掉＝金牌、掉 1 顆＝銀牌、掉 2 顆以上＝銅牌。每過一關會抽到一罐強化，一直帶到你回地圖為止。</p>
-      ${cards}
+      <div class="city">${cards}</div>
       <div class="row"><button class="big-btn ghost" id="goComics">📖 劇情回放</button><button class="big-btn ghost" id="goAch2">成就</button></div>
       <div class="row"><button class="big-btn ghost" id="goControl">操作：${control() === "paddle" ? "滑板" : "經典擋板"}</button><button class="big-btn ghost" id="replayTut">重看教學</button><button class="big-btn ghost" id="backTitle">回標題</button></div>`);
     screen.querySelectorAll("[data-n]").forEach(b => b.addEventListener("click", () => {

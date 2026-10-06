@@ -929,6 +929,28 @@ SR.Tests = (function () {
         return { pass: !problems.length, value: problems.length ? problems.join("；") : "第 1、2 區的按鈕都 ≥ 44×44，排成 1→5、10←6" };
       } finally { frame.style.width = old; }
     }}
+    , { id: "AC-S46", name: "5 區的路連成一條街：第 10N 關往下接第 10N+1 關，路和按鈕對齊、不被文字蓋到", async run(frame) {
+      const old = frame.style.width;
+      frame.style.width = "375px";
+      try {
+        const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 14 }), g = w.SR_GAME;
+        g.mapScreen();
+        await new Promise(r => setTimeout(r, 100));
+        const ds = [...w.document.querySelectorAll(".district")], problems = [];
+        const cx = r => (r.left + r.right) / 2, hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        for (let N = 1; N <= 4; N++) {
+          const out = ds[N - 1]?.querySelector(".lane-out")?.getBoundingClientRect(), inn = ds[N]?.querySelector(".lane-in")?.getBoundingClientRect();
+          const a = ds[N - 1]?.querySelector(`[data-stage="${10 * N}"]`)?.getBoundingClientRect(), b = ds[N]?.querySelector(`[data-stage="${10 * N + 1}"]`)?.getBoundingClientRect();
+          if (!out || !inn || !a || !b) { problems.push(`第 ${10 * N}→${10 * N + 1} 關沒有連接的路`); continue; }
+          const cy = r => (r.top + r.bottom) / 2;                    // 路要從第 10N 關的中心往下、到第 10N+1 關的中心，中間不能有縫
+          if (Math.abs(out.bottom - inn.top) > 2 || out.top > cy(a) + 2 || inn.bottom < cy(b) - 2) problems.push(`第 ${10 * N}→${10 * N + 1} 關的路斷掉`);
+          if ([cx(out), cx(inn), cx(a), cx(b)].some(x => Math.abs(x - cx(a)) > 4)) problems.push(`第 ${10 * N}→${10 * N + 1} 關沒有對齊`);
+          const texts = [...ds[N].querySelectorAll("h3, .act, .story, .assist-line, .nextname, .row, .sub, .lockmsg")].map(e => e.getBoundingClientRect());
+          if (texts.some(t => hit(t, inn))) problems.push(`第 ${N + 1} 區的文字蓋到路`);
+        }
+        return { pass: !problems.length, value: problems.length ? problems.join("；") : "第 10→11、20→21、30→31、40→41 關的路都連起來、對齊、沒被文字蓋到" };
+      } finally { frame.style.width = old; }
+    }}
     , { id: "AC-S45", name: "地圖卡片顯示下一關的關名（第 N 關・關名）", async run(frame) {
       const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 3 }), g = w.SR_GAME;
       g.mapScreen();
