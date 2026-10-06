@@ -18,7 +18,7 @@
 - [x] 2.3 Apply Editor Edits（Level Table Drives Every Stage）：`tools/levels/apply.js`（合併、檢查、列差異、--write 寫入＋跑測試＋搬到 applied/）與 `tools/levels/xlsx-write.mjs`（產生兩份 .xlsx）。驗收：1.3 的測試通過 [after: 1.3]
 - [x] 2.4 Level Sync Checks：`sync.js` 差異清單標「⚠ 會蓋掉編輯器的修改」。驗收：1.4 的測試通過 [after: 1.4]
 - [x] 2.5 CLAUDE.md、開發流文件加「套用關卡修改」；編輯器下方的說明改成新流程。驗收：照說明從頭操作一次不會卡住 [after: 2.1, 2.3]
-- [ ] 2.6 【企劃】實際用一次：在手機或電腦的編輯器改一關 → 送出 → 對 AI 說「套用關卡修改」→ 把產生的關卡表換到 Google Drive [after: 2.5]
+- [x] 2.6 【企劃】實際用一次：企劃 2026-10-07 用編輯器送出 5 批修改（磚牆、台面、設定），說「套用關卡修改」套用 4 次（v3.9.1～v3.11.1），並說「level-editor-submit 驗收通過」 [after: 2.5]
 
 ## 3. 收尾
 
