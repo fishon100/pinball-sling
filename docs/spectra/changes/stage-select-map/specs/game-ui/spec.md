@@ -2,9 +2,9 @@
 
 ### Requirement: UI Map And Stage Select
 
-The map SHALL show the cleared count "已解放 N/50" (N = unlocked - 1), gold/silver/bronze medal counts, and 5 district cards with 10 stage buttons each. Each stage button SHALL show its stage number and SHALL be at least 44 CSS px wide and tall on a 375 px wide screen; the 10 buttons SHALL be laid out as a route in two rows (stages 1–5 left to right, stages 6–10 right to left) joined by a path line. A stage button SHALL be selectable when its number is ≤ save.unlocked: cleared buttons SHALL also show their medal's first character (金／銀／銅), the next stage SHALL show "▶", uncleared boss stages SHALL show "王", and stages above save.unlocked SHALL be disabled and show a lock. Each unlocked district card SHALL show, below the route, the stage its secondary button starts as "▶ 第 N 關・<名稱>". A district SHALL be unlocked when save.unlocked ≥ its first stage; a locked card SHALL show "？？？", "LOCKED" and "🔒 尚未解鎖". An unlocked card's secondary button SHALL read "出發", "繼續：第 N 關" or "從頭再打一次". "從頭再打一次" (save.unlocked above the district's last stage) SHALL start the district's first stage; otherwise the button SHALL start stage max(first stage of the district, save.unlocked). Selecting stage n SHALL start a new run with 3 hearts in n's district; when n is not the district's first stage the run SHALL be pre-built with one simulated upgrade per skipped stage. The map SHALL also offer "📖 劇情回放", "成就", "操作：…", "重看教學" and "回標題".
+The map SHALL show the cleared count "已解放 N/50" (N = unlocked - 1), gold/silver/bronze medal counts, and 5 district cards with 10 stage buttons each. Each stage button SHALL show its stage number and SHALL be at least 44 CSS px wide and tall on a 375 px wide screen; the 10 buttons SHALL be laid out as a route in two rows (stages 1–5 left to right, stages 6–10 right to left) joined by a road. The routes of consecutive districts SHALL form one continuous street: the road SHALL continue from the last stage of district N (bottom-left) down the left side to the first stage of district N+1 (top-left), and each district's text (name, story, assists, next stage, secondary button) SHALL sit above its route, indented so the road can pass on its left. All 5 districts SHALL be shown in one map frame; a locked district's road SHALL be drawn greyed out. A stage button SHALL be selectable when its number is ≤ save.unlocked: cleared buttons SHALL also show their medal's first character (金／銀／銅), the next stage SHALL show "▶", uncleared boss stages SHALL show "王", and stages above save.unlocked SHALL be disabled and show a lock. Each unlocked district card SHALL show, below the route, the stage its secondary button starts as "▶ 第 N 關・<名稱>". A district SHALL be unlocked when save.unlocked ≥ its first stage; a locked card SHALL show "？？？", "LOCKED" and "🔒 尚未解鎖". An unlocked card's secondary button SHALL read "出發", "繼續：第 N 關" or "從頭再打一次". "從頭再打一次" (save.unlocked above the district's last stage) SHALL start the district's first stage; otherwise the button SHALL start stage max(first stage of the district, save.unlocked). Selecting stage n SHALL start a new run with 3 hearts in n's district; when n is not the district's first stage the run SHALL be pre-built with one simulated upgrade per skipped stage. The map SHALL also offer "📖 劇情回放", "成就", "操作：…", "重看教學" and "回標題".
 
-> 中文：地圖每區 10 個有編號的關卡按鈕，排成一條來回的街道路線（手機上每顆至少 44 px）；打過的和下一關都能直接點來玩，還沒解鎖的顯示鎖頭；按鈕下方顯示主按鈕會開始的那一關（第 N 關・關名）；「出發／繼續／從頭再打一次」變成次要按鈕。
+> 中文：地圖每區 10 個有編號的關卡按鈕，排成一條來回的街道路線（手機上每顆至少 44 px）；打過的和下一關都能直接點來玩，還沒解鎖的顯示鎖頭；按鈕下方顯示主按鈕會開始的那一關（第 N 關・關名）；「出發／繼續／從頭再打一次」變成次要按鈕。5 區的路連成一整條街：第 10 關的路往下轉彎接第 11 關，一路到第 50 關；每區的介紹放在路線上方、往右縮排，路從左邊經過；還沒解鎖的區路一樣畫出來但變灰。
 
 #### Scenario: Stage buttons show numbers
 
@@ -20,6 +20,11 @@ The map SHALL show the cleared count "已解放 N/50" (N = unlocked - 1), gold/s
 
 - **WHEN** the map is shown
 - **THEN** in each district stages 1–5 SHALL be in the first row from left to right and stages 6–10 SHALL be in the second row from right to left
+
+#### Scenario: Districts form one continuous street
+
+- **WHEN** the map is shown
+- **THEN** for each district N from 1 to 4 a road segment SHALL run from below stage 10N to above stage 10N+1, both stage buttons SHALL be horizontally aligned with that segment (centres within 4 px), and no district text SHALL overlap the segment
 
 #### Scenario: Pick an already cleared stage
 
