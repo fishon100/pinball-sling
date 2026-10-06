@@ -1,0 +1,63 @@
+{
+ "version": 1,
+ "at": "2026-10-06T17:38:54.306Z",
+ "by": "AI",
+ "note": "企劃要求：第 3 關起隱藏球的軌跡（彈道預覽改成 0）",
+ "stages": {
+  "3": {
+   "preview": 0
+  },
+  "4": {
+   "preview": 0
+  },
+  "5": {
+   "preview": 0
+  },
+  "6": {
+   "preview": 0
+  },
+  "7": {
+   "preview": 0
+  },
+  "8": {
+   "preview": 0
+  },
+  "9": {
+   "preview": 0
+  },
+  "10": {
+   "preview": 0
+  },
+  "11": {
+   "preview": 0
+  },
+  "12": {
+   "preview": 0
+  },
+  "13": {
+   "preview": 0
+  },
+  "14": {
+   "preview": 0
+  },
+  "15": {
+   "preview": 0
+  },
+  "16": {
+   "preview": 0
+  },
+  "17": {
+   "preview": 0
+  },
+  "18": {
+   "preview": 0
+  },
+  "19": {
+   "preview": 0
+  },
+  "20": {
+   "preview": 0
+  }
+ },
+ "layouts": {}
+}
