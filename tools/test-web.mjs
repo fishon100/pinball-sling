@@ -68,14 +68,18 @@ const args = ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${
   "--disable-gpu", "--mute-audio", "--autoplay-policy=no-user-gesture-required", "--disable-background-timer-throttling",
   "--disable-renderer-backgrounding", "--disable-backgrounding-occluded-windows", "--window-size=1280,900", "about:blank"];
 if (process.platform === "linux") args.unshift("--no-sandbox");
-const browser = spawn(browserPath, args, { stdio: "ignore" });
+const browser = spawn(browserPath, args, { stdio: ["ignore", "ignore", "pipe"] });
+let browserErr = "", browserExit = null;   // 啟動失敗時印出原因
+browser.stderr.on("data", d => { browserErr = (browserErr + d).slice(-1500); });
+browser.on("exit", code => { browserExit = code; });
 const cleanup = async () => { try { browser.kill(); } catch {} if (srv) srv.close(); await sleep(300); await rm(profile, { recursive: true, force: true }).catch(() => {}); };
 
 try {
   // 瀏覽器把連線埠寫在 DevToolsActivePort
   let port = null;
-  for (let i = 0; i < 100 && !port; i++) { await sleep(100); try { port = readFileSync(join(profile, "DevToolsActivePort"), "utf8").split("\n")[0].trim(); } catch {} }
-  if (!port) throw new Error("瀏覽器沒有啟動");
+  // GitHub 的機器偶爾要 10 秒以上才開好，最多等 45 秒
+  for (let i = 0; i < 450 && !port && browserExit === null; i++) { await sleep(100); try { port = readFileSync(join(profile, "DevToolsActivePort"), "utf8").split("\n")[0].trim(); } catch {} }
+  if (!port) throw new Error(`瀏覽器沒有啟動${browserExit !== null ? `（結束代碼 ${browserExit}）` : "（45 秒內沒有回應）"}\n${browserErr.trim().split("\n").slice(-8).join("\n")}`);
   const page = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(t => t.type === "page");
   const c = cdp(page.webSocketDebuggerUrl); await c.ready;
   await c.send("Page.enable"); await c.send("Runtime.enable");
