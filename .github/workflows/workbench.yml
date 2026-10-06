@@ -12,7 +12,7 @@ on:
   pull_request:
     types: [opened, closed, reopened, ready_for_review]
   workflow_run:
-    workflows: ["pages-build-deployment"]
+    workflows: ["pages-build-deployment", "test-web"]
     types: [completed]
   workflow_dispatch:
   schedule:

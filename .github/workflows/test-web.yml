@@ -1,0 +1,42 @@
+# 每次推上 GitHub：用無畫面的 Chrome 跑網頁版測試頁（web/street/test.html），再跑關卡工具測試。
+# 沒過就手機通知（NTFY_TOPIC），管理台「上線紀錄」也會亮紅燈。
+# 部署（tools/deploy.ps1）在推上去之前就會先跑同樣的測試；這裡是第二道保險，也涵蓋沒走部署腳本直接推上來的修改。
+name: test-web
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 網頁版測試頁（無畫面 Chrome）
+        run: node tools/test-web.mjs
+      - name: 關卡工具測試
+        run: node --test tools/levels/levels.test.js
+      - name: 沒過就通知手機
+        if: failure() && github.event_name == 'push'
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          MSG: ${{ github.event.head_commit.message }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -z "$NTFY_TOPIC" ] && exit 0
+          jq -n --arg t "$NTFY_TOPIC" --arg m "$(printf '%s' "$MSG" | head -n1)（點開看哪一項沒過）" --arg u "$RUN_URL" \
+            '{topic:$t, title:"❌ 自動測試沒過", message:$m, tags:["x"], click:$u}' \
+            | curl -s -H "Content-Type: application/json" -d @- https://ntfy.sh > /dev/null
