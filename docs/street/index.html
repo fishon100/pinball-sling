@@ -118,6 +118,23 @@ canvas#game {
 .node.next { background: #fff; box-shadow: 0 0 0 3px var(--pink); }
 .node.boss { border-radius: 6px; }
 .node .s { font-size: 8px; letter-spacing: -1px; }
+/* v3.8 關卡按鈕：來回的街道路線（1→5、10←6），每顆 48 px（手機好點） */
+.route { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: 48px 48px; row-gap: 14px; margin: 6px 0 10px; }
+.route-path { position: absolute; top: 24px; left: 10%; right: 10%; height: 62px; border: 3px dashed rgba(255,255,255,.35); border-left: 0; border-radius: 0 31px 31px 0; pointer-events: none; }
+.stop { appearance: none; position: relative; justify-self: center; width: 48px; height: 48px; padding: 0; border-radius: 50%; border: 3px solid var(--ink); background: #3a3a44; color: var(--text);
+  font-family: var(--font-block); font-size: 17px; line-height: 1; display: grid; place-items: center; cursor: pointer; box-shadow: 3px 3px 0 var(--ink); }
+.stop.done { color: var(--ink); }
+.stop.next { background: #fff; color: var(--ink); box-shadow: 0 0 0 4px var(--pink), 3px 3px 0 var(--ink); }
+.stop.boss { border-radius: 12px; }
+.stop:disabled { cursor: default; opacity: .55; box-shadow: none; }
+.stop:not(:disabled):active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.stop .tag { position: absolute; right: -7px; top: -7px; min-width: 21px; height: 21px; padding: 0 3px; border-radius: 11px; border: 2px solid var(--ink); background: var(--yellow); color: var(--ink);
+  font-family: var(--font-body); font-size: 11px; font-weight: 900; display: grid; place-items: center; }
+.stop.next .tag { background: var(--pink); color: #fff; }
+.stop:disabled .tag { background: #2a2a33; color: var(--muted); font-size: 10px; }
+.mc.m3, .stop.m3 { background: #ffd23f; } .mc.m2, .stop.m2 { background: #dfe6ee; } .mc.m1, .stop.m1 { background: #e0915a; }
+.nextname { margin: 0 0 8px; font-weight: 900; font-size: 15px; text-shadow: 1px 1px 0 var(--ink); }
+.big-btn.small { padding: 9px 14px; font-size: 15px; box-shadow: 3px 3px 0 var(--ink); }
 .district.locked { filter: grayscale(1) brightness(.6); }
 .district.locked .lockmsg { color: var(--muted); font-size: 13px; }
 
@@ -235,17 +252,17 @@ button.ach { appearance: none; color: inherit; font: inherit; }
 </div>
 <div class="toasts" id="toasts"></div>
 
-<script src="js/data.js?v=3.7.3"></script>
-<script src="js/levels.js?v=3.7.3"></script>
-<script src="js/levelcheck.js?v=3.7.3"></script>
-<script src="js/tuning.js?v=3.7.3"></script>
-<script src="js/tune.js?v=3.7.3"></script>
-<script src="js/physics.js?v=3.7.3"></script>
-<script src="js/rules.js?v=3.7.3"></script>
-<script src="js/art.js?v=3.7.3"></script>
-<script src="js/comic.js?v=3.7.3"></script>
-<script src="js/audio.js?v=3.7.3"></script>
-<script src="js/tests.js?v=3.7.3"></script>
-<script src="js/game.js?v=3.7.3"></script>
+<script src="js/data.js?v=3.8.0"></script>
+<script src="js/levels.js?v=3.8.0"></script>
+<script src="js/levelcheck.js?v=3.8.0"></script>
+<script src="js/tuning.js?v=3.8.0"></script>
+<script src="js/tune.js?v=3.8.0"></script>
+<script src="js/physics.js?v=3.8.0"></script>
+<script src="js/rules.js?v=3.8.0"></script>
+<script src="js/art.js?v=3.8.0"></script>
+<script src="js/comic.js?v=3.8.0"></script>
+<script src="js/audio.js?v=3.8.0"></script>
+<script src="js/tests.js?v=3.8.0"></script>
+<script src="js/game.js?v=3.8.0"></script>
 </body>
 </html>

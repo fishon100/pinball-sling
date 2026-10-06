@@ -128,22 +128,26 @@
     const cards = SR.DISTRICTS.map((d, i) => {
       const unlocked = R.districtUnlocked(save, i);
       const [s0, s1] = d.stages;
-      const nodes = [];
+      // v3.8（提案 stage-select-map）：每一關都有自己的入口按鈕，排成來回的街道路線 1→5、10←6
+      const stops = [];
       for (let n = s0; n <= s1; n++) {
-        const st = save.stars[n] || 0, done = n < save.unlocked, next = n === save.unlocked, open = n <= save.unlocked;
-        // 第 5 輪：每一關都可以直接點（已過的關可以重打拿更好的獎牌）
-        nodes.push(`<button class="node ${done ? "done m" + st : ""} ${next ? "next" : ""} ${n % 10 === 0 ? "boss" : ""}" ${open ? `data-n="${n}"` : "disabled"} title="第 ${n} 關">${done ? `<span class="s">${R.MEDALS[st] ? R.MEDALS[st].name[0] : ""}</span>` : next ? "▶" : n % 10 === 0 ? "王" : ""}</button>`);
+        const k = n - s0, st = save.stars[n] || 0, done = n < save.unlocked, next = n === save.unlocked, open = n <= save.unlocked, boss = n % 10 === 0;
+        const tag = done ? (R.MEDALS[st] ? R.MEDALS[st].name[0] : "") : next ? "▶" : boss ? "王" : open ? "" : "🔒";
+        const pos = `grid-row:${k < 5 ? 1 : 2};grid-column:${k < 5 ? k + 1 : 10 - k}`;
+        stops.push(`<button class="stop ${done ? "done m" + st : ""} ${next ? "next" : ""} ${boss ? "boss" : ""}" style="${pos}" data-stage="${n}" ${open ? `data-n="${n}"` : "disabled"} title="第 ${n} 關・${unlocked ? SR.buildStage(n).name : "？？？"}" aria-label="第 ${n} 關${done ? `（${R.MEDALS[st] ? R.MEDALS[st].name : "已過"}）` : next ? "（下一關）" : open ? "" : "（未解鎖）"}">${n}${tag ? `<span class="tag">${tag}</span>` : ""}</button>`);
       }
       const best = save.best[i] ? `最佳 ${save.best[i].toLocaleString()} 分` : "";
       const nextN = R.districtStartStage(save, i);
+      const nodes = [`<div class="route-path" aria-hidden="true"></div>`, ...stops];
       return `<article class="district ${unlocked ? "" : "locked"}">
         <div class="bg" style="background:linear-gradient(120deg, ${d.colors.a}, ${d.colors.b} 55%, ${d.colors.c})"></div>
         <span class="act">第 ${i + 1} 區</span>
         <h3>${unlocked ? d.name : "？？？"}<small>${unlocked ? d.en : "LOCKED"} · ${s0}–${s1}</small></h3>
         <p class="story">${unlocked ? d.teaser : "在上一區打倒灰先生才會解鎖。"}</p>
         ${unlocked ? `<p class="assist-line">${assistText(R.assistsFor(s0)) || "沒有輔助：全靠你的手感"}</p>` : ""}
-        <div class="nodes">${nodes.join("")}</div>
-        ${unlocked ? `<div class="row"><button class="big-btn ${i % 2 ? "alt" : ""}" data-n="${nextN}">${save.unlocked > s1 ? "從頭再打一次" : save.unlocked > s0 ? `繼續：第 ${nextN} 關` : "出發"}</button></div><p class="sub" style="text-align:left;margin-top:6px;font-size:12px">點上面的格子可以直接選關・${best}</p>` : `<p class="lockmsg">🔒 尚未解鎖</p>`}
+        <div class="route">${nodes.join("")}</div>
+        ${unlocked ? `<p class="nextname">▶ 第 ${nextN} 關・${SR.buildStage(nextN).name}</p>
+        <div class="row"><button class="big-btn small ${i % 2 ? "alt" : ""}" data-n="${nextN}">${save.unlocked > s1 ? "從頭再打一次" : save.unlocked > s0 ? `繼續：第 ${nextN} 關` : "出發"}</button></div><p class="sub" style="text-align:left;margin-top:6px;font-size:12px">點關卡按鈕可以直接選關${best ? `・${best}` : ""}</p>` : `<p class="lockmsg">🔒 尚未解鎖</p>`}
       </article>`;
     }).join("");
     const gold = R.medalCount(save, 3), silver = R.medalCount(save, 2), bronze = R.medalCount(save, 1);

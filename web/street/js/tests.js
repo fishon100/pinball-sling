@@ -891,6 +891,50 @@ SR.Tests = (function () {
       }
       return { pass: !problems.length, value: problems.length ? problems.join("；") : "複製格式正確，加了中柱、彈力牆、加速帶、阿鰭後讀回完全相同" };
     }}
+    // v3.8 提案 stage-select-map：地圖上每一關都有自己的入口按鈕
+    , { id: "AC-S43", name: "地圖每區 10 顆有編號的關卡按鈕；打過的和下一關能直接點來玩，其他鎖住", async run(frame) {
+      let w = await bootGame(frame, { ...BASE_SAVE, unlocked: 1 }), g = w.SR_GAME;
+      g.mapScreen();
+      const d1 = w.document.querySelector(".district"), btns = d1 ? [...d1.querySelectorAll("[data-stage]")] : [];
+      const labels = btns.map(b => +b.dataset.stage), numbered = btns.every(b => b.textContent.includes(b.dataset.stage));
+      const firstNext = btns[0]?.textContent.includes("▶"), restLocked = btns.slice(1).every(b => b.disabled);
+      w = await bootGame(frame, { ...BASE_SAVE, unlocked: 7 }); g = w.SR_GAME;
+      g.mapScreen();
+      w.document.querySelector('.district [data-stage="3"]')?.click();
+      g.closeDialog();                                              // 有漫畫的話先跳過
+      const started = g.G.stage?.n, hearts = g.G.run?.hearts;
+      const ok = labels.join() === "1,2,3,4,5,6,7,8,9,10" && numbered && firstNext && restLocked && started === 3 && hearts === 3;
+      return { pass: ok, value: `按鈕 ${labels.join(",") || "沒有"}・有編號 ${numbered ? "是" : "否"}・第 1 顆▶ ${firstNext ? "是" : "否"}・其他鎖住 ${restLocked ? "是" : "否"}・已解鎖 7 點第 3 顆 → 第 ${started ?? "?"} 關、愛心 ${hearts ?? "?"}` };
+    }}
+    , { id: "AC-S44", name: "手機寬 375 px：關卡按鈕至少 44×44；排成來回路線（1→5、10←6）", async run(frame) {
+      const old = frame.style.width;
+      frame.style.width = "375px";
+      try {
+        const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 12 }), g = w.SR_GAME;
+        g.mapScreen();
+        await new Promise(r => setTimeout(r, 100));
+        const problems = [];
+        [...w.document.querySelectorAll(".district")].slice(0, 2).forEach((d, k) => {
+          const rect = n => d.querySelector(`[data-stage="${n}"]`)?.getBoundingClientRect();
+          const base = k * 10, rs = Array.from({ length: 10 }, (_, i) => rect(base + i + 1));
+          if (rs.some(r => !r)) { problems.push(`第 ${k + 1} 區按鈕不齊`); return; }
+          const small = rs.findIndex(r => r.width < 44 || r.height < 44);
+          if (small >= 0) problems.push(`第 ${base + small + 1} 關 ${Math.round(rs[small].width)}×${Math.round(rs[small].height)}`);
+          const row1 = rs.slice(0, 5), row2 = rs.slice(5);
+          const sameRow = row => row.every(r => Math.abs(r.top - row[0].top) < 4);
+          if (!sameRow(row1) || !sameRow(row2) || !(row2[0].top > row1[0].top)) problems.push(`第 ${k + 1} 區不是兩排`);
+          if (!row1.every((r, i) => !i || r.left > row1[i - 1].left)) problems.push(`第 ${k + 1} 區第 1 排不是由左到右`);
+          if (!row2.every((r, i) => !i || r.left < row2[i - 1].left)) problems.push(`第 ${k + 1} 區第 2 排不是由右到左`);
+        });
+        return { pass: !problems.length, value: problems.length ? problems.join("；") : "第 1、2 區的按鈕都 ≥ 44×44，排成 1→5、10←6" };
+      } finally { frame.style.width = old; }
+    }}
+    , { id: "AC-S45", name: "地圖卡片顯示下一關的關名（第 N 關・關名）", async run(frame) {
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 3 }), g = w.SR_GAME;
+      g.mapScreen();
+      const want = `第 3 關・${w.SR.buildStage(3).name}`, text = w.document.querySelector(".district")?.textContent || "";
+      return { pass: text.includes(want), value: `要有「${want}」：${text.includes(want) ? "有" : "沒有"}` };
+    }}
   ];
   async function bootEditor(frame) {
     await new Promise(res => { frame.onload = res; frame.src = "editor.html?test=1&r=" + Math.random(); });
