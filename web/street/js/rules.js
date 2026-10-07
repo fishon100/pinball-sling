@@ -204,7 +204,7 @@ SR.Rules = (function () {
   // 測試模式（index.html?test=1，測試頁的遊戲流程測試用）用另一份存檔，不會動到玩家的存檔
   const KEY = /[?&]test=1\b/.test(location.search) ? "sprayrun.save.test" : "sprayrun.save.v1";
   // seenComic：看過的漫畫（v3.4 起；舊的 seenStory 是對話框時代的紀錄，同名 key 會讓漫畫被當成看過而跳掉——第 5 輪「沒看到漫畫」的原因）
-  function emptySave() { return { unlocked: 1, stars: {}, achievements: {}, stats: { bricks: 0, runs: 0, clears: 0 }, best: {}, seenComic: {}, items: {}, tutorialDone: false, control: "paddle" }; }
+  function emptySave() { return { unlocked: 1, stars: {}, achievements: {}, stats: { bricks: 0, runs: 0, clears: 0 }, best: {}, seenComic: {}, items: {}, tutorialDone: false, seenObjects: {}, seenControlsCard: false, control: "paddle" }; }
   function load() {
     try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) return { ...emptySave(), ...s, stats: { ...emptySave().stats, ...s.stats } }; } catch (e) {}
     return emptySave();

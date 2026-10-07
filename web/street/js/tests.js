@@ -749,7 +749,9 @@ SR.Tests = (function () {
   /* ---------- 遊戲流程測試（v3.6.2）：在看不見的框架開 index.html?test=1，用 SR_GAME 操作真的遊戲 ----------
      測試模式用另一份存檔（sprayrun.save.test），不會動到玩家的存檔 */
   const TEST_SAVE = "sprayrun.save.test";
-  const BASE_SAVE = { seenOpening: true, tutorialDone: true };
+  // 測試存檔預設：教學都看過了（物件特寫教學每種都記成看過、電腦操作卡看過），要測教學的測試再自己清掉
+  const ALL_SEEN = { gift: true, capsule: true, rail: true, boost: true, hp2: true, bucket: true, fish: true, bumper: true, boss: true };
+  const BASE_SAVE = { seenOpening: true, tutorialDone: true, seenControlsCard: true, seenObjects: ALL_SEEN };
   async function bootGame(frame, preset) {                          // preset：物件＝先寫入測試存檔；null＝保留上一次的測試存檔
     try { if (preset) localStorage.setItem(TEST_SAVE, JSON.stringify(preset)); else if (preset === undefined) localStorage.removeItem(TEST_SAVE); } catch (e) {}
     await new Promise(res => { frame.onload = res; frame.src = "index.html?test=1&r=" + Math.random(); });
@@ -1045,6 +1047,93 @@ SR.Tests = (function () {
       g.mapScreen();
       const want = `第 3 關・${w.SR.buildStage(3).name}`, text = w.document.querySelector(".district")?.textContent || "";
       return { pass: text.includes(want), value: `要有「${want}」：${text.includes(want) ? "有" : "沒有"}` };
+    }}    /* ---------- 提案 newbie-tutorial（2026-10-08）：物件特寫教學 ---------- */
+    , { id: "AC-S52", name: "物件特寫教學：第一次遇到加速帶，開場後暫停、鏡頭拉近、點一下才繼續", async run(frame) {
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 3, seenObjects: {} }), g = w.SR_GAME;
+      g.startDistrict(0, 3);
+      if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
+      const it = g.G.intro, kinds = [];
+      const paused = !!it && g.G.timeScale === 0;
+      const inLane = g.G.world.balls.every(b => w.SR.Physics.ballInLane(b));
+      runTicks(w, 2); const still = !!g.G.intro && g.G.timeScale === 0;        // 跑 2 秒也不會自己消失
+      const zoomed = still && g.G.view.zoom > 1.5;
+      const cv = w.document.getElementById("game"), rc = cv.getBoundingClientRect();
+      const tap = () => cv.dispatchEvent(new w.PointerEvent("pointerdown", { pointerId: 9, pointerType: "touch", clientX: rc.left + rc.width / 2, clientY: rc.top + rc.height / 2, bubbles: true, cancelable: true }));
+      for (let i = 0; i < 6 && g.G.intro; i++) { kinds.push(g.G.intro.cur); tap(); runTicks(w, 0.5); }
+      const resumed = !g.G.intro && g.G.timeScale === 1 && g.G.view.zoom === 1;
+      return { pass: paused && zoomed && inLane && still && kinds.includes("boost") && resumed,
+        value: `暫停 ${paused ? "是" : "否"}・拉近 ${zoomed ? "是" : "否"}・球在發射道 ${inLane ? "是" : "否"}・2 秒後仍在 ${still ? "是" : "否"}・教了 ${kinds.join("、") || "（無）"}・點完恢復 ${resumed ? "是" : "否"}` };
+    }}
+    , { id: "AC-S53", name: "物件特寫教學：每種只教一次；同一關兩種新物件會排隊", async run(frame) {
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 6, seenObjects: {} }), g = w.SR_GAME;
+      const cv = w.document.getElementById("game"), rc = cv.getBoundingClientRect();
+      const tap = () => cv.dispatchEvent(new w.PointerEvent("pointerdown", { pointerId: 9, pointerType: "touch", clientX: rc.left + rc.width / 2, clientY: rc.top + rc.height / 2, bubbles: true, cancelable: true }));
+      g.startDistrict(0, 6);                                    // 第 6 關：中柱＋加速帶，至少兩種新物件
+      if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
+      const first = g.G.intro && g.G.intro.cur; tap(); runTicks(w, 0.5);
+      const second = g.G.intro && g.G.intro.cur;
+      const queued = !!first && !!second && first !== second;
+      for (let i = 0; i < 8 && g.G.intro; i++) { tap(); runTicks(w, 0.5); }
+      g.startDistrict(0, 6);
+      if (!toLaunch(w)) return { pass: false, value: "第二次球沒有停到發射道" };
+      const again = !!g.G.intro;
+      return { pass: queued && !again, value: `第一個 ${first}・第二個 ${second}・排隊 ${queued ? "是" : "否"}・再玩一次又教 ${again ? "是" : "否"}` };
+    }}
+    , { id: "AC-S54", name: "物件特寫教學：第一次掉道具膠囊時暫停特寫", async run(frame) {
+      const seen = { gift: true, rail: true, boost: true, hp2: true, bucket: true, fish: true, bumper: true, boss: true };
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 2, seenObjects: seen }), g = w.SR_GAME;
+      g.startDistrict(0, 2);
+      if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
+      const gift = g.G.world.bricks.find(k => k.alive && k.type === "gift");
+      if (!gift) return { pass: false, value: "第 2 關沒有道具磚" };
+      const b = g.G.world.balls[0]; b.x = gift.x + gift.w / 2; b.y = gift.y + gift.h + 60; b.vx = 0; b.vy = -900;
+      const hit = runTicks(w, 3, () => g.G.intro && g.G.intro.cur === "capsule");
+      const paused = hit && g.G.timeScale === 0 && g.G.world.capsules.length > 0;
+      const cv = w.document.getElementById("game"), rc = cv.getBoundingClientRect();
+      cv.dispatchEvent(new w.PointerEvent("pointerdown", { pointerId: 9, pointerType: "touch", clientX: rc.left + rc.width / 2, clientY: rc.top + rc.height / 2, bubbles: true, cancelable: true }));
+      runTicks(w, 0.3);
+      return { pass: paused && !g.G.intro && g.G.timeScale === 1 && g.save.seenObjects.capsule === true,
+        value: `膠囊掉下時暫停特寫 ${paused ? "是" : "否"}・點一下後繼續 ${!g.G.intro ? "是" : "否"}・記在存檔 ${g.save.seenObjects.capsule ? "是" : "否"}` };
+    }}
+    , { id: "AC-S55", name: "標題畫面「重看教學」會清掉互動教學與物件教學的紀錄", async run(frame) {
+      const w = await bootGame(frame, BASE_SAVE), g = w.SR_GAME;
+      const btn = w.document.getElementById("goTut");
+      if (!btn) return { pass: false, value: "標題畫面沒有「重看教學」" };
+      btn.click();
+      const cleared = g.save.tutorialDone === false && Object.keys(g.save.seenObjects || {}).length === 0;
+      return { pass: cleared, value: `互動教學 ${g.save.tutorialDone ? "已完成" : "未完成"}・物件教學紀錄 ${Object.keys(g.save.seenObjects || {}).length} 種` };
+    }}
+    /* ---------- 提案 desktop-controls（2026-10-08）：電腦版操作說明 ---------- */
+    , { id: "AC-S58", name: "電腦版互動教學第 1 步寫「按住空白鍵蓄力，放開發射」", async run(frame) {
+      const w = await bootGame(frame, BASE_SAVE), g = w.SR_GAME;
+      const fine = g.tutLines("press", false), coarse = g.tutLines("press", true);
+      return { pass: fine[0] === "按住空白鍵蓄力，放開發射" && coarse[0] === "按住畫面，往下拉", value: `電腦「${fine[0]}」・手機「${coarse[0]}」` };
+    }}
+    , { id: "AC-S59", name: "電腦第一次進遊玩畫面出現操作卡，按一下關掉，之後不再出現", async run(frame) {
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 2, seenControlsCard: false }), g = w.SR_GAME;
+      g.startDistrict(0, 2);
+      if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
+      const shown = g.G.ctrlCard === true;
+      w.dispatchEvent(new w.KeyboardEvent("keydown", { code: "Space", key: " " })); w.dispatchEvent(new w.KeyboardEvent("keyup", { code: "Space", key: " " }));
+      runTicks(w, 0.2);
+      const closed = !g.G.ctrlCard, notLaunched = g.G.world.balls.every(b => w.SR.Physics.ballInLane(b));
+      g.startDistrict(0, 2);
+      if (!toLaunch(w)) return { pass: false, value: "第二次球沒有停到發射道" };
+      const again = g.G.ctrlCard === true;
+      return { pass: shown && closed && notLaunched && !again && g.save.seenControlsCard === true,
+        value: `第一次出現 ${shown ? "是" : "否"}・按鍵關掉 ${closed ? "是" : "否"}・那一下沒有發射 ${notLaunched ? "是" : "否"}・第二次出現 ${again ? "是" : "否"}` };
+    }}
+    , { id: "AC-S60", name: "電腦遊玩中隱藏游標，暫停時恢復", async run(frame) {
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 2 }), g = w.SR_GAME;
+      g.startDistrict(0, 2);
+      if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
+      const cv = w.document.getElementById("game");
+      runTicks(w, 0.1);
+      const hidden = cv.style.cursor === "none";
+      w.dispatchEvent(new w.KeyboardEvent("keydown", { code: "Escape", key: "Escape" })); runTicks(w, 0.1);
+      const back = g.G.paused && cv.style.cursor === "";
+      w.dispatchEvent(new w.KeyboardEvent("keydown", { code: "Escape", key: "Escape" })); runTicks(w, 0.1);
+      return { pass: hidden && back, value: `遊玩中游標 ${hidden ? "隱藏" : "顯示"}・暫停時 ${back ? "恢復" : "沒恢復"}` };
     }}
   ];
   async function bootEditor(frame) {

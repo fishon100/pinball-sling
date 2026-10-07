@@ -337,6 +337,19 @@ SR.ITEMS = [
   { id: "wide",  name: "寬板",   icon: "🛹", desc: "12 秒內滑板變成大尺寸（經典擋板模式：擋板變長）" }
 ];
 
+/* ---------- 物件特寫教學（提案 newbie-tutorial）：每種物件第一次出現時暫停、拉近、一句話（童話口吻，不搞笑）---------- */
+SR.OBJECT_INTROS = {
+  gift:    { name: "道具磚",   text: "打破它，會掉下一顆道具膠囊" },
+  capsule: { name: "道具膠囊", text: "用滑板接住，馬上生效" },
+  rail:    { name: "彈力牆",   text: "球撞上去，會被用力彈回來" },
+  boost:   { name: "加速帶",   text: "球往上經過，會衝得更快" },
+  hp2:     { name: "硬磚",     text: "上面的數字，是要打幾下" },
+  bucket:  { name: "油漆桶",   text: "打碎它，會炸開周圍的磚" },
+  fish:    { name: "阿鰭",     text: "會游來游去，撞到會把球彈開" },
+  bumper:  { name: "中柱",     text: "撞到它，球會被用力彈開" },
+  boss:    { name: "灰先生",   text: "打掉他身下那排磚，就能打倒他" }
+};
+
 /* ---------- 角色 ---------- */
 SR.SPEAKERS = {
   kid:      { name: "小葵",   color: "#ffb21f" },
