@@ -93,7 +93,16 @@ for (const issue of allIssues) {
     console.log(`重新確認：${c.id}（Issue #${issue.number}）`);
     continue;
   }
-  if (!boxChecked) continue;
+  if (!boxChecked) {
+    // 還沒同意、提案內容改過（例如企劃給了新版示意圖）：討論串換成最新內容，留言說一聲
+    const fresh = approvalIssueBody(c, repoUrl, specDir);
+    if ((issue.body || "").replace(/\r/g, "").trim() !== fresh.trim()) {
+      await post(`/issues/${issue.number}`, { body: fresh }, "PATCH");
+      await post(`/issues/${issue.number}/comments`, { body: `📝 提案 \`${c.id}\` 的內容更新了，上面已換成最新版本（為什麼、改什麼、需要${approverOf(c.kind)}確認的事）。` });
+      console.log(`更新提案內容：${c.id}（Issue #${issue.number}）`);
+    }
+    continue;
+  }
   const f = join(root, specDir, "changes", c.folder, "tasks.md");
   writeFileSync(f, approveTasks(readFileSync(f, "utf8"), `${approverOf(c.kind)}於 GitHub Issue #${issue.number} 同意，${today}`));
   changed.push(f);
@@ -169,9 +178,11 @@ const { specs } = readSpectra(root, specDir);
 const content = indexContent(root, cfg.content_dirs || ["docs/企劃"]);
 const sheet = content.find(f => f.ext === "csv" && /素材|asset/i.test(f.name));
 const assets = sheet ? { path: sheet.path, ...assetSummary(readFileSync(join(root, sheet.path), "utf8")) } : null;
+// 私人專案：管理台要用登入碼走 API 讀檔、讀圖
+const repoInfo = await gh("").catch(() => ({}));
 const data = {
   generatedAt: new Date().toISOString(),
-  repo, repoUrl, specDir,
+  repo, repoUrl, specDir, private: !!repoInfo.private,
   branch: process.env.GITHUB_REF_NAME && !process.env.GITHUB_REF_NAME.includes("/") ? process.env.GITHUB_REF_NAME : "main",
   contentDirs: cfg.content_dirs || ["docs/企劃"],
   content, assets,
