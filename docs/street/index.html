@@ -71,6 +71,17 @@ canvas#game {
 }
 .hint { font-size: 14px; font-weight: 700; color: var(--text); padding-block: 6px; text-align: center; min-height: 22px; }
 .assist-line { font-size: 12px; color: var(--lime); margin: -4px 0 10px; }
+/* 手機（提案 mobile-layout，2026-10-08）：台面無邊框貼齊螢幕；資訊列、提示列半透明疊在台面上；遵守瀏海安全區 */
+@media (max-width: 520px) {
+  .app { padding-inline: 0; }
+  .hud { position: absolute; left: 0; right: 0; top: 0; max-width: none; min-height: 44px; padding: calc(3px + env(safe-area-inset-top, 0px)) 8px 3px;
+         background: rgba(12, 12, 16, 0.55); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+  #pinkyHud { width: 40px; height: 40px; flex: 0 0 40px; }
+  .hud .score { font-size: 19px; }
+  .stagewrap { align-items: flex-start; }
+  canvas#game { border: 0; border-radius: 0; box-shadow: none; }
+  .hint { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px)); background: rgba(12, 12, 16, 0.55); }
+}
 
 /* ---------- 全螢幕畫面 ---------- */
 .screen {
@@ -264,17 +275,17 @@ button.ach { appearance: none; color: inherit; font: inherit; }
 </div>
 <div class="toasts" id="toasts"></div>
 
-<script src="js/data.js?v=3.14.0"></script>
-<script src="js/levels.js?v=3.14.0"></script>
-<script src="js/levelcheck.js?v=3.14.0"></script>
-<script src="js/tuning.js?v=3.14.0"></script>
-<script src="js/tune.js?v=3.14.0"></script>
-<script src="js/physics.js?v=3.14.0"></script>
-<script src="js/rules.js?v=3.14.0"></script>
-<script src="js/art.js?v=3.14.0"></script>
-<script src="js/comic.js?v=3.14.0"></script>
-<script src="js/audio.js?v=3.14.0"></script>
-<script src="js/tests.js?v=3.14.0"></script>
-<script src="js/game.js?v=3.14.0"></script>
+<script src="js/data.js?v=3.15.0"></script>
+<script src="js/levels.js?v=3.15.0"></script>
+<script src="js/levelcheck.js?v=3.15.0"></script>
+<script src="js/tuning.js?v=3.15.0"></script>
+<script src="js/tune.js?v=3.15.0"></script>
+<script src="js/physics.js?v=3.15.0"></script>
+<script src="js/rules.js?v=3.15.0"></script>
+<script src="js/art.js?v=3.15.0"></script>
+<script src="js/comic.js?v=3.15.0"></script>
+<script src="js/audio.js?v=3.15.0"></script>
+<script src="js/tests.js?v=3.15.0"></script>
+<script src="js/game.js?v=3.15.0"></script>
 </body>
 </html>

@@ -134,12 +134,14 @@ SR.Art = (function () {
 
   /* ---------- 台面 ---------- */
   function strokeInk(g, w) { g.strokeStyle = INK; g.lineWidth = w; g.stroke(); }
-  function table(g, world, pal, t) {
+  function table(g, world, pal, t, laneSlide = 0) {
     g.lineCap = "round"; g.lineJoin = "round";
-    // 發射道＝玻璃管（設計圖右側的透明管）
+    // 發射道＝玻璃管（設計圖右側的透明管）；沒有球在裡面時往右滑出（提案 mobile-layout）
+    g.save(); g.translate(laneSlide, 0);
     g.fillStyle = "rgba(150,180,255,0.08)"; g.fillRect(341, 525, 38, 560);
     g.strokeStyle = "rgba(255,255,255,0.22)"; g.lineWidth = 2;
     g.beginPath(); g.moveTo(347, 570); g.lineTo(347, 1018); g.moveTo(373, 540); g.lineTo(373, 1018); g.stroke();
+    g.restore();
     // 滑板模式：鉻金屬滑軌橫跨整個台面（設計圖 SHOOT! 底下那條）
     if (world.paddle) {
       const ry = world.paddle.y + 13, mg = g.createLinearGradient(0, ry - 4, 0, ry + 4);
@@ -153,7 +155,8 @@ SR.Art = (function () {
       }
     }
     // 軌道：先畫深色金屬底，再畫霓虹燈管（頂部圓弧＝金＋粉雙色，側牆＝街區色）
-    const walls = world.segments.filter(s => s.kind !== "plunger" && s.kind !== "gate");
+    // 右外牆（x=380）跟著發射道一起滑出；其餘的牆不動
+    const walls = world.segments.filter(s => s.kind !== "plunger" && s.kind !== "gate").map(s => s.ax >= 380 && s.bx >= 380 ? { ...s, ax: s.ax + laneSlide, bx: s.bx + laneSlide } : s);
     const path = list => { g.beginPath(); for (const s of list) { g.moveTo(s.ax, s.ay); g.lineTo(s.bx, s.by); } };
     path(walls); g.strokeStyle = "#0e0820"; g.lineWidth = 15; g.stroke();
     path(walls); g.strokeStyle = "#3a3152"; g.lineWidth = 10; g.stroke();

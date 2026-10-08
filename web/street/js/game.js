@@ -15,7 +15,8 @@
   }
   const $ = id => document.getElementById(id);
   const canvas = $("game"), ctx = canvas.getContext("2d");
-  const VW = 400, VH = P.VIEW_H;
+  let VW = 400;                       // 畫面寬（手機會依「鏡頭視窗」變，見 layoutWindow）
+  const VH = P.VIEW_H;
   const ease = t => t < 0 ? 0 : t > 1 ? 1 : 1 - Math.pow(1 - t, 3);
   const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -24,6 +25,7 @@
     screen: "title", world: null, stage: null, run: null, ps: null, district: SR.DISTRICTS[0],
     cam: { y: P.CAM_MAX }, view: { zoom: 1, fx: 200, fy: 370, tilt: 0, rz: 0, scale: 1 },
     cine: null, timeScale: 1, paused: false, hitstop: 0, shake: 0, nudge: null, flashes: [], recentBreaks: [],
+    win: { x0: 0, w: 400 }, laneK: 0,   // 鏡頭視窗（台面座標 x0 起、寬 w）與發射道滑出程度（0 在、1 滑出）
     paint: null, particles: [], popups: [], trails: new Map(),
     plunger: { holding: false, charge: 0 }, ballSave: 0, stageTime: 0, heartsLost: 0,
     lastBreak: null, comboFx: { n: 0, t: 0 }, attract: false, ending: false, t: 0,
@@ -377,6 +379,30 @@
     else startObjectIntros();
   }
 
+  const viewCX = () => G.win.x0 + VW / 2;   // 畫面中心在台面座標的位置
+
+  /* ---------- 鏡頭視窗與發射道滑出（提案 mobile-layout，2026-10-08）----------
+     手機（寬 ≤ 520）：畫面只看台面本體（左牆 x=20 起），球在發射道時看到 20～380，發射後發射道 0.3 秒往右滑出、
+     視窗收到 20～340，磚自然變大；螢幕比台面寬時左右多看一點牆。電腦維持 0～400 整個畫布。物理座標完全不變。 */
+  const LANE_SLIDE = 44;
+  function tickWindow(dt) {
+    const w = G.world;
+    const busy = !w || G.screen !== "play" || G.attract || w.balls.some(b => b.x > 340 && b.y > 520);   // 有球在發射道那一欄
+    const target = busy ? 0 : 1, d = target - G.laneK;
+    G.laneK = Math.abs(d) <= dt / 0.3 ? target : G.laneK + Math.sign(d) * dt / 0.3;
+    layoutWindow();
+  }
+  function layoutWindow() {
+    const wrap = $("stagewrap"), mobile = innerWidth <= 520;
+    let x0 = 0, w = 400;
+    if (mobile) {
+      w = 360 - 40 * G.laneK; x0 = 20;
+      const availW = wrap.clientWidth, availH = wrap.clientHeight, fill = availH > 0 ? VH * availW / availH : w;
+      if (fill > w) { x0 -= (fill - w) / 2; w = fill; }     // 螢幕比台面寬：左右多看一點牆，台面一樣貼齊兩邊
+    }
+    if (Math.abs(w - G.win.w) > 0.01 || Math.abs(x0 - G.win.x0) > 0.01) { G.win = { x0, w }; VW = w; fit(); }
+  }
+
   /* ---------- 物件特寫教學（提案 newbie-tutorial）：每種物件第一次出現時暫停、暗幕、鏡頭拉近 2 倍、一句話，點一下才繼續 ---------- */
   const INTRO_ORDER = ["gift", "hp2", "bucket", "rail", "boost", "bumper", "fish", "boss"];
   function seenObj(kind) { return !!(save.seenObjects && save.seenObjects[kind]); }
@@ -421,14 +447,14 @@
     it.t += dt;
     const p = it.at(), v = G.view, k = Math.min(1, dt * 10);
     // 放大 2 倍時畫面只看得到中心左右 100、上下 185，中心離邊至少這麼多才不會露出台面外
-    const tx = P.clamp(p.x, 100, 300), ty = P.clamp(p.y - G.cam.y, 185, VH - 185);
-    if (v.ty == null) { v.tx = 200; v.ty = 370; }
+    const tx = P.clamp(p.x, G.win.x0 + VW / 4, G.win.x0 + VW * 3 / 4), ty = P.clamp(p.y - G.cam.y, 185, VH - 185);
+    if (v.ty == null) { v.tx = viewCX(); v.ty = 370; }
     v.zoom += (2 - v.zoom) * k; v.tx += (tx - v.tx) * k; v.ty += (ty - v.ty) * k;
   }
   function drawIntro(g) {
     const it = G.intro, info = SR.OBJECT_INTROS[it.cur] || { name: it.cur, text: "" }, v = G.view, p = it.at();
     // 物件在畫面上的位置（跟 render 的鏡頭算法一樣）
-    const sx = 200 + v.zoom * (p.x - v.tx), sy = 370 + v.zoom * (p.y - G.cam.y - v.ty);
+    const sx = VW / 2 + v.zoom * (p.x - v.tx), sy = 370 + v.zoom * (p.y - G.cam.y - v.ty);
     const hw = p.w * v.zoom / 2 + 14, hh = p.h * v.zoom / 2 + 14, bob = Math.sin(G.t * 5) * 4;
     g.save();
     g.fillStyle = "rgba(8,8,12,0.66)";
@@ -657,6 +683,7 @@
     // 台面區大小變了（道具欄出現、提示文字變兩行…）就重算台面大小，台面永遠不會被蓋住
     const wh = $("stagewrap").clientHeight;
     if (wh !== G.wrapH) { G.wrapH = wh; fit(); }
+    tickWindow(dt);
     tickDialog(dt);
     drawPinkyHud(dt);
     // 特效衰減（真實時間）
@@ -823,22 +850,22 @@
       const left = [row.length ? Math.min(...row.map(b => b.x + b.w / 2)) : 80, top - cy];
       const right = [row.length ? Math.max(...row.map(b => b.x + b.w / 2)) : 320, top - cy];
       const focus = boss ? [boss.x + (boss.w || 0) / 2, boss.y + (boss.h || 0) / 2 - cy] : null;
-      const end = focus || right, mid = [200, 370], smooth = x => (x = Math.max(0, Math.min(1, x)), x * x * (3 - 2 * x));
+      const end = focus || right, mid = [viewCX(), 370], smooth = x => (x = Math.max(0, Math.min(1, x)), x * x * (3 - 2 * x));
       let z, p, flat;                                                // flat：0＝傾斜 38°、1＝平
-      if (c.dur < 2) { flat = ease(c.t / c.dur); z = lerp(2, 1, flat); p = [lerp(end[0], 200, flat), lerp(end[1], 370, flat)]; }
+      if (c.dur < 2) { flat = ease(c.t / c.dur); z = lerp(2, 1, flat); p = [lerp(end[0], viewCX(), flat), lerp(end[1], 370, flat)]; }
       else if (c.t < 1.2) {
         flat = 0;
         const k1 = ease(Math.min(1, c.t / 0.4)); z = lerp(1, 2, k1);
         if (focus) { p = [lerp(mid[0], focus[0], k1), lerp(mid[1], focus[1], k1)]; if (c.t > 0.15) G.shake = Math.max(G.shake, 4); }
         else if (c.t < 0.4) p = [lerp(mid[0], left[0], k1), lerp(mid[1], left[1], k1)];
         else { const k2 = smooth((c.t - 0.4) / 0.8); p = [lerp(left[0], right[0], k2), left[1]]; }
-      } else { flat = ease(Math.min(1, (c.t - 1.2) / 1.1)); z = lerp(2, 1, flat); p = [lerp(end[0], 200, flat), lerp(end[1], 370, flat)]; }
+      } else { flat = ease(Math.min(1, (c.t - 1.2) / 1.1)); z = lerp(2, 1, flat); p = [lerp(end[0], viewCX(), flat), lerp(end[1], 370, flat)]; }
       v.zoom = z; v.tx = p[0]; v.ty = p[1];
       v.tilt = 38 * (1 - flat); v.scale = lerp(0.88, 1, flat); v.rz = -3 * (1 - flat);
       if (c.t >= c.dur) beginPlay();
     } else if (c.type === "clear") {
       // 慢動作特寫 → 定格 → 3D 傾斜展示整面彩色牆
-      if (c.t < 0.9) { G.timeScale = 0.15; v.zoom = lerp(1, 1.7, ease(c.t / 0.5)); v.fx = 200; v.fy = c.fy - G.cam.y; }
+      if (c.t < 0.9) { G.timeScale = 0.15; v.zoom = lerp(1, 1.7, ease(c.t / 0.5)); v.fx = viewCX(); v.fy = c.fy - G.cam.y; }
       else {
         G.timeScale = 0;
         const k2 = ease((c.t - 0.9) / 1.2);
@@ -870,11 +897,12 @@
     if (G.shake > 0.2) g.translate((Math.random() - 0.5) * G.shake * 2, (Math.random() - 0.5) * G.shake * 2);
     if (G.nudge) { const k = G.nudge.t / G.nudge.max; g.translate(G.nudge.x * k, G.nudge.y * k); }   // 衝刺：畫面被推一下再彈回
     if (v.ty != null) { g.translate(VW / 2, 370); g.scale(v.zoom, v.zoom); g.translate(-v.tx, -v.ty); }
-    else { g.translate(v.fx, v.fy); g.scale(v.zoom, v.zoom); g.translate(-v.fx, -v.fy); }
+    else { g.translate(-G.win.x0, 0); g.translate(v.fx, v.fy); g.scale(v.zoom, v.zoom); g.translate(-v.fx, -v.fy); }
     g.translate(0, -G.cam.y);
+    const laneSlide = G.laneK * LANE_SLIDE;
     g.drawImage(A.wall(G.district, VW, P.H, w.top || 0), 0, 0);
     g.drawImage(G.paint, 0, 0);
-    A.table(g, w, p, G.t);
+    A.table(g, w, p, G.t, laneSlide);
     for (const k of w.bricks) A.brick(g, k, p, G.t);
     for (const f of G.flashes) { g.fillStyle = `rgba(255,255,255,${(0.9 * f.t / f.max).toFixed(2)})`; g.fillRect(f.x - 3, f.y - 3, f.w + 6, f.h + 6); }   // 碎磚白閃
     for (const c of w.capsules || []) A.capsule(g, c, SR.ITEMS.find(i => i.id === c.item), G.t);
@@ -912,9 +940,9 @@
     }
     // 發射桿（拉柄＋彈簧）：球在發射道等發射時，閃一個「往下拉」的提示
     const c = G.plunger.charge, waiting = G.screen === "play" && w.balls.some(b => P.ballInLane(b) && b.y > 990);
-    A.plunger(g, c, p, G.t, waiting && !G.plunger.holding, G.plunger.nudge || 0);
+    g.save(); g.translate(laneSlide, 0); A.plunger(g, c, p, G.t, waiting && !G.plunger.holding, G.plunger.nudge || 0); g.restore();
     // 拉發射桿時，球跟著托盤一起往下
-    for (const b of w.balls) A.ball(g, G.plunger.holding && P.ballInLane(b) && b.y > 990 ? { ...b, y: b.y + c * A.PULL_PX } : b, p, G.trails.get(b.id) || []);
+    for (const b of w.balls) { if (P.ballInLane(b) && G.laneK > 0.02) continue; A.ball(g, G.plunger.holding && P.ballInLane(b) && b.y > 990 ? { ...b, y: b.y + c * A.PULL_PX } : b, p, G.trails.get(b.id) || []); }   // 發射道還沒滑回來時先不畫裡面的球
     for (const q of G.particles) { g.globalAlpha = Math.max(0, q.life / q.max); g.fillStyle = q.color; g.beginPath(); g.arc(q.x, q.y, q.r, 0, Math.PI * 2); g.fill(); }
     g.globalAlpha = 1;
     for (const q of G.popups) {
@@ -925,7 +953,7 @@
     g.restore();
 
     // ---- 螢幕座標的 HUD 與光影 ----
-    const vg = g.createRadialGradient(200, 370, 200, 200, 370, 480);
+    const vg = g.createRadialGradient(VW / 2, 370, 200, VW / 2, 370, 480);
     vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,0.45)");
     g.fillStyle = vg; g.fillRect(0, 0, VW, VH);
     if (w.boss && w.boss.alive && !G.attract) {
@@ -939,8 +967,8 @@
       if (G.comboFx.t > 0 && G.comboFx.n >= 3) {
         const pop = 1 + Math.max(0, G.comboFx.t - 1.1) * 2;
         g.save(); g.globalAlpha = Math.min(1, G.comboFx.t * 1.5);
-        A.tag(g, String(G.comboFx.n), 312, 92, 46 * pop, [p.c, p.a], { rot: -0.08 });
-        A.tag(g, "連擊", 318, 128, 18, [p.b], { cjk: true, drips: false });
+        A.tag(g, String(G.comboFx.n), VW - 88, 92, 46 * pop, [p.c, p.a], { rot: -0.08 });
+        A.tag(g, "連擊", VW - 82, 128, 18, [p.b], { cjk: true, drips: false });
         g.restore();
       }
       if (G.ballSave > 0 && w.balls.some(b => !P.ballInLane(b))) { g.fillStyle = "#9dff3a"; g.font = `900 12px ${A.FONT_CJK}`; g.textAlign = "center"; g.fillText(`球保險 ${G.ballSave.toFixed(1)}s`, 180, VH - 14); }
@@ -952,7 +980,7 @@
       if (!w.boss) { g.fillStyle = "rgba(17,17,20,0.7)"; g.fillRect(8, 8, 74, 22); g.fillStyle = "#fff"; g.font = `900 12px ${A.FONT_CJK}`; g.textAlign = "left"; g.fillText(`灰磚 ${left}`, 14, 20); }
     }
     if (G.screen === "play" && G.itemFx.slow > 0) { g.fillStyle = "rgba(62,224,255,0.10)"; g.fillRect(0, 0, VW, VH); A.tag(g, `⏳ ${G.itemFx.slow.toFixed(1)}`, 60, VH - 40, 16, ["#3ee0ff"], { drips: false, rot: 0 }); }
-    if (G.screen === "play" && G.itemFx.save > 0) A.tag(g, `🛟 ${Math.ceil(G.itemFx.save)}`, 340, VH - 40, 16, ["#9dff3a"], { drips: false, rot: 0 });
+    if (G.screen === "play" && G.itemFx.save > 0) A.tag(g, `🛟 ${Math.ceil(G.itemFx.save)}`, VW - 60, VH - 40, 16, ["#9dff3a"], { drips: false, rot: 0 });
     if (G.tut && G.screen === "play" && !G.intro && !G.ctrlCard) drawTutorial(g);
     if (G.intro && G.screen === "play") drawIntro(g);
     if (G.ctrlCard && G.screen === "play") drawCtrlCard(g);
@@ -961,15 +989,15 @@
       const slam = k < 0.35 ? 1 + (0.35 - k) * 3 : 1;
       g.save(); g.globalAlpha = Math.max(0, Math.min(1, (G.cine.dur - k) * 2));   // 開場期間一直顯示，最後淡出
       const ty0 = lerp(120, 300, Math.max(0, Math.min(1, (G.view.zoom - 2) / -1)));   // 特寫時在上方空牆；拉遠時跟著往下移到磚的下方，兩邊都不擋住磚
-      A.tag(g, `STAGE ${G.stage.n}`, 200, ty0, 44 * slam, [p.a, p.b]);
-      A.tag(g, G.stage.name, 200, ty0 + 52, 26, [p.c], { cjk: true, drips: false, rot: 0.04 });
-      A.tag(g, `台面：${w.layout.name}`, 200, ty0 + 96, 17, ["#ffffff"], { cjk: true, drips: false, rot: 0.02 });
+      A.tag(g, `STAGE ${G.stage.n}`, VW / 2, ty0, 44 * slam, [p.a, p.b]);
+      A.tag(g, G.stage.name, VW / 2, ty0 + 52, 26, [p.c], { cjk: true, drips: false, rot: 0.04 });
+      A.tag(g, `台面：${w.layout.name}`, VW / 2, ty0 + 96, 17, ["#ffffff"], { cjk: true, drips: false, rot: 0.02 });
       g.restore();
     }
     if (G.cine && G.cine.type === "clear" && G.cine.t > 0.9) {
       const k = ease((G.cine.t - 0.9) / 0.4);
-      A.tag(g, "WALL", 200, 300, 60 * (2 - k), [p.a, p.b]);
-      A.tag(g, "CLEARED!", 200, 372, 50 * (2 - k), [p.c, p.a]);
+      A.tag(g, "WALL", VW / 2, 300, 60 * (2 - k), [p.a, p.b]);
+      A.tag(g, "CLEARED!", VW / 2, 372, 50 * (2 - k), [p.c, p.a]);
     }
   }
 
@@ -1068,13 +1096,13 @@
     const tu = G.tut, bob = Math.sin(G.t * 6) * 6;
     let hole = null, hand = null, lines = tutLines(tu.step);
     const pad = !!G.world.paddle;
-    if (tu.step === "press") { hole = pad ? [0, 520, 400, 220] : [200, 520, 200, 220]; hand = [300, 650]; }
+    if (tu.step === "press") { hole = pad ? [0, 520, VW, 220] : [VW / 2, 520, VW / 2, 220]; hand = [360 - G.win.x0, 650]; }
     if (tu.step === "move") {
       const lx = G.landing ? G.landing.x : 185;
-      hole = [0, 470, 400, 270]; hand = [lx, 700];
+      hole = [0, 470, VW, 270]; hand = [lx - G.win.x0, 700];
     }
     if (tu.step === "flip") {
-      hole = tu.side === "L" ? [0, 520, 200, 220] : [200, 520, 200, 220]; hand = [tu.side === "L" ? 100 : 300, 650];
+      hole = tu.side === "L" ? [0, 520, VW / 2, 220] : [VW / 2, 520, VW / 2, 220]; hand = [tu.side === "L" ? VW / 4 : VW * 3 / 4, 650];
       lines = ["就是現在！", tu.side === "L" ? "點左半邊" : "點右半邊"];
     }
     if (tu.step === "watch" && tu.t > 3) lines = null;
@@ -1122,13 +1150,13 @@
 
   /* ---------- 版面 ---------- */
   function fit() {
-    const wrap = $("stagewrap"), availW = wrap.clientWidth - 8, availH = wrap.clientHeight - 8;
+    const wrap = $("stagewrap"), pad = innerWidth <= 520 ? 0 : 8, availW = wrap.clientWidth - pad, availH = wrap.clientHeight - pad;
     const s = Math.max(0.3, Math.min(availW / VW, availH / VH));
     const cssW = Math.floor(VW * s), cssH = Math.floor(VH * s), dpr = Math.min(2.5, devicePixelRatio || 1);
     canvas.style.width = cssW + "px"; canvas.style.height = cssH + "px";
     canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
   }
-  addEventListener("resize", fit);
+  addEventListener("resize", () => { layoutWindow(); fit(); });
 
   /* ---------- 輸入 ---------- */
   function setFlipper(side, down) {
@@ -1164,7 +1192,7 @@
     G.plunger.charge = c;
   }
   const pointers = new Map();
-  const toGameX = e => { const rect = canvas.getBoundingClientRect(); return (e.clientX - rect.left) / rect.width * VW; };
+  const toGameX = e => { const rect = canvas.getBoundingClientRect(); return G.win.x0 + (e.clientX - rect.left) / rect.width * VW; };
   // 滑板：滑鼠移動（不用按）或手指拖曳，滑板就跟著走。
   // 聽整個視窗：電腦上滑鼠移出窄窄的遊戲畫面時，滑板還是跟著（停在最左／最右）
   addEventListener("pointermove", e => {
@@ -1260,7 +1288,7 @@
   }
 
   /* ---------- 啟動 ---------- */
-  fit();
+  layoutWindow(); fit();
   // 第一次進入遊戲：先播開場動畫（第 6 輪）；之後直接到標題（標題可以「重看開場」）
   if (!save.seenOpening) openingScreen(); else titleScreen();
   // 標題畫面上的大隻噴噴
@@ -1273,6 +1301,6 @@
     const res = SR.Tests.run(T); window.SR_TEST_RESULTS = res;
     console.log(res.map(r => `${r.pass ? "PASS" : "FAIL"} ${r.id} ${r.value}`).join("\n"));
   }
-  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, districtCleared, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper, tutLines, handleEvents };
+  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, districtCleared, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper, tutLines, handleEvents, win: () => G.win, laneK: () => G.laneK, VW: () => VW };
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 })();

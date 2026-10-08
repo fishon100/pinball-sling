@@ -9,7 +9,7 @@
 var SR = (typeof window !== "undefined" ? window : globalThis).SR || ((typeof window !== "undefined" ? window : globalThis).SR = {});
 
 SR.LevelCheck = (function () {
-  const MAX_ROWS = 11, ITEM_IDS = ["bomb", "slow", "save", "ball", "wide"];
+  const MAX_ROWS = 14, ITEM_IDS = ["bomb", "slow", "save", "ball", "wide"];
   const STAGE_COLS = ["關卡", "名稱", "道具池", "台面配置", "滑板", "球半徑", "拖尾", "彈道預覽秒", "落點提示", "加長球保險秒", "收尾輔助", "首領血量", "首領速度", "首領補磚秒", "標準時間秒"];
   const WALL_COLS = Array.from({ length: MAX_ROWS }, (_, i) => `第${i + 1}排`);
   // 台面配置表的欄位：用開頭比對（括號裡的說明文字可以改）

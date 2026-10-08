@@ -827,19 +827,49 @@ SR.Tests = (function () {
       return { pass: pulling && afterDown === 180 && afterMove === 180 && afterRelease !== 180,
         value: `拉桿中 ${pulling ? "是" : "否"}・按下後目標 ${Math.round(afterDown)}・拖動後 ${Math.round(afterMove)}・放開後移動 ${Math.round(afterRelease)}` };
     }}
-    , { id: "AC-S32", name: "手機畫面（390×680）台面不會被下方提示或上方資訊列蓋住（v3.7.1 起沒有道具欄）", async run(frame) {
+    , { id: "AC-S32", name: "手機（375×812）：台面無邊框貼齊兩邊、資訊列疊在台面上不蓋到磚；發射後磚至少 36 px 寬（提案 mobile-layout）", async run(frame) {
       const old = [frame.style.width, frame.style.height];
-      frame.style.width = "390px"; frame.style.height = "680px";
+      frame.style.width = "375px"; frame.style.height = "812px";
       try {
-        const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 12, items: { bomb: 1, slow: 1, save: 1, ball: 1, wide: 1 } }), g = w.SR_GAME;
+        const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 12 }), g = w.SR_GAME, P = w.SR.Physics;
         g.startDistrict(1, 12);
-        if (!toLaunch(w)) return { pass: false, value: "沒有進入遊玩" };   // 開場運鏡會傾斜縮放台面，要等開打後才量
-        await new Promise(r => setTimeout(r, 250));                 // 等版面重新排好、畫面更新一次
+        if (!toLaunch(w)) return { pass: false, value: "沒有進入遊玩" };
+        await new Promise(r => setTimeout(r, 250));
         const box = id => w.document.getElementById(id).getBoundingClientRect();
-        const cv = box("game"), below = box("hint"), hud = box("hud");
-        return { pass: cv.bottom <= below.top + 0.5 && cv.top >= hud.bottom - 0.5,
-          value: `台面底 ${Math.round(cv.bottom)} vs 提示頂 ${Math.round(below.top)}・台面頂 ${Math.round(cv.top)} vs 資訊列底 ${Math.round(hud.bottom)}` };
+        const cv = w.document.getElementById("game"), rc0 = box("game"), hud = box("hud"), border = parseFloat(w.getComputedStyle(cv).borderTopWidth) || 0;
+        const edge = rc0.width >= 374 && rc0.left <= 1, overlay = hud.top < rc0.top + 1 && hud.bottom > rc0.top;
+        // 發射：球離開發射道後發射道滑出、視窗收窄
+        const b = g.G.world.balls[0]; b.x = 180; b.y = 600; b.vx = 0; b.vy = -600;
+        runTicks(w, 0.6); await new Promise(r => setTimeout(r, 100));
+        const rc = box("game"), win = g.win(), brickPx = 33 * rc.width / win.w;
+        const topBrick = Math.min(...g.G.world.bricks.filter(k => k.alive).map(k => k.y)), topPx = rc.top + (topBrick - g.G.cam.y) * rc.height / w.SR.Physics.VIEW_H;
+        const clear = topPx >= hud.bottom - 0.5;
+        return { pass: edge && border === 0 && overlay && g.laneK() === 1 && brickPx >= 36 && clear,
+          value: `畫布寬 ${Math.round(rc0.width)}／${Math.round(rc.width)}・邊框 ${border}px・資訊列疊在台面上 ${overlay ? "是" : "否"}・發射道滑出 ${g.laneK()}・磚 ${brickPx.toFixed(1)} px・最上排磚離資訊列 ${Math.round(topPx - hud.bottom)} px` };
       } finally { frame.style.width = old[0]; frame.style.height = old[1]; }
+    }}
+    , { id: "AC-S61", name: "電腦（711×914）維持外框，畫面是整個 0～400 畫布", async run(frame) {
+      const old = [frame.style.width, frame.style.height];
+      frame.style.width = "711px"; frame.style.height = "914px";
+      try {
+        const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 2 }), g = w.SR_GAME;
+        g.startDistrict(0, 2);
+        if (!toLaunch(w)) return { pass: false, value: "沒有進入遊玩" };
+        await new Promise(r => setTimeout(r, 100));
+        const cv = w.document.getElementById("game"), border = parseFloat(w.getComputedStyle(cv).borderTopWidth) || 0, win = g.win();
+        return { pass: border >= 3 && win.x0 === 0 && win.w === 400, value: `邊框 ${border}px・視窗 ${win.x0}～${win.x0 + win.w}` };
+      } finally { frame.style.width = old[0]; frame.style.height = old[1]; }
+    }}
+    , { id: "AC-S62", name: "發射道：球離開後 0.3 秒滑出，球回到發射道時 0.3 秒滑回", async run(frame) {
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 2 }), g = w.SR_GAME, P = w.SR.Physics;
+      g.startDistrict(0, 2);
+      if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
+      const k0 = g.laneK();
+      const b = g.G.world.balls[0]; b.x = 180; b.y = 450; b.vx = 0; b.vy = 0;   // 放在台面中間慢慢掉，0.4 秒內不會碰到任何東西
+      runTicks(w, 0.2); const kMid = g.laneK(); runTicks(w, 0.2); const k1 = g.laneK();
+      g.G.world.balls = [P.newBall(g.T, g.G.world)];
+      runTicks(w, 0.4); const k2 = g.laneK();
+      return { pass: k0 === 0 && kMid > 0 && kMid < 1 && k1 === 1 && k2 === 0, value: `等發射 ${k0}・離開 0.2 秒 ${kMid.toFixed(2)}・0.4 秒 ${k1}・新球回到發射道 0.4 秒後 ${k2}` };
     }}
     , { id: "AC-S35", name: "遊玩畫面沒有道具欄；打完一區不再送道具", async run(frame) {
       const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 12, items: { bomb: 2, slow: 1 } }), g = w.SR_GAME;
