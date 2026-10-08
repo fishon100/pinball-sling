@@ -41,6 +41,8 @@
   function control() { return save.control === "flipper" ? "flipper" : "paddle"; }
   function newPaintLayer() { G.paint = A.off(VW, P.H); }
   function vibrate(ms) { if (save.vibrate === false) return; try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+  // 電腦（滑鼠）還是手機（手指）：教學文字、操作卡、游標都看這個（提案 desktop-controls）
+  const FINE = !matchMedia("(pointer: coarse)").matches;
 
   /* ---------- 噴噴（HUD 角落＋對話泡泡）---------- */
   const pinkyHud = $("pinkyHud").getContext("2d");
@@ -110,12 +112,14 @@
         <button class="big-btn ghost" id="goAch">成就 ${Object.keys(save.achievements).length}/${SR.ACHIEVEMENTS.length}</button>
         <button class="big-btn ghost" id="goSound">${AU.musicOn ? "音樂：開" : "音樂：關"}</button>
         <button class="big-btn ghost" id="goOpening">重看開場</button>
+        <button class="big-btn ghost" id="goTut">重看教學</button>
       </div>
       <button class="big-btn ghost" id="goControl">操作：${control() === "paddle" ? "🛹 滑板（一根手指／滑鼠）" : "🎰 經典擋板"}</button>
       <p class="sub" style="font-size:12px">${control() === "paddle" ? "手指左右滑或移動滑鼠＝滑板・球在發射道時按住畫面蓄力" : "左半邊／右半邊＝擋板・球在發射道時按住右半邊蓄力・電腦：Z、/、空白鍵"}</p>`);
     on("goMap", () => { AU.startMusic(SR.DISTRICTS[0]); mapScreen(); });
     on("goControl", () => controlScreen(titleScreen));
     on("goOpening", openingScreen);
+    on("goTut", replayTutorial);
     on("goAch", achievementScreen);
     on("goSound", () => { setSound("music", !AU.musicOn); titleScreen(); });
     updateHud();
@@ -183,9 +187,12 @@
     on("goAch2", achievementScreen);
     on("goComics", comicGallery);
     on("goControl", () => controlScreen(mapScreen));
-    on("replayTut", () => { save.tutorialDone = false; R.persist(save); startDistrict(0); });
+    on("replayTut", replayTutorial);
     updateHud();
   }
+
+  // 重看教學＝互動教學與物件特寫教學都重來（提案 newbie-tutorial）
+  function replayTutorial() { save.tutorialDone = false; save.seenObjects = {}; R.persist(save); startDistrict(0); }
 
   /* 劇情回放（第 5 輪：漫畫要能回放）：看過的段落都能再看 */
   function comicGallery() {
@@ -343,7 +350,7 @@
     G.world.balls = [P.newBall(T, G.world)];
     G.run.stage = n; G.ps = R.newPlayState(); G.stageTime = 0; G.heartsLost = 0; G.ballSave = 0;
     G.introShort = !!(opts.continued || opts.replay);          // v3.10：同一關重打播 1.2 秒短版開場
-    G.continued = !!opts.continued; G.itemFx = { slow: 0, save: 0, wide: 0 }; G.lastBreakT = 0; G._finTold = false; G._boostTold = false; G.fishHits = 0; G.landing = null;
+    G.continued = !!opts.continued; G.itemFx = { slow: 0, save: 0, wide: 0 }; G.lastBreakT = 0; G._finTold = false; G._boostTold = false; G.fishHits = 0; G.landing = null; G.intro = null; G.ctrlCard = false;
     G.particles = []; G.popups = []; G.trails = new Map(); G.lastBreak = null; G.plunger = { holding: false, charge: 0 };
     newPaintLayer(); G.cam.y = Math.min(G.world.top, P.CAM_MAX); G.timeScale = 1; G.screen = "story";
     G.tut = n === 1 && !save.tutorialDone ? { step: "press", t: 0, flips: 0 } : null;
@@ -363,7 +370,107 @@
     else if (G.stage.isBoss) setTimeout(() => say("灰先生會補磚，先打掉他身下那排！", "wow", 3500), 2400);
     else say(["上吧！", "這面牆交給你了！", "畫就在磚底下！", "慢慢來，看準了再打！"][G.stage.n % 4], "happy", 1800);
   }
-  function beginPlay() { G.cine = null; G.screen = "play"; G.view.zoom = 1; G.view.tilt = 0; G.view.rz = 0; G.view.scale = 1; G.view.tx = G.view.ty = null; G.cam.y = P.CAM_MAX; }
+  function beginPlay() {
+    G.cine = null; G.screen = "play"; G.view.zoom = 1; G.view.tilt = 0; G.view.rz = 0; G.view.scale = 1; G.view.tx = G.view.ty = null; G.cam.y = P.CAM_MAX;
+    // 電腦第一次進遊玩畫面：先看操作卡（提案 desktop-controls），關掉後才教這一關的新物件（提案 newbie-tutorial）
+    if (FINE && !save.seenControlsCard && G.world.paddle) G.ctrlCard = true;
+    else startObjectIntros();
+  }
+
+  /* ---------- 物件特寫教學（提案 newbie-tutorial）：每種物件第一次出現時暫停、暗幕、鏡頭拉近 2 倍、一句話，點一下才繼續 ---------- */
+  const INTRO_ORDER = ["gift", "hp2", "bucket", "rail", "boost", "bumper", "fish", "boss"];
+  function seenObj(kind) { return !!(save.seenObjects && save.seenObjects[kind]); }
+  function markSeen(kind) { save.seenObjects = save.seenObjects || {}; save.seenObjects[kind] = true; R.persist(save); }
+  // 這一關有哪些物件、特寫要對準哪裡（世界座標；回傳函式，膠囊這種會動的也能對準）
+  function introTargets(w) {
+    const out = {}, rectOf = k => () => ({ x: k.x + k.w / 2, y: k.y + k.h / 2, w: k.w, h: k.h });
+    const brick = pred => w.bricks.find(k => k.alive && pred(k));
+    const gift = brick(k => k.type === "gift"), hp2 = brick(k => k.type === "brick" && k.maxHp >= 2), bucket = brick(k => k.type === "bucket");
+    if (gift) out.gift = rectOf(gift);
+    if (hp2) out.hp2 = rectOf(hp2);
+    if (bucket) out.bucket = rectOf(bucket);
+    const rail = w.segments.find(sg => sg.kind === "rubber" || sg.kind === "rail");
+    if (rail) out.rail = () => ({ x: (rail.ax + rail.bx) / 2, y: (rail.ay + rail.by) / 2, w: Math.abs(rail.bx - rail.ax) + 16, h: Math.abs(rail.by - rail.ay) + 16 });
+    const pad = (w.boosts || [])[0];
+    if (pad) out.boost = () => ({ x: pad.x + pad.w / 2, y: pad.y + pad.h / 2, w: pad.w, h: pad.h });
+    const bump = w.circles.find(c => c.kind === "bumper"), fish = w.circles.find(c => c.kind === "fish");
+    if (bump) out.bumper = () => ({ x: bump.x, y: bump.y, w: T.bumper.radius * 2 + 8, h: T.bumper.radius * 2 + 8 });
+    if (fish) out.fish = () => ({ x: fish.x, y: fish.y, w: fish.r * 2 + 12, h: fish.r * 2 + 12 });
+    if (w.boss) out.boss = rectOf(w.boss);
+    return out;
+  }
+  function startObjectIntros() {
+    if (!G.world || G.screen !== "play") return;
+    const targets = introTargets(G.world);
+    const queue = INTRO_ORDER.filter(k => targets[k] && !seenObj(k)).map(k => ({ kind: k, at: targets[k] }));
+    if (queue.length) showObjectIntro(queue);
+  }
+  function showObjectIntro(queue) {
+    G.intro = { queue, cur: queue[0].kind, at: queue[0].at, t: 0 };
+    G.timeScale = 0; G.plunger.holding = false; G.plunger.charge = 0;   // 畫面停住；拉到一半的桿放掉
+  }
+  function dismissIntro() {
+    const it = G.intro; if (!it) return;
+    markSeen(it.cur); it.queue.shift();
+    AU.play("combo", 3);
+    if (it.queue.length) { it.cur = it.queue[0].kind; it.at = it.queue[0].at; it.t = 0; return; }
+    G.intro = null; G.timeScale = 1; G.view.zoom = 1; G.view.tx = G.view.ty = null;
+  }
+  function tickIntro(dt) {
+    const it = G.intro; if (!it) return;
+    it.t += dt;
+    const p = it.at(), v = G.view, k = Math.min(1, dt * 10);
+    // 放大 2 倍時畫面只看得到中心左右 100、上下 185，中心離邊至少這麼多才不會露出台面外
+    const tx = P.clamp(p.x, 100, 300), ty = P.clamp(p.y - G.cam.y, 185, VH - 185);
+    if (v.ty == null) { v.tx = 200; v.ty = 370; }
+    v.zoom += (2 - v.zoom) * k; v.tx += (tx - v.tx) * k; v.ty += (ty - v.ty) * k;
+  }
+  function drawIntro(g) {
+    const it = G.intro, info = SR.OBJECT_INTROS[it.cur] || { name: it.cur, text: "" }, v = G.view, p = it.at();
+    // 物件在畫面上的位置（跟 render 的鏡頭算法一樣）
+    const sx = 200 + v.zoom * (p.x - v.tx), sy = 370 + v.zoom * (p.y - G.cam.y - v.ty);
+    const hw = p.w * v.zoom / 2 + 14, hh = p.h * v.zoom / 2 + 14, bob = Math.sin(G.t * 5) * 4;
+    g.save();
+    g.fillStyle = "rgba(8,8,12,0.66)";
+    g.beginPath(); g.rect(0, 0, VW, VH); A.roundRect(g, sx + hw, sy - hh, -hw * 2, hh * 2, 10); g.fill("evenodd");
+    g.strokeStyle = "#ffe14d"; g.lineWidth = 4; g.setLineDash([10, 8]); g.lineDashOffset = -G.t * 30;
+    A.roundRect(g, sx - hw, sy - hh, hw * 2, hh * 2, 10); g.stroke(); g.setLineDash([]);
+    // 說明卡（放在物件上方或下方，不蓋到物件）
+    const x = 28, w = VW - 56, h = 84, y = sy > VH / 2 ? Math.max(56, sy - hh - h - 24) : Math.min(VH - h - 90, sy + hh + 24);
+    g.fillStyle = A.INK; A.roundRect(g, x + 5, y + 5, w, h, 16); g.fill();
+    g.fillStyle = "#ffffff"; A.roundRect(g, x, y, w, h, 16); g.fill();
+    g.strokeStyle = A.INK; g.lineWidth = 3.5; g.stroke();
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillStyle = "#c2187a"; g.font = `900 22px ${A.FONT_CJK}`; g.fillText(info.name, VW / 2, y + 28);
+    g.fillStyle = A.INK; g.font = `700 17px ${A.FONT_CJK}`; g.fillText(info.text, VW / 2, y + 58);
+    g.fillStyle = "#ffe14d"; g.font = `900 18px ${A.FONT_CJK}`; g.strokeStyle = A.INK; g.lineWidth = 4; g.lineJoin = "round";
+    g.strokeText(FINE ? "點一下（或按空白鍵）繼續" : "點一下繼續", VW / 2, VH - 44 + bob); g.fillText(FINE ? "點一下（或按空白鍵）繼續" : "點一下繼續", VW / 2, VH - 44 + bob);
+    g.restore();
+  }
+
+  /* ---------- 電腦操作卡（提案 desktop-controls）：第一次進遊玩畫面出現一次 ---------- */
+  function closeCtrlCard() { G.ctrlCard = false; save.seenControlsCard = true; R.persist(save); startObjectIntros(); }
+  function drawCtrlCard(g) {
+    const bob = Math.sin(G.t * 5) * 4;
+    g.save();
+    g.fillStyle = "rgba(8,8,12,0.72)"; g.fillRect(0, 0, VW, VH);
+    const x = 36, w = VW - 72, h = 236, y = (VH - h) / 2 - 40;
+    g.fillStyle = A.INK; A.roundRect(g, x + 6, y + 6, w, h, 18); g.fill();
+    g.fillStyle = "#ffffff"; A.roundRect(g, x, y, w, h, 18); g.fill();
+    g.strokeStyle = A.INK; g.lineWidth = 4; g.stroke();
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillStyle = "#c2187a"; g.font = `900 24px ${A.FONT_CJK}`; g.fillText("電腦操作", VW / 2, y + 34);
+    const rows = [["空白鍵", "按住蓄力，放開發射"], ["滑鼠左右", "移動滑板接球"], ["Esc", "暫停"]];
+    rows.forEach(([key, what], i) => {
+      const ry = y + 80 + i * 48;
+      g.fillStyle = "#ffe14d"; A.roundRect(g, x + 18, ry - 17, 96, 34, 8); g.fill(); g.strokeStyle = A.INK; g.lineWidth = 2.5; g.stroke();
+      g.fillStyle = A.INK; g.font = `900 15px ${A.FONT_CJK}`; g.fillText(key, x + 66, ry);
+      g.textAlign = "left"; g.font = `700 17px ${A.FONT_CJK}`; g.fillText(what, x + 128, ry); g.textAlign = "center";
+    });
+    g.fillStyle = "#ffe14d"; g.font = `900 18px ${A.FONT_CJK}`; g.strokeStyle = A.INK; g.lineWidth = 4; g.lineJoin = "round";
+    g.strokeText("點一下或按任意鍵開始", VW / 2, y + h + 44 + bob); g.fillText("點一下或按任意鍵開始", VW / 2, y + h + 44 + bob);
+    g.restore();
+  }
 
   function launchIfReady() {
     const b = G.world.balls.find(x => P.ballInLane(x));
@@ -461,8 +568,10 @@
           else { AU.play("brickBreak", Math.min(8, ps.combo / 4)); G.shake = Math.max(G.shake, 3); vibrate(18 + Math.min(20, ps.combo)); }
           break;
         }
-        case "capsule_drop":                                // 道具膠囊掉下來（第一次出現時提醒）
-          if (!save.seenCapsule) { save.seenCapsule = true; R.persist(save); say("道具掉下來了！用滑板接住！", "wow", 2600); }
+        case "capsule_drop":                                // 道具膠囊掉下來（第一次：暫停特寫教學；之後噴噴提醒一次）
+          // 最後一塊磚剛好是道具磚：這一關已經要過了，不暫停教學（過關演出會接手），下一次掉膠囊再教
+          if (!seenObj("capsule") && P.liveBricks(G.world).some(k => k.type !== "boss")) { const c = e.c; showObjectIntro([{ kind: "capsule", at: () => ({ x: c.x, y: c.y, w: 36, h: 36 }) }]); }
+          else if (!save.seenCapsule) { save.seenCapsule = true; R.persist(save); say("道具掉下來了！用滑板接住！", "wow", 2600); }
           break;
         case "capsule_caught": catchItem(e.item, e.x, e.y); break;
         case "capsule_missed": break;
@@ -509,7 +618,7 @@
     if (ev.some(e => e.type === "drain") && !G.world.balls.length) ballLost();
     if (ps.combo >= 20 || ps.maxBalls >= 4 || ps.maxChain >= 6) achieve({ combo: ps.maxCombo, balls: ps.maxBalls, chain: ps.maxChain });
     const left = P.liveBricks(G.world).filter(k => k.type !== "boss").length;
-    if (!G.world.boss && left > 0 && left <= 3 && !G._warnedLast) { G._warnedLast = true; say(`剩 ${left} 塊！`, "wow", 1500); }
+    if (!G.world.boss && left > 0 && left <= 3 && G.world.bricks.length > 3 && !G._warnedLast) { /* 教學關本來就只有 1～3 塊，不喊「剩 N 塊」 */ G._warnedLast = true; say(`剩 ${left} 塊！`, "wow", 1500); }
     if (left > 3) G._warnedLast = false;
     updateHud();
     if (R.isCleared(G.world)) onCleared();
@@ -587,11 +696,11 @@
       }
       if (!G.cine) P.updateCamera(G.cam, G.world, dt);
     }
-    if (G.screen === "play" && G.world) { tickKeys(dt); tickTutorial(dt); computePreviews(); }
+    if (G.screen === "play" && G.world) { tickKeys(dt); tickIntro(dt); if (!G.intro && !G.ctrlCard) tickTutorial(dt); computePreviews(); }
     else G.previews = [];
     updateHintText();
-    // 滑板模式遊玩中把滑鼠游標藏起來（滑板就是游標）
-    const cur = G.screen === "play" && G.world && G.world.paddle ? "none" : "";
+    // 電腦的滑板模式遊玩中把滑鼠游標藏起來（滑板就是游標）；暫停、教學卡、操作卡時放回來
+    const cur = FINE && G.screen === "play" && G.world && G.world.paddle && !G.paused && !G.intro && !G.ctrlCard ? "none" : "";
     if (canvas.style.cursor !== cur) canvas.style.cursor = cur;
     render();
   }
@@ -658,15 +767,21 @@
     }
     function next(s) {
       tu.step = s; tu.t = 0;
-      if (s === "done") say("很好！接下來靠你自己了。打碎所有灰磚就過關！", "happy", 3200);
+      if (s === "done") say(P.liveBricks(G.world).filter(k => k.type !== "boss").length === 1 ? "很好！接下來靠你自己了。打碎那塊灰磚就過關！" : "很好！接下來靠你自己了。打碎所有灰磚就過關！", "happy", 3200);
     }
   }
-  const TUT_TEXT = {
-    press: ["按住右下角，往下拉", "像真的彈珠台拉柄一樣"],
-    release: ["拉越多，力道越大", "拉到底就放開手指！"],
-    watch: ["球打碎灰磚，", "外面那面牆的畫就會回來"],
-    done: ["很好！", "打碎所有灰磚就過關"]
-  };
+  // 教學卡的文字：電腦說空白鍵與滑鼠、手機說手指（提案 desktop-controls）
+  function tutLines(step, coarse = !FINE) {
+    const pad = !G.world || !!G.world.paddle;
+    const L = {
+      press: pad ? (coarse ? ["按住畫面，往下拉", "像真的彈珠台拉柄一樣"] : ["按住空白鍵蓄力，放開發射", "也可以按住滑鼠往下拉"]) : ["按住右下角，往下拉", "像真的彈珠台拉柄一樣"],
+      release: coarse ? ["拉越多，力道越大", "拉到底就放開手指！"] : ["按越久，力道越大", "放開空白鍵就發射！"],
+      watch: ["球打碎灰磚，", "外面那面牆的畫就會回來"],
+      move: coarse ? ["把滑板移到圈圈下面", "手指按著左右滑"] : ["移動滑鼠接球，不用點", "把滑板移到圈圈下面"],
+      done: ["很好！", "打碎所有灰磚就過關"]
+    };
+    return L[step] || null;
+  }
 
   /* ---------- 過場鏡頭 ---------- */
   function tickCine(dt) {
@@ -814,7 +929,9 @@
     }
     if (G.screen === "play" && G.itemFx.slow > 0) { g.fillStyle = "rgba(62,224,255,0.10)"; g.fillRect(0, 0, VW, VH); A.tag(g, `⏳ ${G.itemFx.slow.toFixed(1)}`, 60, VH - 40, 16, ["#3ee0ff"], { drips: false, rot: 0 }); }
     if (G.screen === "play" && G.itemFx.save > 0) A.tag(g, `🛟 ${Math.ceil(G.itemFx.save)}`, 340, VH - 40, 16, ["#9dff3a"], { drips: false, rot: 0 });
-    if (G.tut && G.screen === "play") drawTutorial(g);
+    if (G.tut && G.screen === "play" && !G.intro && !G.ctrlCard) drawTutorial(g);
+    if (G.intro && G.screen === "play") drawIntro(g);
+    if (G.ctrlCard && G.screen === "play") drawCtrlCard(g);
     if (G.cine && G.cine.type === "intro") {
       const k = G.cine.t;
       const slam = k < 0.35 ? 1 + (0.35 - k) * 3 : 1;
@@ -925,13 +1042,12 @@
   /* 教學畫面：變暗＋只亮要操作的區域＋手指＋提示框 */
   function drawTutorial(g) {
     const tu = G.tut, bob = Math.sin(G.t * 6) * 6;
-    let hole = null, hand = null, lines = TUT_TEXT[tu.step];
+    let hole = null, hand = null, lines = tutLines(tu.step);
     const pad = !!G.world.paddle;
-    if (tu.step === "press") { hole = pad ? [0, 520, 400, 220] : [200, 520, 200, 220]; hand = [300, 650]; if (pad) lines = ["按住畫面，往下拉", "像真的彈珠台拉柄一樣"]; }
+    if (tu.step === "press") { hole = pad ? [0, 520, 400, 220] : [200, 520, 200, 220]; hand = [300, 650]; }
     if (tu.step === "move") {
       const lx = G.landing ? G.landing.x : 185;
       hole = [0, 470, 400, 270]; hand = [lx, 700];
-      lines = ["把滑板移到圈圈下面", matchMedia("(pointer: coarse)").matches ? "手指按著左右滑" : "移動滑鼠就好，不用點"];
     }
     if (tu.step === "flip") {
       hole = tu.side === "L" ? [0, 520, 200, 220] : [200, 520, 200, 220]; hand = [tu.side === "L" ? 100 : 300, 650];
@@ -944,7 +1060,16 @@
       g.strokeStyle = "#ffe14d"; g.lineWidth = 4; g.setLineDash([10, 8]); g.lineDashOffset = -G.t * 30;
       g.strokeRect(hole[0] + 4, hole[1] + 4, hole[2] - 8, hole[3] - 8); g.restore();
     }
-    if (hand) {
+    if (hand && FINE && pad && (tu.step === "press" || tu.step === "move")) {
+      // 電腦：手指圖示換成空白鍵鍵帽／滑鼠
+      g.save(); g.textAlign = "center"; g.textBaseline = "middle";
+      if (tu.step === "press") {
+        g.fillStyle = A.INK; A.roundRect(g, hand[0] - 70 + 4, hand[1] + bob - 20 + 4, 140, 40, 8); g.fill();
+        g.fillStyle = "#ffe14d"; A.roundRect(g, hand[0] - 70, hand[1] + bob - 20, 140, 40, 8); g.fill(); g.strokeStyle = A.INK; g.lineWidth = 3; g.stroke();
+        g.fillStyle = A.INK; g.font = `900 16px ${A.FONT_CJK}`; g.fillText("空白鍵 SPACE", hand[0], hand[1] + bob);
+      } else { g.font = "44px sans-serif"; g.fillText("🖱️", hand[0], hand[1] + bob); }
+      g.restore();
+    } else if (hand) {
       g.save(); g.font = "44px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
       g.fillText("👆", hand[0], hand[1] + bob); g.restore();
     }
@@ -965,8 +1090,10 @@
     const coarse = matchMedia("(pointer: coarse)").matches;
     if (G.screen !== "play") { hint(G.screen === "intro" ? (coarse ? "點一下跳過" : "按任意鍵跳過") : ""); return; }
     const pad = !!G.world.paddle;
-    if (G.world.balls.some(b => P.ballInLane(b) && b.y > 990)) hint(G.plunger.holding ? "拉越多力道越大，放開發射！" : coarse ? (pad ? "按住畫面往下拉，放開發射" : "按住右半邊往下拉，放開發射") : "按住滑鼠往下拖（或按住空白鍵），放開發射");
-    else hint(pad ? (coarse ? "手指左右滑，移動滑板接球" : "移動滑鼠（或 ←／→）移動滑板接球") : coarse ? "點左半邊／右半邊控制擋板" : "Z／← 左擋板・/／→ 右擋板");
+    if (G.ctrlCard) { hint("點一下或按任意鍵開始"); return; }
+    if (G.intro) { hint(coarse ? "點一下繼續" : "點一下（或按空白鍵）繼續"); return; }
+    if (G.world.balls.some(b => P.ballInLane(b) && b.y > 990)) hint(G.plunger.holding ? (coarse ? "拉越多力道越大，放開發射！" : "按越久力道越大，放開發射！") : coarse ? (pad ? "按住畫面往下拉，放開發射" : "按住右半邊往下拉，放開發射") : pad ? "空白鍵蓄力發射・滑鼠左右移動滑板" : "按住空白鍵蓄力，放開發射");
+    else hint(pad ? (coarse ? "手指左右滑，移動滑板接球" : "滑鼠左右移動滑板接球（或 ←／→）") : coarse ? "點左半邊／右半邊控制擋板" : "Z／← 左擋板・/／→ 右擋板");
   }
 
   /* ---------- 版面 ---------- */
@@ -1029,6 +1156,8 @@
     if (G.screen === "intro" && G.cine) { G.cine.t = Math.max(G.cine.t, G.cine.dur - 0.25); return; }
     if (G.screen !== "play") return;
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}     // 有些瀏覽器／觸控筆會拒絕，不影響操作
+    if (G.ctrlCard) { closeCtrlCard(); return; }                        // 操作卡／物件特寫教學：這一下只用來關卡片
+    if (G.intro) { dismissIntro(); return; }
     if (G.world.paddle) {
       // 滑板模式：按哪裡都可以；球在發射道時按住＝蓄力（這一下只拉桿，不移動滑板）
       const plunge = G.world.balls.some(b => P.ballInLane(b) && b.y > 990);
@@ -1055,7 +1184,7 @@
   function tickKeys(dt) {
     const p = G.world && G.world.paddle; if (!p || G.screen !== "play" || !keysHeld.size) return;
     const dir = (keysHeld.has("R") ? 1 : 0) - (keysHeld.has("L") ? 1 : 0);
-    p.target = p.x + dir * 950 * dt;            // 鍵盤移動速度 950 px/s
+    p.target = p.x + dir * T.paddle.max_speed * dt;   // 鍵盤移動速度跟滑板跟滑鼠的最高速一樣（提案 desktop-controls）
   }
   addEventListener("keydown", e => {
     AU.ensure();
@@ -1064,6 +1193,8 @@
     if (G.screen === "intro" && G.cine) { G.cine.t = Math.max(G.cine.t, G.cine.dur - 0.25); return; }
     if (e.code === "Escape" || e.code === "KeyP") { togglePause(); return; }
     if (G.screen !== "play" || G.paused) return;
+    if (G.ctrlCard) { closeCtrlCard(); e.preventDefault(); return; }
+    if (G.intro) { if (e.code === "Space" || e.code === "Enter") { dismissIntro(); e.preventDefault(); } return; }
     if (KEYS[e.code]) { if (G.world.paddle) keysHeld.add(KEYS[e.code]); else setFlipper(KEYS[e.code], true); e.preventDefault(); }
     else if (e.code === "Space") { if (!e.repeat) setPlunger(true); e.preventDefault(); }   // 按住時系統會一直重送 keydown，只認第一次
   });
@@ -1118,6 +1249,6 @@
     const res = SR.Tests.run(T); window.SR_TEST_RESULTS = res;
     console.log(res.map(r => `${r.pass ? "PASS" : "FAIL"} ${r.id} ${r.value}`).join("\n"));
   }
-  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, districtCleared, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper };
+  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, districtCleared, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper, tutLines };
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 })();

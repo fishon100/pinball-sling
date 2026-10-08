@@ -662,6 +662,11 @@ SR.Tests = (function () {
       }
       return { pass: !bad.length, value: bad.length ? bad.slice(0, 6).join("、") + (bad.length > 6 ? ` …共 ${bad.length} 關不對` : "") : "第 1 關 0 塊，第 2～50 關都是 2～3 塊" };
     }}
+  , { id: "AC-S63", report: true, name: "【報告】教學關磚數（提案 newbie-tutorial）：第 1～5 關一關比一關多，第 1 關最多 2 塊", run(T) {
+      const n = [1, 2, 3, 4, 5].map(i => SR.buildStage(i).cells.filter(c => c.type !== "boss").length);
+      const ok = n[0] <= 2 && n.every((v, i) => i === 0 || v >= n[i - 1]);
+      return { pass: ok, value: `第 1～5 關磚數 ${n.join("、")}` };
+    }}
   /* ---------- v3.7.2 關卡設定表（申請單 level-config-table）---------- */
   , { id: "AC-S36", name: "第一版關卡表跟原本公式產生的 50 關完全相同（企劃改過表之後改成報告）",
       report: () => !!(SR.LEVELS && SR.LEVELS.source && SR.LEVELS.source !== "export"), run(T) {
@@ -863,7 +868,7 @@ SR.Tests = (function () {
       if (E.layout.bumpers.length !== n0 + 2) problems.push("刪除沒有效果");
       E.moveObject("bumper", E.layout.bumpers.findIndex(b => b[0] === 100 && b[1] === 690), 100, 470);
       const warn = E.warnings().join("｜");
-      if (!/第 1 關/.test(warn) || !/磚/.test(warn)) problems.push(`移到磚區沒有提醒：「${warn}」`);
+      if (!/第 \d+ 關/.test(warn) || !/磚/.test(warn)) problems.push(`移到磚區沒有提醒：「${warn}」`);   // 教學關後第 1 關只剩 1 塊磚，提醒會指到同台面的其他關
       // 另存新台面
       E.load(35); E.setMode("layout");
       const orig = JSON.stringify(w.SR.LEVELS.layouts.d_high);
@@ -1086,6 +1091,9 @@ SR.Tests = (function () {
       if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
       const gift = g.G.world.bricks.find(k => k.alive && k.type === "gift");
       if (!gift) return { pass: false, value: "第 2 關沒有道具磚" };
+      // 只留道具磚和離它最遠的一塊磚：球直直往上只會打到道具磚，而且這一關不會因此過關（最後一塊是道具磚時不教，由過關演出接手）
+      const keep = g.G.world.bricks.filter(k => k.alive && k !== gift).sort((a, b) => Math.abs(b.c - gift.c) - Math.abs(a.c - gift.c))[0];
+      for (const k of g.G.world.bricks) if (k !== gift && k !== keep) k.alive = false;
       const b = g.G.world.balls[0]; b.x = gift.x + gift.w / 2; b.y = gift.y + gift.h + 60; b.vx = 0; b.vy = -900;
       const hit = runTicks(w, 3, () => g.G.intro && g.G.intro.cur === "capsule");
       const paused = hit && g.G.timeScale === 0 && g.G.world.capsules.length > 0;

@@ -403,9 +403,9 @@
     if (!G.world || G.screen !== "play") return;
     const targets = introTargets(G.world);
     const queue = INTRO_ORDER.filter(k => targets[k] && !seenObj(k)).map(k => ({ kind: k, at: targets[k] }));
-    if (queue.length) startIntro(queue);
+    if (queue.length) showObjectIntro(queue);
   }
-  function startIntro(queue) {
+  function showObjectIntro(queue) {
     G.intro = { queue, cur: queue[0].kind, at: queue[0].at, t: 0 };
     G.timeScale = 0; G.plunger.holding = false; G.plunger.charge = 0;   // 畫面停住；拉到一半的桿放掉
   }
@@ -569,7 +569,8 @@
           break;
         }
         case "capsule_drop":                                // 道具膠囊掉下來（第一次：暫停特寫教學；之後噴噴提醒一次）
-          if (!seenObj("capsule")) { const c = e.c; startIntro([{ kind: "capsule", at: () => ({ x: c.x, y: c.y, w: 36, h: 36 }) }]); }
+          // 最後一塊磚剛好是道具磚：這一關已經要過了，不暫停教學（過關演出會接手），下一次掉膠囊再教
+          if (!seenObj("capsule") && P.liveBricks(G.world).some(k => k.type !== "boss")) { const c = e.c; showObjectIntro([{ kind: "capsule", at: () => ({ x: c.x, y: c.y, w: 36, h: 36 }) }]); }
           else if (!save.seenCapsule) { save.seenCapsule = true; R.persist(save); say("道具掉下來了！用滑板接住！", "wow", 2600); }
           break;
         case "capsule_caught": catchItem(e.item, e.x, e.y); break;
@@ -617,7 +618,7 @@
     if (ev.some(e => e.type === "drain") && !G.world.balls.length) ballLost();
     if (ps.combo >= 20 || ps.maxBalls >= 4 || ps.maxChain >= 6) achieve({ combo: ps.maxCombo, balls: ps.maxBalls, chain: ps.maxChain });
     const left = P.liveBricks(G.world).filter(k => k.type !== "boss").length;
-    if (!G.world.boss && left > 0 && left <= 3 && !G._warnedLast) { G._warnedLast = true; say(`剩 ${left} 塊！`, "wow", 1500); }
+    if (!G.world.boss && left > 0 && left <= 3 && G.world.bricks.length > 3 && !G._warnedLast) { /* 教學關本來就只有 1～3 塊，不喊「剩 N 塊」 */ G._warnedLast = true; say(`剩 ${left} 塊！`, "wow", 1500); }
     if (left > 3) G._warnedLast = false;
     updateHud();
     if (R.isCleared(G.world)) onCleared();
