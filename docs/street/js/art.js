@@ -188,11 +188,11 @@ SR.Art = (function () {
     if (lit) p.flash = Math.max(0, p.flash - 1 / 60);
     g.save();
     g.fillStyle = "rgba(10,6,24,0.85)"; g.strokeStyle = lit ? "#ffffff" : "#9dff3a"; g.lineWidth = 2;
-    g.shadowColor = "#9dff3a"; g.shadowBlur = lit ? 18 : 8;
+    g.shadowColor = "#9dff3a"; g.shadowBlur = lit ? 22 : 14;
     g.beginPath(); g.roundRect ? g.roundRect(p.x, p.y, p.w, p.h, 4) : g.rect(p.x, p.y, p.w, p.h); g.fill(); g.stroke();
     g.lineWidth = 2.5; g.lineCap = "round"; g.lineJoin = "round";
     for (let i = 0; i < 3; i++) {
-      const cx = p.x + p.w * (i + 0.5) / 3, phase = (t * 2.2 + i * 0.25) % 1, a = lit ? 1 : 0.45 + 0.55 * Math.sin(phase * Math.PI);
+      const cx = p.x + p.w * (i + 0.5) / 3, phase = (t * 4.4 + i * 0.25) % 1, a = lit ? 1 : 0.55 + 0.45 * Math.sin(phase * Math.PI);   // 箭頭流動 2 倍快、更亮（提案 boost-feel）
       g.strokeStyle = `rgba(157,255,58,${a.toFixed(2)})`;
       g.beginPath(); g.moveTo(cx - 6, p.y + p.h - 3); g.lineTo(cx, p.y + 3); g.lineTo(cx + 6, p.y + p.h - 3); g.stroke();
     }
@@ -344,9 +344,21 @@ SR.Art = (function () {
 
   /* ---------- 球（發光＋影子＝立體感）---------- */
   function ball(g, b, pal, trail) {
+    // 衝刺（踩到加速帶 0.5 秒內）：拖尾變萊姆綠、更亮，球兩側畫速度線
+    const dash = b.dash > 0, trailColor = dash ? "#9dff3a" : pal.glow;
     for (let i = 0; i < trail.length; i++) {
       const p = trail[i], a = (i + 1) / (trail.length + 1);
-      g.fillStyle = rgba(pal.glow, 0.25 * a); g.beginPath(); g.arc(p.x, p.y, b.r * (0.4 + 0.6 * a), 0, Math.PI * 2); g.fill();
+      g.fillStyle = rgba(trailColor, (dash ? 0.45 : 0.25) * a); g.beginPath(); g.arc(p.x, p.y, b.r * (0.4 + 0.6 * a), 0, Math.PI * 2); g.fill();
+    }
+    if (dash) {
+      const sp = Math.hypot(b.vx, b.vy) || 1, dx = b.vx / sp, dy = b.vy / sp, nx = -dy, ny = dx, k = Math.min(1, b.dash / 0.5);
+      g.save(); g.strokeStyle = rgba("#9dff3a", 0.85 * k); g.lineWidth = 2.5; g.lineCap = "round";
+      for (const side of [-1, 1]) for (let j = 0; j < 2; j++) {
+        const off = b.r + 6 + j * 7, back = 10 + j * 8, len = 22 + 14 * k;
+        g.beginPath(); g.moveTo(b.x + nx * off * side - dx * back, b.y + ny * off * side - dy * back);
+        g.lineTo(b.x + nx * off * side - dx * (back + len), b.y + ny * off * side - dy * (back + len)); g.stroke();
+      }
+      g.restore();
     }
     g.fillStyle = "rgba(0,0,0,0.35)"; g.beginPath(); g.ellipse(b.x + 5, b.y + 7, b.r, b.r * 0.8, 0, 0, Math.PI * 2); g.fill();
     const glow = g.createRadialGradient(b.x, b.y, b.r * 0.5, b.x, b.y, b.r * 2.6);

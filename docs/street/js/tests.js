@@ -535,7 +535,7 @@ SR.Tests = (function () {
       }
       return { pass: !problems.length, value: problems.length ? [...new Set(problems)].slice(0, 4).join("；") : "50 關 top 都是 320；第 5／15／25／35／45 關各玩 20 秒，鏡頭都沒動" };
     }}
-  , { id: "AC-S28", name: "加速帶：往上經過加速 ×1.35（最少 1000、最多 1900＝球的最高速）、往下不加速、0.5 秒內不重複；首領關沒有加速帶", run(T) {
+  , { id: "AC-S28", name: "加速帶：往上經過加速 ×1.6（最少 1300、最多 1900＝球的最高速）、往下不加速、0.5 秒內不重複；首領關沒有加速帶", run(T) {
       const problems = [];
       // 首領關：台面配置有加速帶也不放（v3.7.2 起台面由企劃的表決定，這裡自己造一個有加速帶的台面）
       const padLayout = { id: "test_pad", name: "測試", top: 320, bumpers: [], boost: [[152, 763]] };
@@ -556,7 +556,7 @@ SR.Tests = (function () {
           return { sp, boosts };
         } finally { T.ball.damping = oldDamp; }
       });
-      for (const [vin, want] of [[-500, 1000], [-800, 1080], [-1700, 1900]]) {   // 上限 2000→1900（2026-10-07 套用調參，tuning-2026-10-07）
+      for (const [vin, want] of [[-500, 1300], [-1000, 1600], [-1700, 1900]]) {   // 提案 boost-feel（2026-10-08）：×1.6、最少 1300、上限 1900
         const r = trial(vin); if (!r) { problems.push("測試台面沒有加速帶"); break; }
         if (Math.abs(r.sp - want) > 6 || r.boosts !== 1) problems.push(`往上 ${-vin} → ${r.sp.toFixed(0)}（應 ${want}）、加速 ${r.boosts} 次`);
       }
@@ -564,7 +564,7 @@ SR.Tests = (function () {
       if (down && (Math.abs(down.sp - 800) > 6 || down.boosts)) problems.push(`往下 800 → ${down.sp.toFixed(0)}、加速 ${down.boosts} 次（應不加速）`);
       const cd = trial(-800, true);
       if (cd && cd.boosts !== 1) problems.push(`0.5 秒內加速了 ${cd.boosts} 次`);
-      return { pass: !problems.length, value: problems.length ? problems.join("；") : "首領關沒有、500→1000、800→1080、1700→2000；往下不加速；0.5 秒內不重複" };
+      return { pass: !problems.length, value: problems.length ? problems.join("；") : "首領關沒有、500→1300、1000→1600、1700→1900；往下不加速；0.5 秒內不重複" };
     }}
   , { id: "AC-S40", report: true, name: "【報告】加速帶條數（設計值：第 3 區 1 條、第 4、5 區 2 條、第 1、2 區與首領關沒有）", run(T) {
       const count = n => { const w = P().buildTable(T, {}, SR.layoutFor(n), "paddle"); P().placeStage(w, SR.buildStage(n)); return (w.boosts || []).length; };
@@ -1108,6 +1108,34 @@ SR.Tests = (function () {
       btn.click();
       const cleared = g.save.tutorialDone === false && Object.keys(g.save.seenObjects || {}).length === 0;
       return { pass: cleared, value: `互動教學 ${g.save.tutorialDone ? "已完成" : "未完成"}・物件教學紀錄 ${Object.keys(g.save.seenObjects || {}).length} 種` };
+    }}
+    /* ---------- 提案 boost-feel（2026-10-08）：加速帶衝刺演出、碎磚爽感 ---------- */
+    , { id: "AC-S56", name: "加速帶衝刺演出：停格 0.04 秒、跳「BOOST!」、球拖尾變綠變長 0.5 秒、加速帶噴光點", async run(frame) {
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 3 }), g = w.SR_GAME;
+      g.startDistrict(0, 3);
+      if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
+      const pad = g.G.world.boosts[0]; if (!pad) return { pass: false, value: "第 3 關沒有加速帶" };
+      const b = g.G.world.balls[0]; b.x = pad.x + pad.w / 2; b.y = pad.y + 4; b.vx = 0; b.vy = -900;
+      const n0 = g.G.particles.length;
+      g.handleEvents([{ type: "boost", x: b.x, y: b.y, b }]);
+      const stop = Math.abs(g.G.hitstop - 0.04) < 1e-9, pop = g.G.popups.some(p => p.text === "BOOST!"), dash = Math.abs(b.dash - 0.5) < 1e-9;
+      const sparks = g.G.particles.length - n0 >= 12, nudge = !!g.G.nudge;
+      runTicks(w, 0.7);
+      const over = !(b.dash > 0);
+      return { pass: stop && pop && dash && sparks && nudge && over,
+        value: `停格 ${stop ? "0.04" : g.G.hitstop}・BOOST! ${pop ? "有" : "沒有"}・拖尾 0.5 秒 ${dash ? "是" : "否"}・光點 ${sparks ? "≥12" : "不足"}・畫面推 ${nudge ? "有" : "沒有"}・0.7 秒後結束 ${over ? "是" : "否"}` };
+    }}
+    , { id: "AC-S57", name: "碎磚爽感：磚碎掉白閃 60 毫秒；1 秒內碎 3 塊畫面震動 ≥ 6", async run(frame) {
+      const w = await bootGame(frame, { ...BASE_SAVE, unlocked: 3 }), g = w.SR_GAME, P = w.SR.Physics;
+      g.startDistrict(0, 3);
+      if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
+      const bricks = g.G.world.bricks.filter(k => k.alive && k.type === "brick").slice(0, 3);
+      if (bricks.length < 3) return { pass: false, value: "第 3 關磚不夠" };
+      const ev = []; P.damageBrick(g.G.world, bricks[0], 9, ev, "ball"); g.handleEvents(ev);
+      const flash = (g.G.flashes || []).some(f => Math.abs(f.t - 0.06) < 1e-9), shake1 = g.G.shake;
+      const ev2 = []; P.damageBrick(g.G.world, bricks[1], 9, ev2, "ball"); P.damageBrick(g.G.world, bricks[2], 9, ev2, "ball"); g.handleEvents(ev2);
+      const shake3 = g.G.shake;
+      return { pass: flash && shake1 < 6 && shake3 >= 6, value: `白閃 ${flash ? "有" : "沒有"}・碎 1 塊震 ${shake1}・碎 3 塊震 ${shake3}` };
     }}
     /* ---------- 提案 desktop-controls（2026-10-08）：電腦版操作說明 ---------- */
     , { id: "AC-S58", name: "電腦版互動教學第 1 步寫「按住空白鍵蓄力，放開發射」", async run(frame) {

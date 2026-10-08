@@ -23,7 +23,7 @@
   const G = {
     screen: "title", world: null, stage: null, run: null, ps: null, district: SR.DISTRICTS[0],
     cam: { y: P.CAM_MAX }, view: { zoom: 1, fx: 200, fy: 370, tilt: 0, rz: 0, scale: 1 },
-    cine: null, timeScale: 1, paused: false, hitstop: 0, shake: 0,
+    cine: null, timeScale: 1, paused: false, hitstop: 0, shake: 0, nudge: null, flashes: [], recentBreaks: [],
     paint: null, particles: [], popups: [], trails: new Map(),
     plunger: { holding: false, charge: 0 }, ballSave: 0, stageTime: 0, heartsLost: 0,
     lastBreak: null, comboFx: { n: 0, t: 0 }, attract: false, ending: false, t: 0,
@@ -541,7 +541,7 @@
   function burstPaint(x, y, size, color) {
     const c = color || paintColor();
     A.splat(G.paint.getContext("2d"), x, y, c, size);
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {                                               // 碎片 1.5 倍（提案 boost-feel）
       const a = Math.random() * Math.PI * 2, s = 120 + Math.random() * 260;
       G.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 80, life: 0.5, max: 0.5, color: c, r: 2 + Math.random() * 3 });
     }
@@ -562,6 +562,10 @@
           run.score += pts; run.bricks++; save.stats.bricks++;
           burstPaint(cx, cy, k.type === "bucket" ? 30 : 14 + k.maxHp * 3);
           popup(cx, cy - 6, "+" + pts);
+          // 爽感（提案 boost-feel）：磚碎掉白閃 60 毫秒；1 秒內碎 3 塊以上畫面震動加大到 6
+          G.flashes.push({ x: k.x, y: k.y, w: k.w, h: k.h, t: 0.06, max: 0.06 });
+          G.recentBreaks.push(G.t); G.recentBreaks = G.recentBreaks.filter(t0 => G.t - t0 <= 1);
+          if (G.recentBreaks.length >= 3) G.shake = Math.max(G.shake, 6);
           if (k.type === "bucket") { AU.play("bucket"); G.shake = Math.max(G.shake, 9); G.hitstop = 0.06; vibrate([40, 30, 60]); }
           else if (k.type === "gift") AU.play("achievement");   // 膠囊由物理放出（capsule_drop），接到才生效
 
@@ -575,10 +579,24 @@
           break;
         case "capsule_caught": catchItem(e.item, e.x, e.y); break;
         case "capsule_missed": break;
-        case "boost":                                       // 加速帶（v3.7）
-          AU.play("boost"); vibrate(10);
+        case "boost": {                                     // 加速帶（v3.7）＋衝刺演出（提案 boost-feel，2026-10-08）
+          AU.play("boost"); vibrate(30);
+          const b = e.b, sp = Math.hypot(b.vx, b.vy) || 1, dx = b.vx / sp, dy = b.vy / sp;
+          G.hitstop = Math.max(G.hitstop, 0.04);                                   // 停格一下
+          G.nudge = { x: dx * 6, y: dy * 6, t: 0.5, max: 0.5 };                     // 畫面往球的方向推 6 px 再彈回
+          b.dash = 0.5;                                                              // 拖尾變綠變長、速度線
+          const pad = G.world.boosts.find(q => e.x >= q.x - 4 && e.x <= q.x + q.w + 4 && e.y >= q.y - 8 && e.y <= q.y + q.h + 8) || G.world.boosts[0];
+          if (pad) {
+            pad.flash = 0.5;
+            for (let i = 0; i < 12; i++) {                                           // 箭頭往上噴 12 顆萊姆綠光點
+              const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.9, v = 260 + Math.random() * 240;
+              G.particles.push({ x: pad.x + Math.random() * pad.w, y: pad.y + pad.h / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.45, max: 0.45, color: "#9dff3a", r: 2 + Math.random() * 2.5 });
+            }
+            popup(pad.x + pad.w / 2, pad.y - 22, "BOOST!", true, "#9dff3a");
+          }
           if (!G._boostTold) { G._boostTold = true; say("踩到加速帶，球變快了！", "wow", 1600); }
           break;
+        }
         case "bumper":
           e.c.flash = e.c.kind === "fish" ? 0.4 : 0.12; run.score += 5; AU.play("bumper"); vibrate(14);
           if (e.c.kind === "fish") { G.fishHits++; if (G.fishHits === 1) say("阿鰭：「好痛……把球吐回去！」", "wow", 1800); }
@@ -661,6 +679,10 @@
       G.particles = G.particles.filter(p => p.life > 0);
       for (const p of G.popups) p.life -= dt;
       G.popups = G.popups.filter(p => p.life > 0);
+      for (const f of G.flashes) f.t -= dt;
+      G.flashes = G.flashes.filter(f => f.t > 0);
+      if (G.nudge) { G.nudge.t -= dt; if (G.nudge.t <= 0) G.nudge = null; }
+      for (const b of G.world.balls) if (b.dash > 0) b.dash -= dt;
       for (const c of G.world.circles) if (c.flash > 0) c.flash -= dt;
       for (const s of G.world.segments) if (s.flash > 0) s.flash -= dt;
       for (const k of G.world.bricks) { if (k.flash > 0) k.flash -= dt; if (k.fresh && k.flash <= 0) k.fresh = false; }
@@ -689,7 +711,7 @@
           }
           for (const b of G.world.balls) {
             // 拖尾光長度看區（v3.7：第 3 區剩一半、第 4、5 區沒有）
-            const max = SR.trailFor(G.stage.n), tr = G.trails.get(b.id) || []; tr.push({ x: b.x, y: b.y }); while (tr.length > max) tr.shift(); G.trails.set(b.id, tr);
+            const max = b.dash > 0 ? Math.max(6, SR.trailFor(G.stage.n) * 2) : SR.trailFor(G.stage.n), tr = G.trails.get(b.id) || []; tr.push({ x: b.x, y: b.y }); while (tr.length > max) tr.shift(); G.trails.set(b.id, tr);
           }
           if (G.hitstop > 0 || G.screen !== "play") { if (G.screen !== "clearing") acc = 0; break; }
         }
@@ -846,6 +868,7 @@
     const v = G.view, p = pal();
     g.save();
     if (G.shake > 0.2) g.translate((Math.random() - 0.5) * G.shake * 2, (Math.random() - 0.5) * G.shake * 2);
+    if (G.nudge) { const k = G.nudge.t / G.nudge.max; g.translate(G.nudge.x * k, G.nudge.y * k); }   // 衝刺：畫面被推一下再彈回
     if (v.ty != null) { g.translate(VW / 2, 370); g.scale(v.zoom, v.zoom); g.translate(-v.tx, -v.ty); }
     else { g.translate(v.fx, v.fy); g.scale(v.zoom, v.zoom); g.translate(-v.fx, -v.fy); }
     g.translate(0, -G.cam.y);
@@ -853,6 +876,7 @@
     g.drawImage(G.paint, 0, 0);
     A.table(g, w, p, G.t);
     for (const k of w.bricks) A.brick(g, k, p, G.t);
+    for (const f of G.flashes) { g.fillStyle = `rgba(255,255,255,${(0.9 * f.t / f.max).toFixed(2)})`; g.fillRect(f.x - 3, f.y - 3, f.w + 6, f.h + 6); }   // 碎磚白閃
     for (const c of w.capsules || []) A.capsule(g, c, SR.ITEMS.find(i => i.id === c.item), G.t);
     if (w.magnet && G.screen === "play") {
       // 收尾輔助：剩下的磚發光＋目標框

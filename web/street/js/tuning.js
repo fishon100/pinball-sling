@@ -38,7 +38,7 @@ SR.STREET_TUNING = {
   paddle: { half_widths: { S: 48, M: 56, L: 76 }, radius: 8, speed: 1550, max_angle_deg: 55, max_speed: 2600, carry: 0.15 },
   // 加速帶（v3.7，第 3 區起）：往上經過的球速度 ×mult，最少 min、最多 max；同一顆球 cooldown 秒內不重複
   // 2026-10-07 套用調參：上限 2000→1900（跟著球的最高速，企劃選的）
-  boost: { mult: 1.35, min: 1000, max: 1900, cooldown: 0.5 },
+  boost: { mult: 1.6, min: 1300, max: 1900, cooldown: 0.5 },     // 提案 boost-feel（2026-10-08）：要有衝的感覺
   // capsule_speed＝道具膠囊直直往下掉的速度（px/s，v3.7.1）
   items: { capsule_speed: 170, bomb_radius: 60, bomb_damage: 2, slow_scale: 0.5, slow_s: 5, save_s: 10, wide_s: 12 },
   run: { hearts: 3, max_hearts: 5, bomb_radius: 52, bomb_every: 15 }
