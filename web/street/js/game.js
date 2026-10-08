@@ -380,6 +380,8 @@
   }
 
   const viewCX = () => G.win.x0 + VW / 2;   // 畫面中心在台面座標的位置
+  const CAM_OFF_MOBILE = 12;                  // 手機：鏡頭往上 12，資訊列只蓋到圓弧上方的牆，球經過的圓弧頂不會被蓋到
+  const camY = () => G.cam.y - (innerWidth <= 520 ? CAM_OFF_MOBILE : 0);
 
   /* ---------- 鏡頭視窗與發射道滑出（提案 mobile-layout，2026-10-08）----------
      手機（寬 ≤ 520）：畫面只看台面本體（左牆 x=20 起），球在發射道時看到 20～380，發射後發射道 0.3 秒往右滑出、
@@ -447,14 +449,14 @@
     it.t += dt;
     const p = it.at(), v = G.view, k = Math.min(1, dt * 10);
     // 放大 2 倍時畫面只看得到中心左右 100、上下 185，中心離邊至少這麼多才不會露出台面外
-    const tx = P.clamp(p.x, G.win.x0 + VW / 4, G.win.x0 + VW * 3 / 4), ty = P.clamp(p.y - G.cam.y, 185, VH - 185);
+    const tx = P.clamp(p.x, G.win.x0 + VW / 4, G.win.x0 + VW * 3 / 4), ty = P.clamp(p.y - camY(), 185, VH - 185);
     if (v.ty == null) { v.tx = viewCX(); v.ty = 370; }
     v.zoom += (2 - v.zoom) * k; v.tx += (tx - v.tx) * k; v.ty += (ty - v.ty) * k;
   }
   function drawIntro(g) {
     const it = G.intro, info = SR.OBJECT_INTROS[it.cur] || { name: it.cur, text: "" }, v = G.view, p = it.at();
     // 物件在畫面上的位置（跟 render 的鏡頭算法一樣）
-    const sx = VW / 2 + v.zoom * (p.x - v.tx), sy = 370 + v.zoom * (p.y - G.cam.y - v.ty);
+    const sx = VW / 2 + v.zoom * (p.x - v.tx), sy = 370 + v.zoom * (p.y - camY() - v.ty);
     const hw = p.w * v.zoom / 2 + 14, hh = p.h * v.zoom / 2 + 14, bob = Math.sin(G.t * 5) * 4;
     g.save();
     g.fillStyle = "rgba(8,8,12,0.66)";
@@ -847,7 +849,7 @@
       // ② 1.2–2.3 秒 拉遠回 1 倍，同時台面從傾斜轉平、回到平常畫面。重打的短版（1.2 秒）只有 ②。
       // v.tx／v.ty＝鏡頭看著的點（畫面座標）：畫在畫面正中央（200, 370）
       G.cam.y = P.CAM_MAX;
-      const cy = G.cam.y, boss = G.world.boss, bricks = G.world.bricks || [];
+      const cy = camY(), boss = G.world.boss, bricks = G.world.bricks || [];
       const top = bricks.length ? Math.min(...bricks.map(b => b.y + b.h / 2)) : 450;
       const row = bricks.filter(b => Math.abs(b.y + b.h / 2 - top) < 2);
       const left = [row.length ? Math.min(...row.map(b => b.x + b.w / 2)) : 80, top - cy];
@@ -868,7 +870,7 @@
       if (c.t >= c.dur) beginPlay();
     } else if (c.type === "clear") {
       // 慢動作特寫 → 定格 → 3D 傾斜展示整面彩色牆
-      if (c.t < 0.9) { G.timeScale = 0.15; v.zoom = lerp(1, 1.7, ease(c.t / 0.5)); v.fx = viewCX(); v.fy = c.fy - G.cam.y; }
+      if (c.t < 0.9) { G.timeScale = 0.15; v.zoom = lerp(1, 1.7, ease(c.t / 0.5)); v.fx = viewCX(); v.fy = c.fy - camY(); }
       else {
         G.timeScale = 0;
         const k2 = ease((c.t - 0.9) / 1.2);
@@ -901,7 +903,7 @@
     if (G.nudge) { const k = G.nudge.t / G.nudge.max; g.translate(G.nudge.x * k, G.nudge.y * k); }   // 衝刺：畫面被推一下再彈回
     if (v.ty != null) { g.translate(VW / 2, 370); g.scale(v.zoom, v.zoom); g.translate(-v.tx, -v.ty); }
     else { g.translate(-G.win.x0, 0); g.translate(v.fx, v.fy); g.scale(v.zoom, v.zoom); g.translate(-v.fx, -v.fy); }
-    g.translate(0, -G.cam.y);
+    g.translate(0, -camY());
     const laneSlide = G.laneK * LANE_SLIDE;
     g.drawImage(A.wall(G.district, VW, P.H, w.top || 0), 0, 0);
     g.drawImage(G.paint, 0, 0);
@@ -982,8 +984,9 @@
       const left = P.liveBricks(w).filter(k => k.type !== "boss").length;
       if (!w.boss) { g.fillStyle = "rgba(17,17,20,0.7)"; g.fillRect(8, 8, 74, 22); g.fillStyle = "#fff"; g.font = `900 12px ${A.FONT_CJK}`; g.textAlign = "left"; g.fillText(`灰磚 ${left}`, 14, 20); }
     }
-    if (G.screen === "play" && G.itemFx.slow > 0) { g.fillStyle = "rgba(62,224,255,0.10)"; g.fillRect(0, 0, VW, VH); A.tag(g, `⏳ ${G.itemFx.slow.toFixed(1)}`, 60, VH - 40, 16, ["#3ee0ff"], { drips: false, rot: 0 }); }
-    if (G.screen === "play" && G.itemFx.save > 0) A.tag(g, `🛟 ${Math.ceil(G.itemFx.save)}`, VW - 60, VH - 40, 16, ["#9dff3a"], { drips: false, rot: 0 });
+    const tagY = VH - (innerWidth <= 520 ? 68 : 40);   // 手機的提示列疊在最下面，標籤往上避開
+    if (G.screen === "play" && G.itemFx.slow > 0) { g.fillStyle = "rgba(62,224,255,0.10)"; g.fillRect(0, 0, VW, VH); A.tag(g, `⏳ ${G.itemFx.slow.toFixed(1)}`, 60, tagY, 16, ["#3ee0ff"], { drips: false, rot: 0 }); }
+    if (G.screen === "play" && G.itemFx.save > 0) A.tag(g, `🛟 ${Math.ceil(G.itemFx.save)}`, VW - 60, tagY, 16, ["#9dff3a"], { drips: false, rot: 0 });
     if (G.tut && G.screen === "play" && !G.intro && !G.ctrlCard) drawTutorial(g);
     if (G.intro && G.screen === "play") drawIntro(g);
     if (G.ctrlCard && G.screen === "play") drawCtrlCard(g);
@@ -1304,6 +1307,6 @@
     const res = SR.Tests.run(T); window.SR_TEST_RESULTS = res;
     console.log(res.map(r => `${r.pass ? "PASS" : "FAIL"} ${r.id} ${r.value}`).join("\n"));
   }
-  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, districtCleared, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper, tutLines, handleEvents, win: () => G.win, laneK: () => G.laneK, VW: () => VW };
+  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, districtCleared, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper, tutLines, handleEvents, win: () => G.win, laneK: () => G.laneK, VW: () => VW, camY };
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 })();

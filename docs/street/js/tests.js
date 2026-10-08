@@ -842,7 +842,7 @@ SR.Tests = (function () {
         const b = g.G.world.balls[0]; b.x = 180; b.y = 600; b.vx = 0; b.vy = -600;
         runTicks(w, 0.6); await new Promise(r => setTimeout(r, 100));
         const rc = box("game"), win = g.win(), brickPx = 33 * rc.width / win.w;
-        const topBrick = Math.min(...g.G.world.bricks.filter(k => k.alive).map(k => k.y)), topPx = rc.top + (topBrick - g.G.cam.y) * rc.height / w.SR.Physics.VIEW_H;
+        const topBrick = Math.min(...g.G.world.bricks.filter(k => k.alive).map(k => k.y)), topPx = rc.top + (topBrick - g.camY()) * rc.height / w.SR.Physics.VIEW_H;
         const clear = topPx >= hud.bottom - 0.5;
         return { pass: edge && border === 0 && overlay && g.laneK() === 1 && brickPx >= 36 && clear,
           value: `畫布寬 ${Math.round(rc0.width)}／${Math.round(rc.width)}・邊框 ${border}px・資訊列疊在台面上 ${overlay ? "是" : "否"}・發射道滑出 ${g.laneK()}・磚 ${brickPx.toFixed(1)} px・最上排磚離資訊列 ${Math.round(topPx - hud.bottom)} px` };
