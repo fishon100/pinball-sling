@@ -672,9 +672,12 @@
      主迴圈
      ============================================================ */
   let acc = 0, last = performance.now();
+  // 測試模式（index.html?test=1，給 test.html 的框架用）：主迴圈不自己推進，全部由測試用 SR_GAME.tick(1/60) 手動推進，
+  // 否則慢的機器（GitHub Actions）在測試兩次推進之間會多跑好幾幀，球會掉下去、發射道會滑回來，結果不穩定
+  const TEST_MODE = new URLSearchParams(location.search).has("test");
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    tick(dt);
+    if (!TEST_MODE) tick(dt);
     requestAnimationFrame(frame);
   }
   /* 一幀的全部邏輯（也給自動驗收手動推進用：SR_GAME.tick(1/60)） */

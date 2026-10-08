@@ -1121,6 +1121,7 @@ SR.Tests = (function () {
       if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
       const gift = g.G.world.bricks.find(k => k.alive && k.type === "gift");
       if (!gift) return { pass: false, value: "第 2 關沒有道具磚" };
+      g.G.world.splash = 0; g.G.world.dmg = 1;   // 從地圖選關會隨機補強化罐（穿透漆會波及旁邊的磚），這裡固定住
       // 直接讓道具磚碎掉（不靠球飛去打，headless 的球路會不一樣）：膠囊掉下來的事件照常走遊戲的事件處理
       const ev = []; w.SR.Physics.damageBrick(g.G.world, gift, 9, ev, "ball"); g.handleEvents(ev);
       const hit = !!(g.G.intro && g.G.intro.cur === "capsule");
@@ -1161,6 +1162,7 @@ SR.Tests = (function () {
       if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
       const bricks = g.G.world.bricks.filter(k => k.alive && k.type === "brick").slice(0, 3);
       if (bricks.length < 3) return { pass: false, value: "第 3 關磚不夠" };
+      g.G.world.splash = 0; g.G.world.dmg = 1; g.G.shake = 0; g.G.recentBreaks = [];   // 固定住隨機補的強化罐與之前的震動
       const ev = []; P.damageBrick(g.G.world, bricks[0], 9, ev, "ball"); g.handleEvents(ev);
       const flash = (g.G.flashes || []).some(f => Math.abs(f.t - 0.06) < 1e-9), shake1 = g.G.shake;
       const ev2 = []; P.damageBrick(g.G.world, bricks[1], 9, ev2, "ball"); P.damageBrick(g.G.world, bricks[2], 9, ev2, "ball"); g.handleEvents(ev2);
