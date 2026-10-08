@@ -1102,7 +1102,7 @@
     const tu = G.tut, bob = Math.sin(G.t * 6) * 6;
     let hole = null, hand = null, lines = tutLines(tu.step);
     const pad = !!G.world.paddle;
-    if (tu.step === "press") { hole = pad ? [0, 520, VW, 220] : [VW / 2, 520, VW / 2, 220]; hand = [360 - G.win.x0, 650]; }
+    if (tu.step === "press") { hole = pad ? [0, 520, VW, 220] : [VW / 2, 520, VW / 2, 220]; hand = [FINE && pad ? Math.min(360 - G.win.x0, VW - 84) : 360 - G.win.x0, 650]; }   // 電腦的鍵帽比較寬，別貼到右邊被切掉
     if (tu.step === "move") {
       const lx = G.landing ? G.landing.x : 185;
       hole = [0, 470, VW, 270]; hand = [lx - G.win.x0, 700];
