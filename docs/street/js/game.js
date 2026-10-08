@@ -1249,6 +1249,6 @@
     const res = SR.Tests.run(T); window.SR_TEST_RESULTS = res;
     console.log(res.map(r => `${r.pass ? "PASS" : "FAIL"} ${r.id} ${r.value}`).join("\n"));
   }
-  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, districtCleared, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper, tutLines };
+  window.SR_GAME = { G, save, openingScreen, openingTap, goStage, startDistrict, mapScreen, titleScreen, districtCleared, T, tick, closeDialog: () => { if (dlg) { SR.Comic.finish(); for (let i = 0; i < 30 && dlg; i++) SR.Comic.update(1 / 60); } }, setPlunger, setFlipper, tutLines, handleEvents };
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 })();

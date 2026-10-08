@@ -1091,11 +1091,9 @@ SR.Tests = (function () {
       if (!toLaunch(w)) return { pass: false, value: "球沒有停到發射道" };
       const gift = g.G.world.bricks.find(k => k.alive && k.type === "gift");
       if (!gift) return { pass: false, value: "第 2 關沒有道具磚" };
-      // 只留道具磚和離它最遠的一塊磚：球直直往上只會打到道具磚，而且這一關不會因此過關（最後一塊是道具磚時不教，由過關演出接手）
-      const keep = g.G.world.bricks.filter(k => k.alive && k !== gift).sort((a, b) => Math.abs(b.c - gift.c) - Math.abs(a.c - gift.c))[0];
-      for (const k of g.G.world.bricks) if (k !== gift && k !== keep) k.alive = false;
-      const b = g.G.world.balls[0]; b.x = gift.x + gift.w / 2; b.y = gift.y + gift.h + 60; b.vx = 0; b.vy = -900;
-      const hit = runTicks(w, 3, () => g.G.intro && g.G.intro.cur === "capsule");
+      // 直接讓道具磚碎掉（不靠球飛去打，headless 的球路會不一樣）：膠囊掉下來的事件照常走遊戲的事件處理
+      const ev = []; w.SR.Physics.damageBrick(g.G.world, gift, 9, ev, "ball"); g.handleEvents(ev);
+      const hit = !!(g.G.intro && g.G.intro.cur === "capsule");
       const paused = hit && g.G.timeScale === 0 && g.G.world.capsules.length > 0;
       const cv = w.document.getElementById("game"), rc = cv.getBoundingClientRect();
       cv.dispatchEvent(new w.PointerEvent("pointerdown", { pointerId: 9, pointerType: "touch", clientX: rc.left + rc.width / 2, clientY: rc.top + rc.height / 2, bubbles: true, cancelable: true }));
